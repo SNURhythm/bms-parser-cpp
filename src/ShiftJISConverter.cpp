@@ -4,10 +4,10 @@
 #include "ShiftJISConverter.h"
 
 
-void ShiftJISConverter::BytesToUTF8(std::string& outString, const uint8_t* input, int32_t size)
+void ShiftJISConverter::BytesToUTF8(std::string& outString, const unsigned char* input, int size)
 {
 	//ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed
-	std::vector<uint8_t> result;
+	std::vector<unsigned char> result;
 	result.resize(size * 3);
 	size_t indexInput = 0, indexOutput = 0;
 
@@ -47,7 +47,7 @@ void ShiftJISConverter::BytesToUTF8(std::string& outString, const uint8_t* input
 		arrayOffset <<= 1;
 
 		//unicode number is...
-		uint16_t unicodeValue = (shiftJIS_convTable[arrayOffset] << 8) | shiftJIS_convTable[arrayOffset + 1];
+		unsigned char unicodeValue = (shiftJIS_convTable[arrayOffset] << 8) | shiftJIS_convTable[arrayOffset + 1];
 
 		//converting to UTF8
 		if (unicodeValue < 0x80)

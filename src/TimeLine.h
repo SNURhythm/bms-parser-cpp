@@ -4,6 +4,7 @@
 
 #include "BMSNote.h"
 #include "BMSLandmineNote.h"
+#include <vector>
 /**
  * 
  */

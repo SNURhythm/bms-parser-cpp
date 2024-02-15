@@ -9,9 +9,9 @@ TimeLine::TimeLine(int lanes, bool metaOnly)
 	{
 		return;
 	}
-	Notes.Init(nullptr, lanes);
-	InvisibleNotes.Init(nullptr, lanes);
-	LandmineNotes.Init(nullptr, lanes);
+	Notes.resize(lanes, nullptr);
+	InvisibleNotes.resize(lanes, nullptr);
+	LandmineNotes.resize(lanes, nullptr);
 }
 
 TimeLine* TimeLine::SetNote(int lane, BMSNote* note)
@@ -40,7 +40,7 @@ TimeLine* TimeLine::SetLandmineNote(int lane, BMSLandmineNote* note)
 
 TimeLine* TimeLine::AddBackgroundNote(BMSNote* note)
 {
-	BackgroundNotes.Add(note);
+	BackgroundNotes.push_back(note);
 	note->Timeline = this;
 	return this;
 }
@@ -59,7 +59,7 @@ TimeLine::~TimeLine()
 			delete note;
 		}
 	}
-	Notes.Empty();
+	Notes.clear();
 	for (const auto& note : InvisibleNotes)
 	{
 		if (note != nullptr)
@@ -67,7 +67,7 @@ TimeLine::~TimeLine()
 			delete note;
 		}
 	}
-	InvisibleNotes.Empty();
+	InvisibleNotes.clear();
 	for (const auto& note : LandmineNotes)
 	{
 		if (note != nullptr)
@@ -75,7 +75,7 @@ TimeLine::~TimeLine()
 			delete note;
 		}
 	}
-	LandmineNotes.Empty();
+	LandmineNotes.clear();
 	for (const auto& note : BackgroundNotes)
 	{
 		if (note != nullptr)
@@ -83,5 +83,5 @@ TimeLine::~TimeLine()
 			delete note;
 		}
 	}
-	BackgroundNotes.Empty();
+	BackgroundNotes.clear();
 }

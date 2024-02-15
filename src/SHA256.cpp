@@ -128,7 +128,7 @@ void SHA256::final(unsigned char* digest)
 	}
 }
 
-std::string sha256(const std::vector<uint8_t>& bytes)
+std::string sha256(const std::vector<unsigned char>& bytes)
 {
 	unsigned char digest[SHA256::DIGEST_SIZE];
 	memset(digest, 0, SHA256::DIGEST_SIZE);

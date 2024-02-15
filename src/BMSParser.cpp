@@ -73,15 +73,19 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	// implement the same thing as BMSParser.cs
 	auto measures = std::map<int, std::vector<std::pair<int, std::string>>>();
 	std::vector<uint8_t> bytes;
-	try
+	std::ifstream file(path, std::ios::binary);
+	if (!file.is_open())
 	{
-		bytes = std::vector<uint8_t>(std::istreambuf_iterator<char>(std::ifstream(path, std::ios::binary)), std::istreambuf_iterator<char>());
-	}
-	catch (std::exception& e)
-	{
-		// UE_LOG(LogTemp, Warning, TEXT("Failed to read file: %s"), *FString(e.what()));
+		// UE_LOG(LogTemp, Warning, TEXT("Failed to open file: %s"), *FString(path.c_str()));
 		return;
 	}
+	file.seekg(0, std::ios::end);
+	auto size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	bytes.resize(size);
+	file.read(reinterpret_cast<char*>(bytes.data()), size);
+	file.close();
+	
 	if (bCancelled)
 	{
 		return;

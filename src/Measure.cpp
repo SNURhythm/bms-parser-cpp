@@ -9,5 +9,5 @@ Measure::~Measure()
 	{
 		delete Timeline;
 	}
-	TimeLines.Empty();
+	TimeLines.clear();
 }
