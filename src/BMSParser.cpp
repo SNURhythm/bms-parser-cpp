@@ -2,6 +2,7 @@
 
 
 #include "BMSParser.h"
+#include <iterator>
 #include <random>
 #include "BMSLongNote.h"
 #include "BMSNote.h"
@@ -17,6 +18,7 @@
 #include <iostream>
 #include <algorithm>
 #include "md5.h"
+#include <cctype>
 enum Channel
 {
 	LaneAutoplay = 1,
@@ -72,7 +74,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 
 	// implement the same thing as BMSParser.cs
 	auto measures = std::map<int, std::vector<std::pair<int, std::string>>>();
-	std::vector<uint8_t> bytes;
+	std::vector<unsigned char> bytes;
 	std::ifstream file(path, std::ios::binary);
 	if (!file.is_open())
 	{
@@ -92,6 +94,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	}
 	MD5 md5;
 	md5.update(bytes.data(), bytes.size());
+  	md5.finalize();
 	Chart->Meta.MD5 = md5.hexdigest();
 	Chart->Meta.SHA256 = sha256(bytes);
 	// bytes to std::string
@@ -112,11 +115,11 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 		{
 			return;
 		}
-		lines.push_back(line);
+    if(line.size() > 1)	lines.push_back(line);
 	}
 	auto lastMeasure = -1;
 
-	for (auto& line : lines)
+	for (std::string line : lines)
 	{
 		if (bCancelled)
 		{
@@ -128,7 +131,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 			continue;
 		}
 		std::string upperLine;
-		std::transform(line.begin(), line.end(), upperLine.begin(), ::toupper);
+		std::transform(line.begin(), line.end(), std::back_inserter(upperLine), ::toupper);
 		if (upperLine.rfind("#IF", 0) == 0) // #IF n
 		{
 			if (RandomStack.empty())
@@ -198,8 +201,9 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 			RandomStack.pop_back();
 			continue;
 		}
-		if (line.size() >= 7 && isdigit(line[1]) && isdigit(line[2]) && isdigit(line[3]) && line[6]
-			== ':')
+
+
+		if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) && std::isdigit(line[3]) && line[6] == ':')
 		{
 			auto measure = std::stoi(line.substr(1, 3));
 			lastMeasure = std::max(lastMeasure, measure);
@@ -722,7 +726,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	{
 		std::string temp = Chart->Meta.Title + Chart->Meta.SubTitle;
 		std::string FullTitle;
-		std::transform(temp.begin(), temp.end(), FullTitle.begin(), ::tolower);
+		std::transform(temp.begin(), temp.end(), std::back_inserter(FullTitle), ::tolower);
 		if (FullTitle.find("easy") != std::string::npos)
 		{
 			Chart->Meta.Difficulty = 1;
@@ -773,7 +777,7 @@ void BMSParser::ParseHeader(BMSChart* Chart, const std::string& Cmd, const std::
 {
 	// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
 	std::string CmdUpper;
-	std::transform(Cmd.begin(), Cmd.end(), CmdUpper.begin(), ::toupper);
+	std::transform(Cmd.begin(), Cmd.end(), std::back_inserter(CmdUpper), ::toupper);
 	if (CmdUpper == "PLAYER")
 	{
 		Chart->Meta.Player = std::stoi(Value);
@@ -977,11 +981,11 @@ int BMSParser::DecodeBase36(const std::string& Str)
 {
 	int result = 0;
 	std::string StrUpper;
-	std::transform(Str.begin(), Str.end(), StrUpper.begin(), ::toupper);
+	std::transform(Str.begin(), Str.end(), std::back_inserter(StrUpper), ::toupper);
 	for (auto c : StrUpper)
 	{
 		result *= 36;
-		if (isdigit(c))
+		if (std::isdigit(c))
 		{
 			result += c - '0';
 		}

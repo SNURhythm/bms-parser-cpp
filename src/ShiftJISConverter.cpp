@@ -8,7 +8,7 @@ void ShiftJISConverter::BytesToUTF8(std::string& outString, const unsigned char*
 {
 	//ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed
 	std::vector<unsigned char> result;
-	result.resize(size * 3);
+	result.resize(size * 3, 0);
 	size_t indexInput = 0, indexOutput = 0;
 
 	while (indexInput < size)
