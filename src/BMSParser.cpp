@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "BMSParser.h"
 #include <iterator>
 #include <random>
@@ -49,7 +48,7 @@ namespace KeyAssign
 constexpr int TempKey = 16;
 constexpr int Scroll = 1020;
 
-BMSParser::BMSParser(): BpmTable{}, StopLengthTable{}
+BMSParser::BMSParser() : BpmTable{}, StopLengthTable{}
 {
 	std::random_device seeder;
 	Seed = seeder();
@@ -63,7 +62,7 @@ void BMSParser::SetRandomSeed(int RandomSeed)
 int BMSParser::NoWav = -1;
 int BMSParser::MetronomeWav = -2;
 
-void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool& bCancelled)
+void BMSParser::Parse(std::string path, BMSChart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
 {
 	auto Chart = new BMSChart();
 	*chart = Chart;
@@ -78,25 +77,26 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	std::ifstream file(path, std::ios::binary);
 	if (!file.is_open())
 	{
-		// UE_LOG(LogTemp, Warning, TEXT("Failed to open file: %s"), *FString(path.c_str()));
+		std::cout << "Failed to open file: " << path << std::endl;
 		return;
 	}
 	file.seekg(0, std::ios::end);
 	auto size = file.tellg();
 	file.seekg(0, std::ios::beg);
 	bytes.resize(size);
-	file.read(reinterpret_cast<char*>(bytes.data()), size);
+	file.read(reinterpret_cast<char *>(bytes.data()), size);
 	file.close();
-	
+
 	if (bCancelled)
 	{
 		return;
 	}
 	MD5 md5;
 	md5.update(bytes.data(), bytes.size());
-  	md5.finalize();
+	md5.finalize();
 	Chart->Meta.MD5 = md5.hexdigest();
 	Chart->Meta.SHA256 = sha256(bytes);
+	// std::cout<<"file size: "<<size<<std::endl;
 	// bytes to std::string
 	std::string content;
 	ShiftJISConverter::BytesToUTF8(content, bytes.data(), bytes.size());
@@ -104,7 +104,6 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	std::vector<bool> SkipStack;
 	// init prng with seed
 	std::mt19937_64 Prng(Seed);
-
 
 	auto lines = std::vector<std::string>();
 	std::string line;
@@ -115,7 +114,9 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 		{
 			return;
 		}
-    if(line.size() > 1)	lines.push_back(line);
+		// std::cout << line << std::endl;
+		if (line.size() > 1)
+			lines.push_back(line);
 	}
 	auto lastMeasure = -1;
 
@@ -201,7 +202,6 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 			RandomStack.pop_back();
 			continue;
 		}
-
 
 		if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) && std::isdigit(line[3]) && line[6] == ':')
 		{
@@ -299,9 +299,9 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	auto currentBpm = Chart->Meta.Bpm;
 	auto minBpm = Chart->Meta.Bpm;
 	auto maxBpm = Chart->Meta.Bpm;
-	auto lastNote = std::vector<BMSNote*>();
+	auto lastNote = std::vector<BMSNote *>();
 	lastNote.resize(TempKey, nullptr);
-	auto lnStart = std::vector<BMSLongNote*>();
+	auto lnStart = std::vector<BMSLongNote *>();
 	lnStart.resize(TempKey, nullptr);
 
 	for (auto i = 0; i <= lastMeasure; ++i)
@@ -317,16 +317,16 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 
 		// gcd (int, int)
 		auto measure = new Measure();
-		auto timelines = std::map<double, TimeLine*>();
+		auto timelines = std::map<double, TimeLine *>();
 
-		for (auto& pair : measures[i])
+		for (auto &pair : measures[i])
 		{
 			if (bCancelled)
 			{
 				break;
 			}
 			auto channel = pair.first;
-			auto& data = pair.second;
+			auto &data = pair.second;
 			if (channel == SectionRate)
 			{
 				measure->Scale = std::stod(data);
@@ -464,11 +464,12 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 				{
 					std::stringstream ss;
 					ss << std::hex << val;
-					double bpm;
+					int bpm;
 					ss >> bpm;
-				// parse hex number
+					// parse hex number
 					timeline->Bpm = bpm;
-				// Debug.Log($"BPM_CHANGE: {timeline.Bpm}, on measure {i}");
+					// std::cout << "BPM_CHANGE: " << timeline->Bpm << ", on measure " << i << std::endl;
+					// Debug.Log($"BPM_CHANGE: {timeline.Bpm}, on measure {i}");
 					timeline->BpmChange = true;
 					break;
 				}
@@ -482,109 +483,105 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 					timeline->BgaLayer = DecodeBase36(val);
 					break;
 				case BpmChangeExtend:
+				{
+					auto id = DecodeBase36(val);
+					if (!CheckResourceIdRange(id))
 					{
-						auto id = DecodeBase36(val);
-						if (!CheckResourceIdRange(id))
-						{
-							// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *val);
-							break;
-						}
-						if (BpmTable.find(id) != BpmTable.end())
-						{
-							timeline->Bpm = BpmTable[id];
-						}
-						else
-						{
-							timeline->Bpm = 0;
-						}
-						// Debug.Log($"BPM_CHANGE_EXTEND: {timeline.Bpm}, on measure {i}, {val}");
-						timeline->BpmChange = true;
+						// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *val);
 						break;
 					}
-				case Stop:
+					if (BpmTable.find(id) != BpmTable.end())
 					{
-						auto id = DecodeBase36(val);
-						if (!CheckResourceIdRange(id))
-						{
-							// UE_LOG(LogTemp, Warning, TEXT("Invalid StopLength id: %s"), *val);
-							break;
-						}
-						if (StopLengthTable.find(id) != StopLengthTable.end())
-						{
-							timeline->StopLength = StopLengthTable[id];
-						}
-						else
-						{
-							timeline->StopLength = 0;
-						}
-						// Debug.Log($"STOP: {timeline.StopLength}, on measure {i}");
-						break;
+						timeline->Bpm = BpmTable[id];
 					}
-				case P1KeyBase:
+					else
 					{
-						auto ch = DecodeBase36(val);
-						if (ch == Lnobj && lastNote[laneNumber] != nullptr)
-						{
-							if (isScratch)
-							{
-								++totalBackSpinNotes;
-							}
-							else
-							{
-								++totalLongNotes;
-							}
-
-							auto last = lastNote[laneNumber];
-							lastNote[laneNumber] = nullptr;
-							if (metaOnly)
-							{
-								break;
-							}
-
-							auto lastTimeline = last->Timeline;
-							auto ln = new BMSLongNote{last->Wav};
-							delete last;
-							ln->Tail = new BMSLongNote{NoWav};
-							ln->Tail->Head = ln;
-							lastTimeline->SetNote(
-								laneNumber, ln
-							);
-							timeline->SetNote(
-								laneNumber, ln->Tail
-							);
-						}
-						else
-						{
-							auto note = new BMSNote{ToWaveId(Chart, val)};
-							lastNote[laneNumber] = note;
-							++totalNotes;
-							if (isScratch)
-							{
-								++totalScratchNotes;
-							}
-							if (metaOnly)
-							{
-								delete note; // this is intended
-								break;
-							}
-							timeline->SetNote(
-								laneNumber, note
-							);
-						}
+						timeline->Bpm = 0;
 					}
+					// Debug.Log($"BPM_CHANGE_EXTEND: {timeline.Bpm}, on measure {i}, {val}");
+					timeline->BpmChange = true;
 					break;
-				case P1InvisibleKeyBase:
+				}
+				case Stop:
+				{
+					auto id = DecodeBase36(val);
+					if (!CheckResourceIdRange(id))
 					{
+						// UE_LOG(LogTemp, Warning, TEXT("Invalid StopLength id: %s"), *val);
+						break;
+					}
+					if (StopLengthTable.find(id) != StopLengthTable.end())
+					{
+						timeline->StopLength = StopLengthTable[id];
+					}
+					else
+					{
+						timeline->StopLength = 0;
+					}
+					// Debug.Log($"STOP: {timeline.StopLength}, on measure {i}");
+					break;
+				}
+				case P1KeyBase:
+				{
+					auto ch = DecodeBase36(val);
+					if (ch == Lnobj && lastNote[laneNumber] != nullptr)
+					{
+						if (isScratch)
+						{
+							++totalBackSpinNotes;
+						}
+						else
+						{
+							++totalLongNotes;
+						}
+
+						auto last = lastNote[laneNumber];
+						lastNote[laneNumber] = nullptr;
 						if (metaOnly)
 						{
 							break;
 						}
-						auto invNote = new BMSNote{ToWaveId(Chart, val)};
-						timeline->SetInvisibleNote(
-							laneNumber, invNote
-						);
+
+						auto lastTimeline = last->Timeline;
+						auto ln = new BMSLongNote{last->Wav};
+						delete last;
+						ln->Tail = new BMSLongNote{NoWav};
+						ln->Tail->Head = ln;
+						lastTimeline->SetNote(
+							laneNumber, ln);
+						timeline->SetNote(
+							laneNumber, ln->Tail);
+					}
+					else
+					{
+						auto note = new BMSNote{ToWaveId(Chart, val)};
+						lastNote[laneNumber] = note;
+						++totalNotes;
+						if (isScratch)
+						{
+							++totalScratchNotes;
+						}
+						if (metaOnly)
+						{
+							delete note; // this is intended
+							break;
+						}
+						timeline->SetNote(
+							laneNumber, note);
+					}
+				}
+				break;
+				case P1InvisibleKeyBase:
+				{
+					if (metaOnly)
+					{
 						break;
 					}
+					auto invNote = new BMSNote{ToWaveId(Chart, val)};
+					timeline->SetInvisibleNote(
+						laneNumber, invNote);
+					break;
+				}
 
 				case P1LongKeyBase:
 					if (Lntype == 1)
@@ -611,8 +608,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 							}
 
 							timeline->SetNote(
-								laneNumber, ln
-							);
+								laneNumber, ln);
 						}
 						else
 						{
@@ -622,8 +618,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 								tail->Head = lnStart[laneNumber];
 								lnStart[laneNumber]->Tail = tail;
 								timeline->SetNote(
-									laneNumber, tail
-								);
+									laneNumber, tail);
 							}
 							lnStart[laneNumber] = nullptr;
 						}
@@ -639,8 +634,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 					}
 					auto damage = DecodeBase36(val) / 2.0f;
 					timeline->SetNote(
-						laneNumber, new BMSLandmineNote{damage}
-					);
+						laneNumber, new BMSLandmineNote{damage});
 					break;
 				}
 			}
@@ -655,7 +649,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 
 		measure->Timing = static_cast<long long>(timePassed);
 
-		for (auto& pair : timelines)
+		for (auto &pair : timelines)
 		{
 			if (bCancelled)
 			{
@@ -681,7 +675,6 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 
 			// Debug.Log($"measure: {i}, position: {position}, lastPosition: {lastPosition}, bpm: {currentBpm} scale: {measure.Scale} interval: {interval} stop: {timeline.GetStopDuration()}");
 
-
 			timePassed += timeline->GetStopDuration();
 			if (!metaOnly)
 			{
@@ -694,7 +687,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 
 		if (metaOnly)
 		{
-			for (auto& timeline : timelines)
+			for (auto &timeline : timelines)
 			{
 				delete timeline.second;
 			}
@@ -773,7 +766,7 @@ void BMSParser::Parse(std::string path, BMSChart** chart, bool addReadyMeasure, 
 	}
 }
 
-void BMSParser::ParseHeader(BMSChart* Chart, const std::string& Cmd, const std::string& Xx, std::string Value)
+void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::string &Xx, std::string Value)
 {
 	// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
 	std::string CmdUpper;
@@ -816,6 +809,7 @@ void BMSParser::ParseHeader(BMSChart* Chart, const std::string& Cmd, const std::
 		{
 			// chart initial bpm
 			Chart->Meta.Bpm = std::stod(Value);
+			// std::cout << "MainBPM: " << Chart->Meta.Bpm << std::endl;
 		}
 		else
 		{
@@ -941,7 +935,7 @@ void BMSParser::ParseHeader(BMSChart* Chart, const std::string& Cmd, const std::
 	}
 	else
 	{
-		// UE_LOG(LogTemp, Warning, TEXT("Unknown command: %s"), *CmdUpper);
+		std::cout << "Unknown command: " << Cmd << std::endl;
 	}
 }
 
@@ -964,7 +958,7 @@ bool BMSParser::CheckResourceIdRange(int Id)
 	return Id >= 0 && Id < 36 * 36;
 }
 
-int BMSParser::ToWaveId(BMSChart* Chart, const std::string& Wav)
+int BMSParser::ToWaveId(BMSChart *Chart, const std::string &Wav)
 {
 	auto decoded = DecodeBase36(Wav);
 	// check range
@@ -977,7 +971,7 @@ int BMSParser::ToWaveId(BMSChart* Chart, const std::string& Wav)
 	return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded : NoWav;
 }
 
-int BMSParser::DecodeBase36(const std::string& Str)
+int BMSParser::DecodeBase36(const std::string &Str)
 {
 	int result = 0;
 	std::string StrUpper;

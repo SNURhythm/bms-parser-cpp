@@ -6,9 +6,16 @@
 #include <thread>
 #include <vector>
 #include <set>
+#include <functional>
 #include "sqlite3.h"
 #include <sys/stat.h>
+#include <codecvt>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dirent.h>
+#include <sys/stat.h>
+#endif
 void parallel_for(int n, std::function<void(int start, int end)> f)
 {
   unsigned int nThreads = std::thread::hardware_concurrency();
@@ -66,47 +73,108 @@ struct Diff
   std::string path;
   DiffType type;
 };
+#include <filesystem> // Add this include at the top of your file
+std::string ws2s(const std::wstring& wstr)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.to_bytes(wstr);
+}
+#ifdef _WIN32
+void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, std::vector<std::string> &directoriesToVisit)
+{
+  WIN32_FIND_DATAW findFileData;
+  HANDLE hFind = FindFirstFileW((directoryPath + L"\\*.*").c_str(), &findFileData);
+
+  if (hFind != INVALID_HANDLE_VALUE)
+  {
+    do
+    {
+      if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+      {
+        std::wstring ws(findFileData.cFileName);
+        std::string filename = ws2s(ws);
+
+        if (filename.size() > 4)
+        {
+          std::string ext = filename.substr(filename.size() - 4);
+          if (ext == ".bms" || ext == ".bme" || ext == ".bml")
+          {
+            std::string dirPath;
+            
+            std::string fullPath = ws2s(directoryPath) + "\\" + filename;
+            if (oldFiles.find(fullPath) == oldFiles.end())
+            {
+              diffs.push_back({fullPath, Added});
+            }
+          }
+        }
+      } else if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+      {
+        std::wstring ws(findFileData.cFileName);
+        std::string filename(ws.begin(), ws.end());
+        if (filename != "." && filename != "..")
+        {
+          directoriesToVisit.push_back(ws2s(directoryPath) + "\\" + filename);
+        }
+      }
+    } while (FindNextFileW(hFind, &findFileData) != 0);
+    FindClose(hFind);
+  }
+}
+#else
+void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, std::vector<std::string> &directoriesToVisit)
+{
+  DIR *dir = opendir(directoryPath.c_str());
+  if (dir)
+  {
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != nullptr)
+    {
+      if (entry->d_type == DT_REG)
+      {
+        std::string filename = entry->d_name;
+        if (filename.size() > 4)
+        {
+          std::string ext = filename.substr(filename.size() - 4);
+          if (ext == ".bms" || ext == ".bme" || ext == ".bml")
+          {
+            std::string fullPath = directoryPath + "/" + filename;
+            if (oldFiles.find(fullPath) == oldFiles.end())
+            {
+              diffs.push_back({fullPath, Added});
+            }
+          }
+        }
+      } else if (entry->d_type == DT_DIR)
+      {
+        std::string filename = entry->d_name;
+        if (filename != "." && filename != "..")
+        {
+          directoriesToVisit.push_back(directoryPath + "/" + filename);
+        }
+      }
+    }
+    closedir(dir);
+  }
+}
+#endif
+
 void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, const std::string path)
 {
-  // recursive search for bms/bme/bml files
   std::vector<std::string> directoriesToVisit;
   directoriesToVisit.push_back(path);
   while (!directoriesToVisit.empty())
   {
     std::string currentDir = directoriesToVisit.back();
     directoriesToVisit.pop_back();
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir(currentDir.c_str())) != NULL)
-    {
-      while ((ent = readdir(dir)) != NULL)
-      {
-        if (ent->d_type == DT_DIR)
-        {
-          if (strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0)
-          {
-            directoriesToVisit.push_back(currentDir + "/" + ent->d_name);
-          }
-        }
-        else
-        {
-          std::string filename = ent->d_name;
-          if (filename.size() > 4)
-          {
-            std::string ext = filename.substr(filename.size() - 4);
-            if (ext == ".bms" || ext == ".bme" || ext == ".bml")
-            {
-              std::string fullPath = currentDir + "/" + filename;
-              if (oldFiles.find(fullPath) == oldFiles.end())
-              {
-                diffs.push_back({fullPath, Added});
-              }
-            }
-          }
-        }
-      }
-      closedir(dir);
-    }
+#ifdef _WIN32
+    std::wstring wPath(currentDir.begin(), currentDir.end());
+    findFilesWin(wPath, diffs, oldFiles, directoriesToVisit);
+#else
+    findFilesUnix(currentDir, diffs, oldFiles, directoriesToVisit);
+#endif
   }
 }
 bool construct_folder_db(std::string path)
@@ -167,7 +235,9 @@ bool construct_folder_db(std::string path)
   }
   sqlite3_finalize(stmt);
   std::vector<Diff> diffs;
+  std::cout << "Finding new bms files" << std::endl;
   find_new_bms_files(diffs, oldFiles, path);
+  std::cout << "Found " << diffs.size() << " new bms files" << std::endl;
   for (auto &diff : diffs)
   {
     std::cout << diff.path << " " << diff.type << std::endl;
@@ -183,6 +253,7 @@ bool construct_folder_db(std::string path)
         try{
           parser.Parse(diffs[i].path, &chart, false, false, cancel);
         }catch(std::exception &e){
+          delete chart;
           std::cerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
           continue;
         }
@@ -285,9 +356,11 @@ bool construct_folder_db(std::string path)
         if (rc != SQLITE_DONE)
         {
           fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+          delete chart;
           return;
         }
         sqlite3_finalize(stmt);
+        delete chart;
       }
     } });
 

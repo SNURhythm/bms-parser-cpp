@@ -1,4 +1,5 @@
 /obj
+bms.db*
 *.dSYM
 # Prerequisites
 *.d
