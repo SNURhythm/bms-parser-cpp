@@ -4,4 +4,5 @@
 Porting parser implementation in [iBMSUnreal](https://github.com/SNURhythm/iBMSUnreal) into pure C++, so that it can be used as a library
 
 ## TODOs 
-- Fix ShiftJIS transcoding
+- Fix ShiftJIS transcoding 
+- Provide amalgamated code
