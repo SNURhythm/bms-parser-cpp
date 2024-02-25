@@ -10,3 +10,4 @@ Porting parser implementation in [iBMSUnreal](https://github.com/SNURhythm/iBMSU
 ## TODOs 
 - Fix ShiftJIS transcoding 
 - Provide amalgamated code
+- Implement client-specific commands like #SCROLL
