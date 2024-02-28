@@ -251,6 +251,9 @@ bool construct_folder_db(std::wstring path)
   {
     std::wcout << diff.path << L" " << diff.type << std::endl;
   }
+  std::atomic_bool is_committing = false;
+  std::atomic_int success_count = 0; // commit every 100 files
+  sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
 
   parallel_for(diffs.size(), [&](int start, int end)
                {
@@ -268,6 +271,13 @@ bool construct_folder_db(std::wstring path)
         }
         if(chart == nullptr){
           continue;
+        }
+        ++success_count;
+        if(success_count % 100 == 0){
+          is_committing = true;
+          sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr);
+          sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
+          is_committing = false;
         }
         auto query = "REPLACE INTO chart_meta ("
             "path,"
@@ -372,6 +382,8 @@ bool construct_folder_db(std::wstring path)
         delete chart;
       }
     } });
+
+  sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr);
 
   sqlite3_close(db);
   return true;
