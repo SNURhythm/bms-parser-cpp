@@ -250,7 +250,7 @@ bool construct_folder_db(std::string path)
       if(diffs[i].type == Added){
         BMSParser parser;
         BMSChart *chart;
-        std::atomic_bool cancel;
+        std::atomic_bool cancel = false;
         try{
           parser.Parse(diffs[i].path, &chart, false, false, cancel);
         }catch(std::exception &e){
