@@ -16,7 +16,7 @@ class BMSChartMeta
 public:
 	std::string SHA256;
 	std::string MD5;
-	std::string BmsPath;
+	std::wstring BmsPath;
 	std::string Folder;
 	std::string Artist = "";
 	std::string SubArtist = "";

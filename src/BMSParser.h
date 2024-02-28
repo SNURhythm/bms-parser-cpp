@@ -14,7 +14,7 @@ class BMSParser
 public:
 	BMSParser();
 	void SetRandomSeed(int RandomSeed);
-	void Parse(std::string path, BMSChart** Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool& bCancelled);
+	void Parse(std::wstring path, BMSChart** Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool& bCancelled);
 	~BMSParser();
 	static int NoWav;
 	static int MetronomeWav;

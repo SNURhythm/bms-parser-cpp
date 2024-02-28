@@ -62,7 +62,7 @@ void BMSParser::SetRandomSeed(int RandomSeed)
 int BMSParser::NoWav = -1;
 int BMSParser::MetronomeWav = -2;
 
-void BMSParser::Parse(std::string path, BMSChart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
+void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
 {
 	auto Chart = new BMSChart();
 	*chart = Chart;
@@ -73,10 +73,12 @@ void BMSParser::Parse(std::string path, BMSChart **chart, bool addReadyMeasure, 
 
 	auto measures = std::map<int, std::vector<std::pair<int, std::string>>>();
 	std::vector<unsigned char> bytes;
-	std::ifstream file(path, std::ios::binary);
+	std::filesystem::path fpath;
+	fpath = path;
+	std::ifstream file(fpath, std::ios::binary);
 	if (!file.is_open())
 	{
-		std::cout << "Failed to open file: " << path << std::endl;
+		std::wcout << "Failed to open file: " << path << std::endl;
 		return;
 	}
 	file.seekg(0, std::ios::end);

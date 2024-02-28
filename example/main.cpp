@@ -39,14 +39,14 @@ void parallel_for(int n, std::function<void(int start, int end)> f)
   }
 }
 
-void parse_single_meta(std::string path)
+void parse_single_meta(std::wstring path)
 {
-  std::string bmsFile = path;
+  std::wstring bmsFile = path;
   BMSParser parser;
   BMSChart *chart;
   std::atomic_bool cancel = false;
   parser.Parse(bmsFile, &chart, false, false, cancel);
-  std::cout<<"BmsPath:" <<chart->Meta.BmsPath<<std::endl;
+  std::wcout<<"BmsPath:" <<chart->Meta.BmsPath<<std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
   std::cout << "Title: " << chart->Meta.Title << std::endl;
@@ -71,7 +71,7 @@ enum DiffType
 };
 struct Diff
 {
-  std::string path;
+  std::wstring path;
   DiffType type;
 };
 #include <filesystem> // Add this include at the top of your file
@@ -82,8 +82,15 @@ std::string ws2s(const std::wstring& wstr)
 
     return converterX.to_bytes(wstr);
 }
+std::wstring s2ws(const std::string& str)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.from_bytes(str);
+}
 #ifdef _WIN32
-void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, std::vector<std::string> &directoriesToVisit)
+void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, const std::set<std::wstring> &oldFiles, std::vector<std::wstring> &directoriesToVisit)
 {
   WIN32_FIND_DATAW findFileData;
   HANDLE hFind = FindFirstFileW((directoryPath + L"\\*.*").c_str(), &findFileData);
@@ -94,17 +101,17 @@ void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, c
     {
       if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
       {
-        std::wstring ws(findFileData.cFileName);
-        std::string filename = ws2s(ws);
+        std::wstring filename(findFileData.cFileName);
+std::wcout<<"File," << filename<<std::endl;
 
         if (filename.size() > 4)
         {
-          std::string ext = filename.substr(filename.size() - 4);
-          if (ext == ".bms" || ext == ".bme" || ext == ".bml")
+          std::wstring ext = filename.substr(filename.size() - 4);
+          if (ext == L".bms" || ext == L".bme" || ext == L".bml")
           {
-            std::string dirPath;
+            std::wstring dirPath;
             
-            std::string fullPath = ws2s(directoryPath) + "\\" + filename;
+            std::wstring fullPath = directoryPath + L"\\" + filename;
             if (oldFiles.find(fullPath) == oldFiles.end())
             {
               diffs.push_back({fullPath, Added});
@@ -113,11 +120,12 @@ void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, c
         }
       } else if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
       {
-        std::wstring ws(findFileData.cFileName);
-        std::string filename(ws.begin(), ws.end());
-        if (filename != "." && filename != "..")
+        std::wstring filename(findFileData.cFileName);
+
+        if (filename != L"." && filename != L"..")
         {
-          directoriesToVisit.push_back(ws2s(directoryPath) + "\\" + filename);
+          std::wcout<<"Dir," << filename<<std::endl;
+          directoriesToVisit.push_back(directoryPath + L"\\" + filename);
         }
       }
     } while (FindNextFileW(hFind, &findFileData) != 0);
@@ -162,23 +170,23 @@ void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, c
 }
 #endif
 
-void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, const std::string path)
+void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::wstring> &oldFiles, const std::wstring path)
 {
-  std::vector<std::string> directoriesToVisit;
+  std::vector<std::wstring> directoriesToVisit;
   directoriesToVisit.push_back(path);
   while (!directoriesToVisit.empty())
   {
-    std::string currentDir = directoriesToVisit.back();
+    std::wstring currentDir = directoriesToVisit.back();
     directoriesToVisit.pop_back();
 #ifdef _WIN32
-    std::wstring wPath(currentDir.begin(), currentDir.end());
-    findFilesWin(wPath, diffs, oldFiles, directoriesToVisit);
+
+    findFilesWin(currentDir, diffs, oldFiles, directoriesToVisit);
 #else
     findFilesUnix(currentDir, diffs, oldFiles, directoriesToVisit);
 #endif
   }
 }
-bool construct_folder_db(std::string path)
+bool construct_folder_db(std::wstring path)
 {
   sqlite3 *db;
   char *zErrMsg = 0;
@@ -227,12 +235,12 @@ bool construct_folder_db(std::string path)
     return false;
   }
   // search for bms files
-  std::set<std::string> oldFiles;
+  std::set<std::wstring> oldFiles;
   sqlite3_stmt *stmt;
   rc = sqlite3_prepare_v2(db, "SELECT path FROM chart_meta", -1, &stmt, nullptr);
   while (sqlite3_step(stmt) == SQLITE_ROW)
   {
-    oldFiles.insert(std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
+    oldFiles.insert(s2ws(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
   }
   sqlite3_finalize(stmt);
   std::vector<Diff> diffs;
@@ -241,7 +249,7 @@ bool construct_folder_db(std::string path)
   std::cout << "Found " << diffs.size() << " new bms files" << std::endl;
   for (auto &diff : diffs)
   {
-    std::cout << diff.path << " " << diff.type << std::endl;
+    std::wcout << diff.path << L" " << diff.type << std::endl;
   }
 
   parallel_for(diffs.size(), [&](int start, int end)
@@ -255,7 +263,7 @@ bool construct_folder_db(std::string path)
           parser.Parse(diffs[i].path, &chart, false, false, cancel);
         }catch(std::exception &e){
           delete chart;
-          std::cerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
+          std::wcerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
           continue;
         }
         if(chart == nullptr){
@@ -326,7 +334,7 @@ bool construct_folder_db(std::string path)
           fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
           return;
         }
-        sqlite3_bind_text(stmt, 1, diffs[i].path.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 1, ws2s(diffs[i].path).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, chart->Meta.MD5.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, chart->Meta.SHA256.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 4, chart->Meta.Title.c_str(), -1, SQLITE_TRANSIENT);
@@ -389,11 +397,11 @@ int main(int argc, char **argv)
   std::cout << "isFolder: " << isFolder << std::endl;
   if (isFolder)
   {
-    construct_folder_db(std::string(argv[1]));
+    construct_folder_db(s2ws(argv[1]));
   }
   else
   {
-    parse_single_meta(std::string(argv[1]));
+    parse_single_meta(s2ws(argv[1]));
   }
   return 0;
 }
