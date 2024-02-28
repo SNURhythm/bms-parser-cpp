@@ -44,8 +44,9 @@ void parse_single_meta(std::string path)
   std::string bmsFile = path;
   BMSParser parser;
   BMSChart *chart;
-  std::atomic_bool cancel;
+  std::atomic_bool cancel = false;
   parser.Parse(bmsFile, &chart, false, false, cancel);
+  std::cout<<"BmsPath:" <<chart->Meta.BmsPath<<std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
   std::cout << "Title: " << chart->Meta.Title << std::endl;

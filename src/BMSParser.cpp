@@ -71,7 +71,6 @@ void BMSParser::Parse(std::string path, BMSChart **chart, bool addReadyMeasure, 
 	Chart->Meta.Folder = p.parent_path().string();
 	std::regex headerRegex("^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
 
-	// implement the same thing as BMSParser.cs
 	auto measures = std::map<int, std::vector<std::pair<int, std::string>>>();
 	std::vector<unsigned char> bytes;
 	std::ifstream file(path, std::ios::binary);

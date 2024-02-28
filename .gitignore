@@ -1,3 +1,4 @@
+build/
 /obj
 bms.db*
 *.dSYM
