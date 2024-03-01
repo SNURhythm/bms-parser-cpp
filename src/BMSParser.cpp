@@ -68,10 +68,10 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	*chart = Chart;
 	Chart->Meta.BmsPath = path;
 	std::filesystem::path p = path;
-	Chart->Meta.Folder = p.parent_path().string();
-	std::regex headerRegex("^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
+	Chart->Meta.Folder = p.parent_path().wstring();
+	std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
 
-	auto measures = std::map<int, std::vector<std::pair<int, std::string>>>();
+	auto measures = std::map<int, std::vector<std::pair<int, std::wstring>>>();
 	std::vector<unsigned char> bytes;
 	std::filesystem::path fpath;
 	fpath = path;
@@ -98,17 +98,19 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	Chart->Meta.MD5 = md5.hexdigest();
 	Chart->Meta.SHA256 = sha256(bytes);
 	// std::cout<<"file size: "<<size<<std::endl;
-	// bytes to std::string
-	std::string content;
+	// bytes to std::wstring
+	std::wstring content;
+
 	ShiftJISConverter::BytesToUTF8(content, bytes.data(), bytes.size());
+	std::wcout<<content<<std::endl;
 	std::vector<int> RandomStack;
 	std::vector<bool> SkipStack;
 	// init prng with seed
 	std::mt19937_64 Prng(Seed);
 
-	auto lines = std::vector<std::string>();
-	std::string line;
-	std::istringstream stream(content);
+	auto lines = std::vector<std::wstring>();
+	std::wstring line;
+	std::wistringstream stream(content);
 	while (std::getline(stream, line))
 	{
 		if (bCancelled)
@@ -121,20 +123,20 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	}
 	auto lastMeasure = -1;
 
-	for (std::string line : lines)
+	for (std::wstring line : lines)
 	{
 		if (bCancelled)
 		{
 			return;
 		}
 		// should start with #
-		if (line.rfind("#", 0) != 0)
+		if (line.rfind(L"#", 0) != 0)
 		{
 			continue;
 		}
-		std::string upperLine;
+		std::wstring upperLine;
 		std::transform(line.begin(), line.end(), std::back_inserter(upperLine), ::toupper);
-		if (upperLine.rfind("#IF", 0) == 0) // #IF n
+		if (upperLine.rfind(L"#IF", 0) == 0) // #IF n
 		{
 			if (RandomStack.empty())
 			{
@@ -146,7 +148,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			SkipStack.push_back(CurrentRandom != n);
 			continue;
 		}
-		if (upperLine.rfind("#ELSE", 0) == 0)
+		if (upperLine.rfind(L"#ELSE", 0) == 0)
 		{
 			if (SkipStack.empty())
 			{
@@ -158,7 +160,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			SkipStack.push_back(!CurrentSkip);
 			continue;
 		}
-		if (upperLine.rfind("#ELSEIF", 0) == 0)
+		if (upperLine.rfind(L"#ELSEIF", 0) == 0)
 		{
 			if (SkipStack.empty())
 			{
@@ -172,7 +174,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			SkipStack.push_back(CurrentSkip && CurrentRandom != n);
 			continue;
 		}
-		if (upperLine.rfind("#ENDIF", 0) == 0 || upperLine.rfind("#END IF", 0) == 0)
+		if (upperLine.rfind(L"#ENDIF", 0) == 0 || upperLine.rfind(L"#END IF", 0) == 0)
 		{
 			if (SkipStack.empty())
 			{
@@ -186,14 +188,14 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		{
 			continue;
 		}
-		if (upperLine.rfind("#RANDOM", 0) == 0 || upperLine.rfind("#RONDAM", 0) == 0) // #RANDOM n
+		if (upperLine.rfind(L"#RANDOM", 0) == 0 || upperLine.rfind(L"#RONDAM", 0) == 0) // #RANDOM n
 		{
 			int n = std::stoi(line.substr(7));
 			std::uniform_int_distribution<int> dist(1, n);
 			RandomStack.push_back(dist(Prng));
 			continue;
 		}
-		if (upperLine.rfind("#ENDRANDOM", 0) == 0)
+		if (upperLine.rfind(L"#ENDRANDOM", 0) == 0)
 		{
 			if (RandomStack.empty())
 			{
@@ -208,20 +210,20 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		{
 			auto measure = std::stoi(line.substr(1, 3));
 			lastMeasure = std::max(lastMeasure, measure);
-			std::string ch = line.substr(4, 2);
+			std::wstring ch = line.substr(4, 2);
 			int channel;
-			std::string value;
+			std::wstring value;
 			channel = DecodeBase36(ch);
 			value = line.substr(7);
 			if (measures.find(measure) == measures.end())
 			{
-				measures[measure] = std::vector<std::pair<int, std::string>>();
+				measures[measure] = std::vector<std::pair<int, std::wstring>>();
 			}
-			measures[measure].push_back(std::pair<int, std::string>(channel, value));
+			measures[measure].push_back(std::pair<int, std::wstring>(channel, value));
 		}
 		else
 		{
-			if (upperLine.rfind("#WAV", 0) == 0 || upperLine.rfind("#BMP", 0) == 0)
+			if (upperLine.rfind(L"#WAV", 0) == 0 || upperLine.rfind(L"#BMP", 0) == 0)
 			{
 				if (line.length() < 7)
 				{
@@ -229,10 +231,10 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 				}
 				auto xx = line.substr(4, 2);
 				auto value = line.substr(7);
-				std::string cmd = upperLine.substr(1, 3);
+				std::wstring cmd = upperLine.substr(1, 3);
 				ParseHeader(Chart, cmd, xx, value);
 			}
-			else if (upperLine.rfind("#STOP", 0) == 0)
+			else if (upperLine.rfind(L"#STOP", 0) == 0)
 			{
 				if (line.length() < 8)
 				{
@@ -240,16 +242,16 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 				}
 				auto xx = line.substr(5, 2);
 				auto value = line.substr(8);
-				std::string cmd = "STOP";
+				std::wstring cmd = L"STOP";
 				ParseHeader(Chart, cmd, xx, value);
 			}
-			else if (upperLine.rfind("#BPM", 0) == 0)
+			else if (upperLine.rfind(L"#BPM", 0) == 0)
 			{
-				if (line.substr(4).rfind(" ", 0) == 0)
+				if (line.substr(4).rfind(L" ", 0) == 0)
 				{
 					auto value = line.substr(5);
-					std::string cmd = "BPM";
-					std::string xx = "";
+					std::wstring cmd = L"BPM";
+					std::wstring xx = L"";
 					ParseHeader(Chart, cmd, xx, value);
 				}
 				else
@@ -260,24 +262,24 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					}
 					auto xx = line.substr(4, 2);
 					auto value = line.substr(7);
-					std::string cmd = "BPM";
+					std::wstring cmd = L"BPM";
 					ParseHeader(Chart, cmd, xx, value);
 				}
 			}
 			else
 			{
-				std::string copy = line;
-				std::smatch matcher;
+				std::wstring copy = line;
+				std::wsmatch matcher;
 
 				if (std::regex_search(copy, matcher, headerRegex))
 				{
-					std::string cmd = matcher[1].str();
-					std::string xx = matcher[2].str();
-					std::string value = matcher[3].str();
+					std::wstring cmd = matcher[1].str();
+					std::wstring xx = matcher[2].str();
+					std::wstring value = matcher[3].str();
 					if (value.empty())
 					{
 						value = xx;
-						xx = "";
+						xx = L"";
 					}
 					ParseHeader(Chart, cmd, xx, value);
 				}
@@ -287,8 +289,8 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 
 	if (addReadyMeasure)
 	{
-		measures[0] = std::vector<std::pair<int, std::string>>();
-		measures[0].push_back(std::pair<int, std::string>(LaneAutoplay, "********"));
+		measures[0] = std::vector<std::pair<int, std::wstring>>();
+		measures[0].push_back(std::pair<int, std::wstring>(LaneAutoplay, L"********"));
 	}
 
 	double timePassed = 0;
@@ -313,7 +315,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		}
 		if (measures.find(i) == measures.end())
 		{
-			measures[i] = std::vector<std::pair<int, std::string>>();
+			measures[i] = std::vector<std::pair<int, std::wstring>>();
 		}
 
 		// gcd (int, int)
@@ -413,7 +415,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					break;
 				}
 				auto val = data.substr(j * 2, 2);
-				if (val == "00")
+				if (val == L"00")
 				{
 					if (timelines.size() == 0 && j == 0)
 					{
@@ -449,7 +451,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					{
 						break;
 					}
-					if (val == "**")
+					if (val == L"**")
 					{
 						timeline->AddBackgroundNote(new BMSNote{MetronomeWav});
 						break;
@@ -463,7 +465,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					break;
 				case BpmChange:
 				{
-					std::stringstream ss;
+					std::wstringstream ss;
 					ss << std::hex << val;
 					int bpm;
 					ss >> bpm;
@@ -718,26 +720,26 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	Chart->Meta.MaxBpm = maxBpm;
 	if (Chart->Meta.Difficulty == 0)
 	{
-		std::string temp = Chart->Meta.Title + Chart->Meta.SubTitle;
-		std::string FullTitle;
+		std::wstring temp = Chart->Meta.Title + Chart->Meta.SubTitle;
+		std::wstring FullTitle;
 		std::transform(temp.begin(), temp.end(), std::back_inserter(FullTitle), ::tolower);
-		if (FullTitle.find("easy") != std::string::npos)
+		if (FullTitle.find(L"easy") != std::wstring::npos)
 		{
 			Chart->Meta.Difficulty = 1;
 		}
-		else if (FullTitle.find("normal") != std::string::npos)
+		else if (FullTitle.find(L"normal") != std::wstring::npos)
 		{
 			Chart->Meta.Difficulty = 2;
 		}
-		else if (FullTitle.find("hyper") != std::string::npos)
+		else if (FullTitle.find(L"hyper") != std::wstring::npos)
 		{
 			Chart->Meta.Difficulty = 3;
 		}
-		else if (FullTitle.find("another") != std::string::npos)
+		else if (FullTitle.find(L"another") != std::wstring::npos)
 		{
 			Chart->Meta.Difficulty = 4;
 		}
-		else if (FullTitle.find("insane") != std::string::npos)
+		else if (FullTitle.find(L"insane") != std::wstring::npos)
 		{
 			Chart->Meta.Difficulty = 5;
 		}
@@ -767,40 +769,40 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	}
 }
 
-void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::string &Xx, std::string Value)
+void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std::wstring &Xx, std::wstring Value)
 {
 	// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
-	std::string CmdUpper;
+	std::wstring CmdUpper;
 	std::transform(Cmd.begin(), Cmd.end(), std::back_inserter(CmdUpper), ::toupper);
-	if (CmdUpper == "PLAYER")
+	if (CmdUpper == L"PLAYER")
 	{
 		Chart->Meta.Player = std::stoi(Value);
 	}
-	else if (CmdUpper == "GENRE")
+	else if (CmdUpper == L"GENRE")
 	{
 		Chart->Meta.Genre = Value;
 	}
-	else if (CmdUpper == "TITLE")
+	else if (CmdUpper == L"TITLE")
 	{
 		Chart->Meta.Title = Value;
 	}
-	else if (CmdUpper == "SUBTITLE")
+	else if (CmdUpper == L"SUBTITLE")
 	{
 		Chart->Meta.SubTitle = Value;
 	}
-	else if (CmdUpper == "ARTIST")
+	else if (CmdUpper == L"ARTIST")
 	{
 		Chart->Meta.Artist = Value;
 	}
-	else if (CmdUpper == "SUBARTIST")
+	else if (CmdUpper == L"SUBARTIST")
 	{
 		Chart->Meta.SubArtist = Value;
 	}
-	else if (CmdUpper == "DIFFICULTY")
+	else if (CmdUpper == L"DIFFICULTY")
 	{
 		Chart->Meta.Difficulty = std::stoi(Value);
 	}
-	else if (CmdUpper == "BPM")
+	else if (CmdUpper == L"BPM")
 	{
 		if (Value.empty())
 		{
@@ -824,7 +826,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::
 			BpmTable[id] = std::stod(Value);
 		}
 	}
-	else if (CmdUpper == "STOP")
+	else if (CmdUpper == L"STOP")
 	{
 		if (Value.empty() || Xx.empty() || Xx.length() == 0)
 		{
@@ -838,21 +840,21 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::
 		}
 		StopLengthTable[id] = std::stod(Value);
 	}
-	else if (CmdUpper == "MIDIFILE")
+	else if (CmdUpper == L"MIDIFILE")
 	{
 	}
-	else if (CmdUpper == "VIDEOFILE")
+	else if (CmdUpper == L"VIDEOFILE")
 	{
 	}
-	else if (CmdUpper == "PLAYLEVEL")
+	else if (CmdUpper == L"PLAYLEVEL")
 	{
 		Chart->Meta.PlayLevel = std::stod(Value); // TODO: handle error
 	}
-	else if (CmdUpper == "RANK")
+	else if (CmdUpper == L"RANK")
 	{
 		Chart->Meta.Rank = std::stoi(Value);
 	}
-	else if (CmdUpper == "TOTAL")
+	else if (CmdUpper == L"TOTAL")
 	{
 		auto total = std::stod(Value);
 		if (total > 0)
@@ -860,26 +862,26 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::
 			Chart->Meta.Total = total;
 		}
 	}
-	else if (CmdUpper == "VOLWAV")
+	else if (CmdUpper == L"VOLWAV")
 	{
 	}
-	else if (CmdUpper == "STAGEFILE")
+	else if (CmdUpper == L"STAGEFILE")
 	{
 		Chart->Meta.StageFile = Value;
 	}
-	else if (CmdUpper == "BANNER")
+	else if (CmdUpper == L"BANNER")
 	{
 		Chart->Meta.Banner = Value;
 	}
-	else if (CmdUpper == "BACKBMP")
+	else if (CmdUpper == L"BACKBMP")
 	{
 		Chart->Meta.BackBmp = Value;
 	}
-	else if (CmdUpper == "PREVIEW")
+	else if (CmdUpper == L"PREVIEW")
 	{
 		Chart->Meta.Preview = Value;
 	}
-	else if (CmdUpper == "WAV")
+	else if (CmdUpper == L"WAV")
 	{
 		if (Xx.empty() || Value.empty())
 		{
@@ -894,7 +896,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::
 		}
 		Chart->WavTable[id] = Value;
 	}
-	else if (CmdUpper == "BMP")
+	else if (CmdUpper == L"BMP")
 	{
 		if (Xx.empty() || Value.empty())
 		{
@@ -908,35 +910,35 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::string &Cmd, const std::
 			return;
 		}
 		Chart->BmpTable[id] = Value;
-		if (Xx == "00")
+		if (Xx == L"00")
 		{
 			Chart->Meta.BgaPoorDefault = true;
 		}
 	}
-	else if (CmdUpper == "RANDOM")
+	else if (CmdUpper == L"RANDOM")
 	{
 	}
-	else if (CmdUpper == "IF")
+	else if (CmdUpper == L"IF")
 	{
 	}
-	else if (CmdUpper == "ENDIF")
+	else if (CmdUpper == L"ENDIF")
 	{
 	}
-	else if (CmdUpper == "LNOBJ")
+	else if (CmdUpper == L"LNOBJ")
 	{
 		Lnobj = DecodeBase36(Value);
 	}
-	else if (CmdUpper == "LNTYPE")
+	else if (CmdUpper == L"LNTYPE")
 	{
 		Lntype = std::stoi(Value);
 	}
-	else if (CmdUpper == "LNMODE")
+	else if (CmdUpper == L"LNMODE")
 	{
 		Chart->Meta.LnMode = std::stoi(Value);
 	}
 	else
 	{
-		std::cout << "Unknown command: " << Cmd << std::endl;
+		std::wcout << "Unknown command: " << Cmd << std::endl;
 	}
 }
 
@@ -959,7 +961,7 @@ bool BMSParser::CheckResourceIdRange(int Id)
 	return Id >= 0 && Id < 36 * 36;
 }
 
-int BMSParser::ToWaveId(BMSChart *Chart, const std::string &Wav)
+int BMSParser::ToWaveId(BMSChart *Chart, const std::wstring &Wav)
 {
 	auto decoded = DecodeBase36(Wav);
 	// check range
@@ -972,10 +974,10 @@ int BMSParser::ToWaveId(BMSChart *Chart, const std::string &Wav)
 	return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded : NoWav;
 }
 
-int BMSParser::DecodeBase36(const std::string &Str)
+int BMSParser::DecodeBase36(const std::wstring &Str)
 {
 	int result = 0;
-	std::string StrUpper;
+	std::wstring StrUpper;
 	std::transform(Str.begin(), Str.end(), std::back_inserter(StrUpper), ::toupper);
 	for (auto c : StrUpper)
 	{

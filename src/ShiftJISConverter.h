@@ -8,7 +8,8 @@
  */
 namespace ShiftJISConverter
 {
-	void BytesToUTF8(std::string& outString, const unsigned char* input, int size);
+	std::wstring s2ws(const std::string& str);
+	void BytesToUTF8(std::wstring& outString, const unsigned char* input, int size);
 }
 
 // https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion

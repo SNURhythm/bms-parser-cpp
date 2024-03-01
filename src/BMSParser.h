@@ -30,10 +30,10 @@ private:
 	int Lnobj = -1;
 	int Lntype = 1;
 	int Seed;
-	int DecodeBase36(const std::string& Str);
-	void ParseHeader(BMSChart* Chart, const std::string& Cmd, const std::string& Xx, std::string Value);
+	int DecodeBase36(const std::wstring& Str);
+	void ParseHeader(BMSChart* Chart, const std::wstring& Cmd, const std::wstring& Xx, std::wstring Value);
 
 	static int Gcd(int A, int B);
 	static bool CheckResourceIdRange(int Id);
-	int ToWaveId(BMSChart* Chart, const std::string& Wav);
+	int ToWaveId(BMSChart* Chart, const std::wstring& Wav);
 };

@@ -45,18 +45,19 @@ void parse_single_meta(std::wstring path)
   BMSParser parser;
   BMSChart *chart;
   std::atomic_bool cancel = false;
+  std::cout<<"Parsing..."<<std::endl;
   parser.Parse(bmsFile, &chart, false, false, cancel);
   std::wcout<<"BmsPath:" <<chart->Meta.BmsPath<<std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
-  std::cout << "Title: " << chart->Meta.Title << std::endl;
-  std::cout << "SubTitle: " << chart->Meta.SubTitle << std::endl;
-  std::cout << "Artist: " << chart->Meta.Artist << std::endl;
-  std::cout << "SubArtist: " << chart->Meta.SubArtist << std::endl;
-  std::cout << "Genre: " << chart->Meta.Genre << std::endl;
+  std::wcout << "Title: " << chart->Meta.Title << std::endl;
+  std::wcout << "SubTitle: " << chart->Meta.SubTitle << std::endl;
+  std::wcout << "Artist: " << chart->Meta.Artist << std::endl;
+  std::wcout << "SubArtist: " << chart->Meta.SubArtist << std::endl;
+  std::wcout << "Genre: " << chart->Meta.Genre << std::endl;
   std::cout << "PlayLevel: " << chart->Meta.PlayLevel << std::endl;
   std::cout << "Total: " << chart->Meta.Total << std::endl;
-  std::cout << "StageFile: " << chart->Meta.StageFile << std::endl;
+  std::wcout << "StageFile: " << chart->Meta.StageFile << std::endl;
   std::cout << "Bpm: " << chart->Meta.MinBpm << "~" << chart->Meta.MaxBpm << " (" << chart->Meta.Bpm << ")" << std::endl;
   std::cout << "Rank: " << chart->Meta.Rank << std::endl;
   std::cout << "TotalNotes: " << chart->Meta.TotalNotes << std::endl;
@@ -264,6 +265,9 @@ bool construct_folder_db(std::wstring path)
         std::atomic_bool cancel = false;
         try{
           parser.Parse(diffs[i].path, &chart, false, false, cancel);
+          // std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
+          // std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
+          // std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
         }catch(std::exception &e){
           delete chart;
           std::wcerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
@@ -345,18 +349,18 @@ bool construct_folder_db(std::wstring path)
           return;
         }
         sqlite3_bind_text(stmt, 1, ws2s(diffs[i].path).c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, chart->Meta.MD5.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 3, chart->Meta.SHA256.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, chart->Meta.Title.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 5, chart->Meta.SubTitle.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 6, chart->Meta.Genre.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 7, chart->Meta.Artist.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 8, chart->Meta.SubArtist.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 9, chart->Meta.Folder.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 10, chart->Meta.StageFile.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 11, chart->Meta.Banner.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 12, chart->Meta.BackBmp.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 13, chart->Meta.Preview.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, (chart->Meta.MD5).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, (chart->Meta.SHA256).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, ws2s(chart->Meta.Title).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 5, ws2s(chart->Meta.SubTitle).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 6, ws2s(chart->Meta.Genre).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 7, ws2s(chart->Meta.Artist).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 8, ws2s(chart->Meta.SubArtist).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 9, ws2s(chart->Meta.Folder).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 10, ws2s(chart->Meta.StageFile).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 11, ws2s(chart->Meta.Banner).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 12, ws2s(chart->Meta.BackBmp).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 13, ws2s(chart->Meta.Preview).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_double(stmt, 14, chart->Meta.PlayLevel);
         sqlite3_bind_int(stmt, 15, chart->Meta.Difficulty);
         sqlite3_bind_double(stmt, 16, chart->Meta.Total);
@@ -413,7 +417,7 @@ int main(int argc, char **argv)
   }
   else
   {
-    parse_single_meta(s2ws(argv[1]));
+    parse_single_meta(std::filesystem::path(argv[1]));
   }
   return 0;
 }

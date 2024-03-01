@@ -1,10 +1,18 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
+#include <codecvt>
+#include <string>
+#include <locale>
 #include "ShiftJISConverter.h"
 
+std::wstring ShiftJISConverter::s2ws(const std::string& str)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-void ShiftJISConverter::BytesToUTF8(std::string& outString, const unsigned char* input, int size)
+    return converterX.from_bytes(str);
+}
+void ShiftJISConverter::BytesToUTF8(std::wstring& outString, const unsigned char* input, int size)
 {
 	//ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed
 	std::vector<unsigned char> result;
@@ -68,6 +76,6 @@ void ShiftJISConverter::BytesToUTF8(std::string& outString, const unsigned char*
 	}
 
 	result.resize(indexOutput);
-
-	outString = std::string(result.begin(), result.end());
+	std::string temp = std::string(result.begin(), result.end());
+	outString = std::wstring(s2ws(temp));
 }

@@ -17,22 +17,22 @@ public:
 	std::string SHA256;
 	std::string MD5;
 	std::wstring BmsPath;
-	std::string Folder;
-	std::string Artist = "";
-	std::string SubArtist = "";
+	std::wstring Folder;
+	std::wstring Artist = L"";
+	std::wstring SubArtist = L"";
 	double Bpm;
-	std::string Genre = "";
-	std::string Title = "";
-	std::string SubTitle = "";
+	std::wstring Genre = L"";
+	std::wstring Title = L"";
+	std::wstring SubTitle = L"";
 	int Rank = 3;
 	double Total = 100;
 	long long PlayLength = 0; // Timing of the last playable note, in microseconds
 	long long TotalLength = 0;
 	// Timing of the last timeline(including background note, bga change note, invisible note, ...), in microseconds
-	std::string Banner;
-	std::string StageFile;
-	std::string BackBmp;
-	std::string Preview;
+	std::wstring Banner;
+	std::wstring StageFile;
+	std::wstring BackBmp;
+	std::wstring Preview;
 	bool BgaPoorDefault = false;
 	int Difficulty = 0;
 	double PlayLevel = 3;
@@ -94,6 +94,6 @@ public:
 	~BMSChart();
 	BMSChartMeta Meta;
 	std::vector<Measure*> Measures;
-	std::map<int, std::string> WavTable;
-	std::map<int, std::string> BmpTable;
+	std::map<int, std::wstring> WavTable;
+	std::map<int, std::wstring> BmpTable;
 };
