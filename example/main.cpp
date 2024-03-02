@@ -134,6 +134,7 @@ std::wcout<<"File," << filename<<std::endl;
   }
 }
 #else
+// TODO: Use platform-specific method for faster traversal
 void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, std::vector<std::string> &directoriesToVisit)
 {
   DIR *dir = opendir(directoryPath.c_str());
