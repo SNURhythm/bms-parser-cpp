@@ -10,6 +10,7 @@
 #include "sqlite3.h"
 #include <sys/stat.h>
 #include <codecvt>
+#include <filesystem>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -39,14 +40,14 @@ void parallel_for(int n, std::function<void(int start, int end)> f)
   }
 }
 
-void parse_single_meta(std::wstring path)
+void parse_single_metadata(const std::filesystem::path &bmsFile)
 {
-  std::wstring bmsFile = path;
+  std::wstring wpath = bmsFile.wstring();
   BMSParser parser;
   BMSChart *chart;
   std::atomic_bool cancel = false;
   std::cout<<"Parsing..."<<std::endl;
-  parser.Parse(bmsFile, &chart, false, false, cancel);
+  parser.Parse(wpath, &chart, false, false, cancel);
   std::wcout<<"BmsPath:" <<chart->Meta.BmsPath<<std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
@@ -72,10 +73,10 @@ enum DiffType
 };
 struct Diff
 {
-  std::wstring path;
+  std::filesystem::path path;
   DiffType type;
 };
-#include <filesystem> // Add this include at the top of your file
+
 std::string ws2s(const std::wstring& wstr)
 {
     using convert_typeX = std::codecvt_utf8<wchar_t>;
@@ -135,7 +136,7 @@ std::wcout<<"File," << filename<<std::endl;
 }
 #else
 // TODO: Use platform-specific method for faster traversal
-void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, const std::set<std::string> &oldFiles, std::vector<std::string> &directoriesToVisit)
+void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff> &diffs, const std::set<std::filesystem::path> &oldFiles, std::vector<std::filesystem::path> &directoriesToVisit)
 {
   DIR *dir = opendir(directoryPath.c_str());
   if (dir)
@@ -151,7 +152,7 @@ void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, c
           std::string ext = filename.substr(filename.size() - 4);
           if (ext == ".bms" || ext == ".bme" || ext == ".bml")
           {
-            std::string fullPath = directoryPath + "/" + filename;
+            std::filesystem::path fullPath = directoryPath / filename;
             if (oldFiles.find(fullPath) == oldFiles.end())
             {
               diffs.push_back({fullPath, Added});
@@ -163,7 +164,7 @@ void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, c
         std::string filename = entry->d_name;
         if (filename != "." && filename != "..")
         {
-          directoriesToVisit.push_back(directoryPath + "/" + filename);
+          directoriesToVisit.push_back(directoryPath / filename);
         }
       }
     }
@@ -172,13 +173,19 @@ void findFilesUnix(const std::string &directoryPath, std::vector<Diff> &diffs, c
 }
 #endif
 
-void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::wstring> &oldFiles, const std::wstring path)
+void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::filesystem::path> &oldFiles, const std::filesystem::path &path)
 {
+#ifdef _WIN32
   std::vector<std::wstring> directoriesToVisit;
+  directoriesToVisit.push_back(path.wstring());
+#else
+  std::vector<std::filesystem::path> directoriesToVisit;
   directoriesToVisit.push_back(path);
+#endif
+  
   while (!directoriesToVisit.empty())
   {
-    std::wstring currentDir = directoriesToVisit.back();
+    std::filesystem::path currentDir = directoriesToVisit.back();
     directoriesToVisit.pop_back();
 #ifdef _WIN32
 
@@ -188,7 +195,7 @@ void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::wstring> &
 #endif
   }
 }
-bool construct_folder_db(std::wstring path)
+bool construct_folder_db(const std::filesystem::path &path)
 {
   sqlite3 *db;
   char *zErrMsg = 0;
@@ -237,12 +244,12 @@ bool construct_folder_db(std::wstring path)
     return false;
   }
   // search for bms files
-  std::set<std::wstring> oldFiles;
+  std::set<std::filesystem::path> oldFiles;
   sqlite3_stmt *stmt;
   rc = sqlite3_prepare_v2(db, "SELECT path FROM chart_meta", -1, &stmt, nullptr);
   while (sqlite3_step(stmt) == SQLITE_ROW)
   {
-    oldFiles.insert(s2ws(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
+    oldFiles.insert(std::filesystem::path(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
   }
   sqlite3_finalize(stmt);
   std::vector<Diff> diffs;
@@ -265,7 +272,7 @@ bool construct_folder_db(std::wstring path)
         BMSChart *chart;
         std::atomic_bool cancel = false;
         try{
-          parser.Parse(diffs[i].path, &chart, false, false, cancel);
+          parser.Parse(diffs[i].path.wstring(), &chart, false, false, cancel);
           // std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
           // std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
           // std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
@@ -349,7 +356,7 @@ bool construct_folder_db(std::wstring path)
           fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
           return;
         }
-        sqlite3_bind_text(stmt, 1, ws2s(diffs[i].path).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 1, diffs[i].path.string().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, (chart->Meta.MD5).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, (chart->Meta.SHA256).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 4, ws2s(chart->Meta.Title).c_str(), -1, SQLITE_TRANSIENT);
@@ -414,11 +421,11 @@ int main(int argc, char **argv)
   std::cout << "isFolder: " << isFolder << std::endl;
   if (isFolder)
   {
-    construct_folder_db(s2ws(argv[1]));
+    construct_folder_db(std::filesystem::path(argv[1]));
   }
   else
   {
-    parse_single_meta(std::filesystem::path(argv[1]));
+    parse_single_metadata(std::filesystem::path(argv[1]));
   }
   return 0;
 }
