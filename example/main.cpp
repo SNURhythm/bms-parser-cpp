@@ -188,8 +188,13 @@ void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::filesystem
     std::filesystem::path currentDir = directoriesToVisit.back();
     directoriesToVisit.pop_back();
 #ifdef _WIN32
+    std::set<std::wstring> oldFilesWs;
+    for (auto &f : oldFiles)
+    {
+      oldFilesWs.insert(f.wstring());
+    }
 
-    findFilesWin(currentDir, diffs, oldFiles, directoriesToVisit);
+    findFilesWin(currentDir, diffs, oldFilesWs, directoriesToVisit);
 #else
     findFilesUnix(currentDir, diffs, oldFiles, directoriesToVisit);
 #endif
