@@ -40,6 +40,19 @@ void parallel_for(int n, std::function<void(int start, int end)> f)
   }
 }
 
+std::string ws2s(const std::wstring& wstr)
+{
+    return std::string().assign(wstr.begin(), wstr.end());
+
+}
+std::wstring s2ws(const std::string& str)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.from_bytes(str);
+}
+
 void parse_single_metadata(const std::filesystem::path &bmsFile)
 {
   std::wstring wpath = bmsFile.wstring();
@@ -48,17 +61,17 @@ void parse_single_metadata(const std::filesystem::path &bmsFile)
   std::atomic_bool cancel = false;
   std::cout<<"Parsing..."<<std::endl;
   parser.Parse(wpath, &chart, false, false, cancel);
-  std::wcout<<"BmsPath:" <<chart->Meta.BmsPath<<std::endl;
+  std::cout<<"BmsPath:" <<std::filesystem::path(chart->Meta.BmsPath).string()<<std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
-  std::wcout << "Title: " << chart->Meta.Title << std::endl;
-  std::wcout << "SubTitle: " << chart->Meta.SubTitle << std::endl;
-  std::wcout << "Artist: " << chart->Meta.Artist << std::endl;
-  std::wcout << "SubArtist: " << chart->Meta.SubArtist << std::endl;
-  std::wcout << "Genre: " << chart->Meta.Genre << std::endl;
+  std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
+  std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
+  std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
+  std::cout << "SubArtist: " << ws2s(chart->Meta.SubArtist) << std::endl;
+  std::cout << "Genre: " << ws2s(chart->Meta.Genre) << std::endl;
   std::cout << "PlayLevel: " << chart->Meta.PlayLevel << std::endl;
   std::cout << "Total: " << chart->Meta.Total << std::endl;
-  std::wcout << "StageFile: " << chart->Meta.StageFile << std::endl;
+  std::cout << "StageFile: " << ws2s(chart->Meta.StageFile) << std::endl;
   std::cout << "Bpm: " << chart->Meta.MinBpm << "~" << chart->Meta.MaxBpm << " (" << chart->Meta.Bpm << ")" << std::endl;
   std::cout << "Rank: " << chart->Meta.Rank << std::endl;
   std::cout << "TotalNotes: " << chart->Meta.TotalNotes << std::endl;
@@ -77,20 +90,7 @@ struct Diff
   DiffType type;
 };
 
-std::string ws2s(const std::wstring& wstr)
-{
-    using convert_typeX = std::codecvt_utf8<wchar_t>;
-    std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-    return converterX.to_bytes(wstr);
-}
-std::wstring s2ws(const std::string& str)
-{
-    using convert_typeX = std::codecvt_utf8<wchar_t>;
-    std::wstring_convert<convert_typeX, wchar_t> converterX;
-
-    return converterX.from_bytes(str);
-}
 #ifdef _WIN32
 void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, const std::set<std::wstring> &oldFiles, std::vector<std::wstring> &directoriesToVisit)
 {
