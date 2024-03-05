@@ -106,6 +106,7 @@ void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, c
         if (filename.size() > 4)
         {
           std::wstring ext = filename.substr(filename.size() - 4);
+          std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
           if (ext == L".bms" || ext == L".bme" || ext == L".bml")
           {
             std::wstring dirPath;
@@ -147,6 +148,7 @@ void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff>
         if (filename.size() > 4)
         {
           std::string ext = filename.substr(filename.size() - 4);
+          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
           if (ext == ".bms" || ext == ".bme" || ext == ".bml")
           {
             std::filesystem::path fullPath = directoryPath / filename;
@@ -191,7 +193,7 @@ void find_new_bms_files(std::vector<Diff> &diffs, const std::unordered_set<std::
   {
     std::filesystem::path currentDir = directoriesToVisit.back();
     directoriesToVisit.pop_back();
-    std::cout << "Current Diff size: " << diffs.size() << std::endl;
+
 #ifdef _WIN32
 
     findFilesWin(currentDir, diffs, oldFilesWs, directoriesToVisit);
