@@ -9,12 +9,12 @@
 namespace ShiftJISConverter
 {
 	std::wstring s2ws(const std::string& str);
-	void BytesToUTF8(std::wstring& outString, const unsigned char* input, int size);
+	std::wstring BytesToUTF8(const unsigned char* input, int size);
 }
 
 // https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion
 
-const unsigned char shiftJIS_convTable[25088] = {
+static unsigned char shiftJIS_convTable[25088] = {
 	0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03,
 	0x00, 0x04, 0x00, 0x05, 0x00, 0x06, 0x00, 0x07,
 	0x00, 0x08, 0x00, 0x09, 0x00, 0x0a, 0x00, 0x0b,

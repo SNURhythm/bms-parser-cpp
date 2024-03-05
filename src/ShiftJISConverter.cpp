@@ -12,11 +12,11 @@ std::wstring ShiftJISConverter::s2ws(const std::string& str)
 
     return converterX.from_bytes(str);
 }
-void ShiftJISConverter::BytesToUTF8(std::wstring& outString, const unsigned char* input, int size)
+std::wstring ShiftJISConverter::BytesToUTF8(const unsigned char* input, int size)
 {
 	//ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed
 	std::vector<unsigned char> result;
-	result.resize(size * 3, 0);
+	result.resize(size * 3, ' ');
 	size_t indexInput = 0, indexOutput = 0;
 
 	while (indexInput < size)
@@ -55,7 +55,7 @@ void ShiftJISConverter::BytesToUTF8(std::wstring& outString, const unsigned char
 		arrayOffset <<= 1;
 
 		//unicode number is...
-		unsigned char unicodeValue = (shiftJIS_convTable[arrayOffset] << 8) | shiftJIS_convTable[arrayOffset + 1];
+		uint16_t unicodeValue = (shiftJIS_convTable[arrayOffset] << 8) | shiftJIS_convTable[arrayOffset + 1];
 
 		//converting to UTF8
 		if (unicodeValue < 0x80)
@@ -76,6 +76,5 @@ void ShiftJISConverter::BytesToUTF8(std::wstring& outString, const unsigned char
 	}
 
 	result.resize(indexOutput);
-	std::string temp = std::string(result.begin(), result.end());
-	outString = std::wstring(s2ws(temp));
+	return std::wstring(result.begin(), result.end());
 }

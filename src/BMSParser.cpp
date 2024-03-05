@@ -84,7 +84,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	file.seekg(0, std::ios::end);
 	auto size = file.tellg();
 	file.seekg(0, std::ios::beg);
-	bytes.resize(size);
+	bytes.resize(static_cast<size_t>(size));
 	file.read(reinterpret_cast<char *>(bytes.data()), size);
 	file.close();
 
@@ -99,10 +99,8 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	Chart->Meta.SHA256 = sha256(bytes);
 	// std::cout<<"file size: "<<size<<std::endl;
 	// bytes to std::wstring
-	std::wstring content;
-
-	ShiftJISConverter::BytesToUTF8(content, bytes.data(), bytes.size());
-	std::wcout<<content<<std::endl;
+	std::wstring content = ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size());
+	// std::wcout<<content<<std::endl;
 	std::vector<int> RandomStack;
 	std::vector<bool> SkipStack;
 	// init prng with seed
