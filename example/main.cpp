@@ -5,7 +5,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <set>
+#include <unordered_set>
 #include <functional>
 #include "sqlite3.h"
 #include <sys/stat.h>
@@ -40,17 +40,16 @@ void parallel_for(int n, std::function<void(int start, int end)> f)
   }
 }
 
-std::string ws2s(const std::wstring& wstr)
+std::string ws2s(const std::wstring &wstr)
 {
-    return std::string().assign(wstr.begin(), wstr.end());
-
+  return std::string().assign(wstr.begin(), wstr.end());
 }
-std::wstring s2ws(const std::string& str)
+std::wstring s2ws(const std::string &str)
 {
-    using convert_typeX = std::codecvt_utf8<wchar_t>;
-    std::wstring_convert<convert_typeX, wchar_t> converterX;
+  using convert_typeX = std::codecvt_utf8<wchar_t>;
+  std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-    return converterX.from_bytes(str);
+  return converterX.from_bytes(str);
 }
 
 void parse_single_metadata(const std::filesystem::path &bmsFile)
@@ -59,9 +58,9 @@ void parse_single_metadata(const std::filesystem::path &bmsFile)
   BMSParser parser;
   BMSChart *chart;
   std::atomic_bool cancel = false;
-  std::cout<<"Parsing..."<<std::endl;
+  std::cout << "Parsing..." << std::endl;
   parser.Parse(wpath, &chart, false, false, cancel);
-  std::cout<<"BmsPath:" <<std::filesystem::path(chart->Meta.BmsPath).string()<<std::endl;
+  std::cout << "BmsPath:" << std::filesystem::path(chart->Meta.BmsPath).string() << std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
   std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
@@ -90,9 +89,8 @@ struct Diff
   DiffType type;
 };
 
-
 #ifdef _WIN32
-void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, const std::set<std::wstring> &oldFiles, std::vector<std::wstring> &directoriesToVisit)
+void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, const std::unordered_set<std::wstring> &oldFiles, std::vector<std::wstring> &directoriesToVisit)
 {
   WIN32_FIND_DATAW findFileData;
   HANDLE hFind = FindFirstFileW((directoryPath + L"\\*.*").c_str(), &findFileData);
@@ -104,7 +102,6 @@ void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, c
       if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
       {
         std::wstring filename(findFileData.cFileName);
-std::wcout<<"File," << filename<<std::endl;
 
         if (filename.size() > 4)
         {
@@ -112,7 +109,7 @@ std::wcout<<"File," << filename<<std::endl;
           if (ext == L".bms" || ext == L".bme" || ext == L".bml")
           {
             std::wstring dirPath;
-            
+
             std::wstring fullPath = directoryPath + L"\\" + filename;
             if (oldFiles.find(fullPath) == oldFiles.end())
             {
@@ -120,13 +117,13 @@ std::wcout<<"File," << filename<<std::endl;
             }
           }
         }
-      } else if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+      }
+      else if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
       {
         std::wstring filename(findFileData.cFileName);
 
         if (filename != L"." && filename != L"..")
         {
-          std::wcout<<"Dir," << filename<<std::endl;
           directoriesToVisit.push_back(directoryPath + L"\\" + filename);
         }
       }
@@ -136,7 +133,7 @@ std::wcout<<"File," << filename<<std::endl;
 }
 #else
 // TODO: Use platform-specific method for faster traversal
-void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff> &diffs, const std::set<std::filesystem::path> &oldFiles, std::vector<std::filesystem::path> &directoriesToVisit)
+void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff> &diffs, const std::unordered_set<std::filesystem::path> &oldFiles, std::vector<std::filesystem::path> &directoriesToVisit)
 {
   DIR *dir = opendir(directoryPath.c_str());
   if (dir)
@@ -159,7 +156,8 @@ void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff>
             }
           }
         }
-      } else if (entry->d_type == DT_DIR)
+      }
+      else if (entry->d_type == DT_DIR)
       {
         std::string filename = entry->d_name;
         if (filename != "." && filename != "..")
@@ -173,26 +171,28 @@ void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff>
 }
 #endif
 
-void find_new_bms_files(std::vector<Diff> &diffs, const std::set<std::filesystem::path> &oldFiles, const std::filesystem::path &path)
+void find_new_bms_files(std::vector<Diff> &diffs, const std::unordered_set<std::filesystem::path> &oldFiles, const std::filesystem::path &path)
 {
 #ifdef _WIN32
   std::vector<std::wstring> directoriesToVisit;
   directoriesToVisit.push_back(path.wstring());
+  std::unordered_set<std::wstring> oldFilesWs;
+  for (auto &f : oldFiles)
+  {
+    oldFilesWs.insert(f.wstring());
+  }
+
 #else
   std::vector<std::filesystem::path> directoriesToVisit;
   directoriesToVisit.push_back(path);
 #endif
-  
+
   while (!directoriesToVisit.empty())
   {
     std::filesystem::path currentDir = directoriesToVisit.back();
     directoriesToVisit.pop_back();
+    std::cout << "Current Diff size: " << diffs.size() << std::endl;
 #ifdef _WIN32
-    std::set<std::wstring> oldFilesWs;
-    for (auto &f : oldFiles)
-    {
-      oldFilesWs.insert(f.wstring());
-    }
 
     findFilesWin(currentDir, diffs, oldFilesWs, directoriesToVisit);
 #else
@@ -249,7 +249,7 @@ bool construct_folder_db(const std::filesystem::path &path)
     return false;
   }
   // search for bms files
-  std::set<std::filesystem::path> oldFiles;
+  std::unordered_set<std::filesystem::path> oldFiles;
   sqlite3_stmt *stmt;
   rc = sqlite3_prepare_v2(db, "SELECT path FROM chart_meta", -1, &stmt, nullptr);
   while (sqlite3_step(stmt) == SQLITE_ROW)

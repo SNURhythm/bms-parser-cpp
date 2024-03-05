@@ -2,6 +2,7 @@
 
 #include <codecvt>
 #include <string>
+#include <cstdint>
 #include <locale>
 #include "ShiftJISConverter.h"
 

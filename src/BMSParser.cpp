@@ -142,7 +142,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 				continue;
 			}
 			int CurrentRandom = RandomStack.back();
-			int n = std::stoi(line.substr(4));
+			int n = static_cast<int>(std::wcstol(line.substr(4).c_str(), nullptr, 10));
 			SkipStack.push_back(CurrentRandom != n);
 			continue;
 		}
@@ -168,7 +168,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			bool CurrentSkip = SkipStack.back();
 			SkipStack.pop_back();
 			int CurrentRandom = RandomStack.back();
-			int n = std::stoi(line.substr(8));
+			int n = static_cast<int>(std::wcstol(line.substr(8).c_str(), nullptr, 10));
 			SkipStack.push_back(CurrentSkip && CurrentRandom != n);
 			continue;
 		}
@@ -188,7 +188,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		}
 		if (upperLine.rfind(L"#RANDOM", 0) == 0 || upperLine.rfind(L"#RONDAM", 0) == 0) // #RANDOM n
 		{
-			int n = std::stoi(line.substr(7));
+			int n = static_cast<int>(std::wcstol(line.substr(7).c_str(), nullptr, 10));
 			std::uniform_int_distribution<int> dist(1, n);
 			RandomStack.push_back(dist(Prng));
 			continue;
@@ -206,7 +206,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 
 		if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) && std::isdigit(line[3]) && line[6] == ':')
 		{
-			auto measure = std::stoi(line.substr(1, 3));
+			int measure = static_cast<int>(std::wcstol(line.substr(1, 3).c_str(), nullptr, 10));
 			lastMeasure = std::max(lastMeasure, measure);
 			std::wstring ch = line.substr(4, 2);
 			int channel;
@@ -330,7 +330,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			auto &data = pair.second;
 			if (channel == SectionRate)
 			{
-				measure->Scale = std::stod(data);
+				measure->Scale = std::wcstod(data.c_str(), nullptr);
 				continue;
 			}
 
@@ -774,7 +774,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 	std::transform(Cmd.begin(), Cmd.end(), std::back_inserter(CmdUpper), ::toupper);
 	if (CmdUpper == L"PLAYER")
 	{
-		Chart->Meta.Player = std::stoi(Value);
+		Chart->Meta.Player = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 	}
 	else if (CmdUpper == L"GENRE")
 	{
@@ -798,7 +798,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 	}
 	else if (CmdUpper == L"DIFFICULTY")
 	{
-		Chart->Meta.Difficulty = std::stoi(Value);
+		Chart->Meta.Difficulty = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 	}
 	else if (CmdUpper == L"BPM")
 	{
@@ -809,7 +809,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 		if (Xx.empty())
 		{
 			// chart initial bpm
-			Chart->Meta.Bpm = std::stod(Value);
+			Chart->Meta.Bpm = std::wcstod(Value.c_str(), nullptr);
 			// std::cout << "MainBPM: " << Chart->Meta.Bpm << std::endl;
 		}
 		else
@@ -821,7 +821,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 				// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *Xx);
 				return;
 			}
-			BpmTable[id] = std::stod(Value);
+			BpmTable[id] = std::wcstod(Value.c_str(), nullptr);
 		}
 	}
 	else if (CmdUpper == L"STOP")
@@ -836,7 +836,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 			// UE_LOG(LogTemp, Warning, TEXT("Invalid STOP id: %s"), *Xx);
 			return;
 		}
-		StopLengthTable[id] = std::stod(Value);
+		StopLengthTable[id] = std::wcstod(Value.c_str(), nullptr);
 	}
 	else if (CmdUpper == L"MIDIFILE")
 	{
@@ -846,15 +846,15 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 	}
 	else if (CmdUpper == L"PLAYLEVEL")
 	{
-		Chart->Meta.PlayLevel = std::stod(Value); // TODO: handle error
+		Chart->Meta.PlayLevel = std::wcstod(Value.c_str(), nullptr); // TODO: handle error
 	}
 	else if (CmdUpper == L"RANK")
 	{
-		Chart->Meta.Rank = std::stoi(Value);
+		Chart->Meta.Rank = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 	}
 	else if (CmdUpper == L"TOTAL")
 	{
-		auto total = std::stod(Value);
+		auto total = std::wcstod(Value.c_str(), nullptr);
 		if (total > 0)
 		{
 			Chart->Meta.Total = total;
@@ -928,11 +928,11 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 	}
 	else if (CmdUpper == L"LNTYPE")
 	{
-		Lntype = std::stoi(Value);
+		Lntype = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 	}
 	else if (CmdUpper == L"LNMODE")
 	{
-		Chart->Meta.LnMode = std::stoi(Value);
+		Chart->Meta.LnMode = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 	}
 	else
 	{
