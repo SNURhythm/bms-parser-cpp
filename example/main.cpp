@@ -135,7 +135,7 @@ void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, c
 }
 #else
 // TODO: Use platform-specific method for faster traversal
-void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff> &diffs, const std::unordered_set<std::filesystem::path> &oldFiles, std::vector<std::filesystem::path> &directoriesToVisit)
+void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff> &diffs, const std::unordered_set<std::wstring> &oldFiles, std::vector<std::filesystem::path> &directoriesToVisit)
 {
   DIR *dir = opendir(directoryPath.c_str());
   if (dir)
@@ -153,7 +153,7 @@ void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff>
           if (ext == ".bms" || ext == ".bme" || ext == ".bml")
           {
             std::filesystem::path fullPath = directoryPath / filename;
-            if (oldFiles.find(fullPath) == oldFiles.end())
+            if (oldFiles.find(fullPath.wstring()) == oldFiles.end())
             {
               diffs.push_back({fullPath, Added});
             }
@@ -174,17 +174,11 @@ void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff>
 }
 #endif
 
-void find_new_bms_files(std::vector<Diff> &diffs, const std::unordered_set<std::filesystem::path> &oldFiles, const std::filesystem::path &path)
+void find_new_bms_files(std::vector<Diff> &diffs, const std::unordered_set<std::wstring> &oldFilesWs, const std::filesystem::path &path)
 {
 #ifdef _WIN32
   std::vector<std::wstring> directoriesToVisit;
   directoriesToVisit.push_back(path.wstring());
-  std::unordered_set<std::wstring> oldFilesWs;
-  for (auto &f : oldFiles)
-  {
-    oldFilesWs.insert(f.wstring());
-  }
-
 #else
   std::vector<std::filesystem::path> directoriesToVisit;
   directoriesToVisit.push_back(path);
@@ -199,7 +193,7 @@ void find_new_bms_files(std::vector<Diff> &diffs, const std::unordered_set<std::
 
     findFilesWin(currentDir, diffs, oldFilesWs, directoriesToVisit);
 #else
-    findFilesUnix(currentDir, diffs, oldFiles, directoriesToVisit);
+    findFilesUnix(currentDir, diffs, oldFilesWs, directoriesToVisit);
 #endif
   }
 }
@@ -252,12 +246,12 @@ bool construct_folder_db(const std::filesystem::path &path)
     return false;
   }
   // search for bms files
-  std::unordered_set<std::filesystem::path> oldFiles;
+  std::unordered_set<std::wstring> oldFiles;
   sqlite3_stmt *stmt;
   rc = sqlite3_prepare_v2(db, "SELECT path FROM chart_meta", -1, &stmt, nullptr);
   while (sqlite3_step(stmt) == SQLITE_ROW)
   {
-    oldFiles.insert(std::filesystem::path(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
+    oldFiles.insert(std::filesystem::path(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))).wstring());
   }
   sqlite3_finalize(stmt);
   std::vector<Diff> diffs;
