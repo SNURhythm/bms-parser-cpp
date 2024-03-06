@@ -44,12 +44,13 @@ std::string ws2s(const std::wstring &wstr)
 {
   return std::string().assign(wstr.begin(), wstr.end());
 }
-std::wstring s2ws(const std::string &str)
+
+std::string ws2s_utf8(const std::wstring &wstr)
 {
   using convert_typeX = std::codecvt_utf8<wchar_t>;
   std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-  return converterX.from_bytes(str);
+  return converterX.to_bytes(wstr);
 }
 
 void parse_single_metadata(const std::filesystem::path &bmsFile)
@@ -59,7 +60,7 @@ void parse_single_metadata(const std::filesystem::path &bmsFile)
   BMSChart *chart;
   std::atomic_bool cancel = false;
   std::cout << "Parsing..." << std::endl;
-  parser.Parse(wpath, &chart, false, false, cancel);
+  parser.Parse(wpath, &chart, false, true, cancel);
   std::cout << "BmsPath:" << std::filesystem::path(chart->Meta.BmsPath).string() << std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
@@ -70,7 +71,7 @@ void parse_single_metadata(const std::filesystem::path &bmsFile)
   std::cout << "Genre: " << ws2s(chart->Meta.Genre) << std::endl;
   std::cout << "PlayLevel: " << chart->Meta.PlayLevel << std::endl;
   std::cout << "Total: " << chart->Meta.Total << std::endl;
-  std::cout << "StageFile: " << ws2s(chart->Meta.StageFile) << std::endl;
+  std::cout << "StageFile: " << ws2s_utf8(chart->Meta.StageFile) << std::endl;
   std::cout << "Bpm: " << chart->Meta.MinBpm << "~" << chart->Meta.MaxBpm << " (" << chart->Meta.Bpm << ")" << std::endl;
   std::cout << "Rank: " << chart->Meta.Rank << std::endl;
   std::cout << "TotalNotes: " << chart->Meta.TotalNotes << std::endl;
@@ -279,7 +280,7 @@ bool construct_folder_db(const std::filesystem::path &path)
         BMSChart *chart;
         std::atomic_bool cancel = false;
         try{
-          parser.Parse(diffs[i].path.wstring(), &chart, false, false, cancel);
+          parser.Parse(diffs[i].path.wstring(), &chart, false, true, cancel);
           // std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
           // std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
           // std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
@@ -371,18 +372,18 @@ bool construct_folder_db(const std::filesystem::path &path)
         sqlite3_bind_text(stmt, 6, ws2s(chart->Meta.Genre).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 7, ws2s(chart->Meta.Artist).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 8, ws2s(chart->Meta.SubArtist).c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 9, ws2s(chart->Meta.Folder).c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 10, ws2s(chart->Meta.StageFile).c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 11, ws2s(chart->Meta.Banner).c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 12, ws2s(chart->Meta.BackBmp).c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 13, ws2s(chart->Meta.Preview).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 9, ws2s_utf8(chart->Meta.Folder).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 10, ws2s_utf8(chart->Meta.StageFile).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 11, ws2s_utf8(chart->Meta.Banner).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 12, ws2s_utf8(chart->Meta.BackBmp).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 13, ws2s_utf8(chart->Meta.Preview).c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_double(stmt, 14, chart->Meta.PlayLevel);
         sqlite3_bind_int(stmt, 15, chart->Meta.Difficulty);
         sqlite3_bind_double(stmt, 16, chart->Meta.Total);
         sqlite3_bind_double(stmt, 17, chart->Meta.Bpm);
         sqlite3_bind_double(stmt, 18, chart->Meta.MaxBpm);
         sqlite3_bind_double(stmt, 19, chart->Meta.MinBpm);
-        sqlite3_bind_int64(stmt, 20, chart->Meta.TotalLength);
+        sqlite3_bind_int64(stmt, 20, chart->Meta.PlayLength);
         sqlite3_bind_int(stmt, 21, chart->Meta.Rank);
         sqlite3_bind_int(stmt, 22, chart->Meta.Player);
         sqlite3_bind_int(stmt, 23, chart->Meta.KeyMode);

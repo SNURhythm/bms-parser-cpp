@@ -6,13 +6,6 @@
 #include <locale>
 #include "ShiftJISConverter.h"
 
-std::wstring ShiftJISConverter::s2ws(const std::string& str)
-{
-    using convert_typeX = std::codecvt_utf8<wchar_t>;
-    std::wstring_convert<convert_typeX, wchar_t> converterX;
-
-    return converterX.from_bytes(str);
-}
 std::wstring ShiftJISConverter::BytesToUTF8(const unsigned char* input, int size)
 {
 	//ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed

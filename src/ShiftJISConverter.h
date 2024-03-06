@@ -8,7 +8,6 @@
  */
 namespace ShiftJISConverter
 {
-	std::wstring s2ws(const std::string& str);
 	std::wstring BytesToUTF8(const unsigned char* input, int size);
 }
 
