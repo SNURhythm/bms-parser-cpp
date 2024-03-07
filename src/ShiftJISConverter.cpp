@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion
 
 #include <codecvt>
 #include <string>

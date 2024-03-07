@@ -1,11 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion
 
 #pragma once
 #include <string>
 #include <vector>
-/**
- *
- */
 namespace bms_parser
 {
 	namespace ShiftJISConverter
@@ -13,8 +10,7 @@ namespace bms_parser
 		std::wstring BytesToUTF8(const unsigned char *input, int size);
 	}
 
-	// https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion
-
+	
 	static unsigned char shiftJIS_convTable[25088] = {
 		0x00,
 		0x00,
