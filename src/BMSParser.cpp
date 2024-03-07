@@ -113,7 +113,13 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 #endif
 	// std::cout<<"file size: "<<size<<std::endl;
 	// bytes to std::wstring
+#if BMS_PARSER_VERBOSE == 1
+	startTime = std::chrono::high_resolution_clock::now();
+#endif
 	std::wstring content = ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size());
+#if BMS_PARSER_VERBOSE == 1
+	std::cout << "ShiftJIS-UTF8 conversion took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+#endif
 	// std::wcout<<content<<std::endl;
 	std::vector<int> RandomStack;
 	std::vector<bool> SkipStack;
