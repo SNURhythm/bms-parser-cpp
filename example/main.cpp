@@ -62,6 +62,7 @@ void parse_single_metadata(const std::filesystem::path &bmsFile)
   std::cout << "Parsing..." << std::endl;
   parser.Parse(wpath, &chart, false, true, cancel);
   std::cout << "BmsPath:" << std::filesystem::path(chart->Meta.BmsPath).string() << std::endl;
+  std::cout << "Folder:" << ws2s_utf8(chart->Meta.Folder) << std::endl;
   std::cout << "MD5: " << chart->Meta.MD5 << std::endl;
   std::cout << "SHA256: " << chart->Meta.SHA256 << std::endl;
   std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;

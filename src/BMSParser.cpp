@@ -70,14 +70,13 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	auto Chart = new BMSChart();
 	*chart = Chart;
 	Chart->Meta.BmsPath = path;
-	std::filesystem::path p = path;
-	Chart->Meta.Folder = p.parent_path().wstring();
+	std::filesystem::path fpath = path;
+	Chart->Meta.Folder = fpath.parent_path().wstring();
 	std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
 
 	auto measures = std::unordered_map<int, std::vector<std::pair<int, std::wstring>>>();
 	std::vector<unsigned char> bytes;
-	std::filesystem::path fpath;
-	fpath = path;
+	
 	std::ifstream file(fpath, std::ios::binary);
 	if (!file.is_open())
 	{
