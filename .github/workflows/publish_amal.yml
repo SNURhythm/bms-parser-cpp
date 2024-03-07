@@ -3,8 +3,8 @@ name: Publish Amalgamated Code
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - '*'
 
 jobs:
   build:
