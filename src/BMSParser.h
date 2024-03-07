@@ -35,5 +35,5 @@ private:
 
 	static int Gcd(int A, int B);
 	static bool CheckResourceIdRange(int Id);
-	int ToWaveId(BMSChart* Chart, const std::wstring& Wav);
+	int ToWaveId(BMSChart* Chart, const std::wstring& Wav, bool metaOnly);
 };

@@ -246,6 +246,10 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		{
 			if (upperLine.rfind(L"#WAV", 0) == 0 || upperLine.rfind(L"#BMP", 0) == 0)
 			{
+				if(metaOnly)
+				{
+					continue;
+				}
 				if (line.length() < 7)
 				{
 					continue;
@@ -486,7 +490,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					}
 					if (DecodeBase36(val) != 0)
 					{
-						auto bgNote = new BMSNote{ToWaveId(Chart, val)};
+						auto bgNote = new BMSNote{ToWaveId(Chart, val, metaOnly)};
 						timeline->AddBackgroundNote(bgNote);
 					}
 
@@ -585,7 +589,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					}
 					else
 					{
-						auto note = new BMSNote{ToWaveId(Chart, val)};
+						auto note = new BMSNote{ToWaveId(Chart, val, metaOnly)};
 						lastNote[laneNumber] = note;
 						++totalNotes;
 						if (isScratch)
@@ -608,7 +612,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 					{
 						break;
 					}
-					auto invNote = new BMSNote{ToWaveId(Chart, val)};
+					auto invNote = new BMSNote{ToWaveId(Chart, val, metaOnly)};
 					timeline->SetInvisibleNote(
 						laneNumber, invNote);
 					break;
@@ -629,7 +633,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 								++totalLongNotes;
 							}
 
-							auto ln = new BMSLongNote{ToWaveId(Chart, val)};
+							auto ln = new BMSLongNote{ToWaveId(Chart, val, metaOnly)};
 							lnStart[laneNumber] = ln;
 
 							if (metaOnly)
@@ -989,8 +993,16 @@ bool BMSParser::CheckResourceIdRange(int Id)
 	return Id >= 0 && Id < 36 * 36;
 }
 
-int BMSParser::ToWaveId(BMSChart *Chart, const std::wstring &Wav)
+int BMSParser::ToWaveId(BMSChart *Chart, const std::wstring &Wav, bool metaOnly)
 {
+	if(metaOnly)
+	{
+		return NoWav;
+	}
+	if (Wav.empty())
+	{
+		return NoWav;
+	}
 	auto decoded = DecodeBase36(Wav);
 	// check range
 	if (!CheckResourceIdRange(decoded))
