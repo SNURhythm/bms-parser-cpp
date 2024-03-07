@@ -1,15 +1,17 @@
 # release amalgamated code using cpp-amalgamate
 name: Publish Amalgamated Code
+
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: cargo install cpp-amalgamate
