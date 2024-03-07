@@ -288,7 +288,7 @@ bool construct_folder_db(const std::filesystem::path &path)
           continue;
         }
         ++success_count;
-        if(success_count % 100 == 0){
+        if(success_count % 100 == 0 && !is_committing){
           is_committing = true;
           sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr);
           sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
