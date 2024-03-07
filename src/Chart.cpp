@@ -1,18 +1,19 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Chart.h"
-
-BMSChart::BMSChart()
+namespace bms_parser
 {
-}
-
-BMSChart::~BMSChart()
-{
-	for (const auto& measure : Measures)
+	Chart::Chart()
 	{
-		delete measure;
 	}
 
-	Measures.clear();
+	Chart::~Chart()
+	{
+		for (const auto &measure : Measures)
+		{
+			delete measure;
+		}
+
+		Measures.clear();
+	}
 }

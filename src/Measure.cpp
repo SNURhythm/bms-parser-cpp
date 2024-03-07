@@ -1,13 +1,15 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Measure.h"
 
-Measure::~Measure()
+namespace bms_parser
 {
-	for (const auto& Timeline : TimeLines)
+	Measure::~Measure()
 	{
-		delete Timeline;
+		for (const auto &Timeline : TimeLines)
+		{
+			delete Timeline;
+		}
+		TimeLines.clear();
 	}
-	TimeLines.clear();
 }

@@ -2,18 +2,19 @@
 
 #pragma once
 
-
-
 #include "TimeLine.h"
 /**
- * 
+ *
  */
-class Measure
+namespace bms_parser
 {
-public:
-	double Scale = 1;
-	long long Timing = 0;
-	double Pos = 0;
-	std::vector<TimeLine*> TimeLines;
-	~Measure();
-};
+	class Measure
+	{
+	public:
+		double Scale = 1;
+		long long Timing = 0;
+		double Pos = 0;
+		std::vector<TimeLine *> TimeLines;
+		~Measure();
+	};
+}

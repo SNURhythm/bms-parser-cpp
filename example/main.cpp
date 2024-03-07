@@ -1,4 +1,4 @@
-#include "../src/BMSParser.h"
+#include "../src/Parser.h"
 #include "../src/Chart.h"
 #include <atomic>
 #include <iostream>
@@ -56,8 +56,8 @@ std::string ws2s_utf8(const std::wstring &wstr)
 void parse_single_metadata(const std::filesystem::path &bmsFile)
 {
   std::wstring wpath = bmsFile.wstring();
-  BMSParser parser;
-  BMSChart *chart;
+  bms_parser::Parser parser;
+  bms_parser::Chart *chart;
   std::atomic_bool cancel = false;
   std::cout << "Parsing..." << std::endl;
   parser.Parse(wpath, &chart, false, true, cancel);
@@ -271,8 +271,8 @@ bool construct_folder_db(const std::filesystem::path &path)
                {
     for(int i = start; i < end; i++){
       if(diffs[i].type == Added){
-        BMSParser parser;
-        BMSChart *chart;
+        bms_parser::Parser parser;
+        bms_parser::Chart *chart;
         std::atomic_bool cancel = false;
         try{
           parser.Parse(diffs[i].path.wstring(), &chart, false, true, cancel);
