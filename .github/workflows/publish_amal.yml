@@ -1,10 +1,9 @@
-# release amalgamated code using cpp-amalgamate
-name: Publish Amalgamated Code
-
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
+
+name: Publish Amalgamated Code
 
 jobs:
   build:
@@ -29,6 +28,8 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
+          body: |
+            You can find the amalgamated code in the file `amalgamated.hpp`.
           draft: false
           prerelease: false
       # upload amalgamated code
