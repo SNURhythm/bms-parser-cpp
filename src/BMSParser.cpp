@@ -18,6 +18,9 @@
 #include <algorithm>
 #include "md5.h"
 #include <cctype>
+#ifndef BMS_PARSER_VERBOSE
+	#define BMS_PARSER_VERBOSE 0
+#endif
 enum Channel
 {
 	LaneAutoplay = 1,
@@ -71,7 +74,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	Chart->Meta.Folder = p.parent_path().wstring();
 	std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
 
-	auto measures = std::map<int, std::vector<std::pair<int, std::wstring>>>();
+	auto measures = std::unordered_map<int, std::vector<std::pair<int, std::wstring>>>();
 	std::vector<unsigned char> bytes;
 	std::filesystem::path fpath;
 	fpath = path;
@@ -81,22 +84,34 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		std::wcout << "Failed to open file: " << path << std::endl;
 		return;
 	}
+#if BMS_PARSER_VERBOSE == 1
+	// measure file read time
+	auto startTime = std::chrono::high_resolution_clock::now();
+#endif
 	file.seekg(0, std::ios::end);
 	auto size = file.tellg();
 	file.seekg(0, std::ios::beg);
 	bytes.resize(static_cast<size_t>(size));
 	file.read(reinterpret_cast<char *>(bytes.data()), size);
 	file.close();
-
+#if BMS_PARSER_VERBOSE == 1
+	std::cout << "File read took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-startTime).count()<<"\n";
+#endif
 	if (bCancelled)
 	{
 		return;
 	}
+#if BMS_PARSER_VERBOSE == 1
+	startTime = std::chrono::high_resolution_clock::now();
+#endif
 	MD5 md5;
 	md5.update(bytes.data(), bytes.size());
 	md5.finalize();
 	Chart->Meta.MD5 = md5.hexdigest();
 	Chart->Meta.SHA256 = sha256(bytes);
+#if BMS_PARSER_VERBOSE == 1
+	std::cout << "Hashing took "<<std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-startTime).count()<<"\n";
+#endif
 	// std::cout<<"file size: "<<size<<std::endl;
 	// bytes to std::wstring
 	std::wstring content = ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size());
@@ -109,6 +124,9 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	auto lines = std::vector<std::wstring>();
 	std::wstring line;
 	std::wistringstream stream(content);
+#if BMS_PARSER_VERBOSE == 1
+	startTime = std::chrono::high_resolution_clock::now();
+#endif
 	while (std::getline(stream, line))
 	{
 		if (bCancelled)
@@ -119,8 +137,13 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 		if (line.size() > 1)
 			lines.push_back(line);
 	}
+#if BMS_PARSER_VERBOSE == 1
+	std::cout << "Pushing lines took "<<std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-startTime).count()<<"\n";
+#endif
 	auto lastMeasure = -1;
-
+#if BMS_PARSER_VERBOSE == 1
+	startTime = std::chrono::high_resolution_clock::now();
+#endif
 	for (std::wstring line : lines)
 	{
 		if (bCancelled)
@@ -133,7 +156,7 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			continue;
 		}
 		std::wstring upperLine;
-		std::transform(line.begin(), line.end(), std::back_inserter(upperLine), ::toupper);
+		std::transform(line.begin(), line.begin() + std::min(10, static_cast<int>(line.size())), std::back_inserter(upperLine), ::toupper);
 		if (upperLine.rfind(L"#IF", 0) == 0) // #IF n
 		{
 			if (RandomStack.empty())
@@ -266,12 +289,13 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			}
 			else
 			{
-				std::wstring copy = line;
 				std::wsmatch matcher;
 
-				if (std::regex_search(copy, matcher, headerRegex))
+				if (std::regex_search(line, matcher, headerRegex))
 				{
 					std::wstring cmd = matcher[1].str();
+					std::wstring cmdUpper;
+					std::transform(cmd.begin(), cmd.end(), std::back_inserter(cmdUpper), ::toupper);
 					std::wstring xx = matcher[2].str();
 					std::wstring value = matcher[3].str();
 					if (value.empty())
@@ -279,12 +303,14 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 						value = xx;
 						xx = L"";
 					}
-					ParseHeader(Chart, cmd, xx, value);
+					ParseHeader(Chart, cmdUpper, xx, value);
 				}
 			}
 		}
 	}
-
+#if BMS_PARSER_VERBOSE == 1
+	std::cout << "Reading headers took "<<std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-startTime).count()<<"\n";
+#endif
 	if (addReadyMeasure)
 	{
 		measures[0] = std::vector<std::pair<int, std::wstring>>();
@@ -304,7 +330,9 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	lastNote.resize(TempKey, nullptr);
 	auto lnStart = std::vector<BMSLongNote *>();
 	lnStart.resize(TempKey, nullptr);
-
+#if BMS_PARSER_VERBOSE == 1
+	startTime = std::chrono::high_resolution_clock::now();
+#endif
 	for (auto i = 0; i <= lastMeasure; ++i)
 	{
 		if (bCancelled)
@@ -318,6 +346,8 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 
 		// gcd (int, int)
 		auto measure = new Measure();
+
+		// NOTE: this should be an ordered map
 		auto timelines = std::map<double, TimeLine *>();
 
 		for (auto &pair : measures[i])
@@ -712,7 +742,9 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 			delete measure;
 		}
 	}
-
+#if BMS_PARSER_VERBOSE == 1
+	std::cout << "Reading data field took "<<std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-startTime).count()<<"\n";
+#endif
 	Chart->Meta.TotalLength = static_cast<long long>(timePassed);
 	Chart->Meta.MinBpm = minBpm;
 	Chart->Meta.MaxBpm = maxBpm;
@@ -767,11 +799,9 @@ void BMSParser::Parse(std::wstring path, BMSChart **chart, bool addReadyMeasure,
 	}
 }
 
-void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std::wstring &Xx, std::wstring Value)
+void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &CmdUpper, const std::wstring &Xx, std::wstring Value)
 {
 	// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
-	std::wstring CmdUpper;
-	std::transform(Cmd.begin(), Cmd.end(), std::back_inserter(CmdUpper), ::toupper);
 	if (CmdUpper == L"PLAYER")
 	{
 		Chart->Meta.Player = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
@@ -936,7 +966,7 @@ void BMSParser::ParseHeader(BMSChart *Chart, const std::wstring &Cmd, const std:
 	}
 	else
 	{
-		std::wcout << "Unknown command: " << Cmd << std::endl;
+		std::wcout << "Unknown command: " << CmdUpper << std::endl;
 	}
 }
 
@@ -975,9 +1005,9 @@ int BMSParser::ToWaveId(BMSChart *Chart, const std::wstring &Wav)
 int BMSParser::DecodeBase36(const std::wstring &Str)
 {
 	int result = 0;
-	std::wstring StrUpper;
-	std::transform(Str.begin(), Str.end(), std::back_inserter(StrUpper), ::toupper);
-	for (auto c : StrUpper)
+	// std::wstring StrUpper;
+	// std::transform(Str.begin(), Str.end(), std::back_inserter(StrUpper), ::toupper);
+	for (auto c : Str)
 	{
 		result *= 36;
 		if (std::isdigit(c))
@@ -986,7 +1016,7 @@ int BMSParser::DecodeBase36(const std::wstring &Str)
 		}
 		else if (isalpha(c))
 		{
-			result += c - 'A' + 10;
+			result += c - (isupper(c)?'A':'a') + 10;
 		}
 		else
 		{

@@ -5,7 +5,7 @@
 #include "Measure.h"
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 /**
  * 
  */
@@ -94,6 +94,6 @@ public:
 	~BMSChart();
 	BMSChartMeta Meta;
 	std::vector<Measure*> Measures;
-	std::map<int, std::wstring> WavTable;
-	std::map<int, std::wstring> BmpTable;
+	std::unordered_map<int, std::wstring> WavTable;
+	std::unordered_map<int, std::wstring> BmpTable;
 };
