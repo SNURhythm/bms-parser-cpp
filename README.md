@@ -10,6 +10,6 @@ WIP: Parser interface may change
 
 ## TODOs 
 - [x] Fix ShiftJIS transcoding 
-- [ ] Remove Base36 conversion [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
+- [ ] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
 - [x] Provide amalgamated code
 - [ ] Implement client-specific commands like #SCROLL
