@@ -9,7 +9,6 @@ WIP: Parser interface may change
 - [ ] Implement blazing-fast parser with parallel processing
 
 ## TODOs 
-- [x] Fix ShiftJIS transcoding 
 - [ ] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
-- [x] Provide amalgamated code
+- [ ] Provide amalgamated code (need to fix #1)
 - [ ] Implement client-specific commands like #SCROLL
