@@ -17,7 +17,7 @@ example/sqlite3.o: example/sqlite3.c
 	gcc -c -o example/sqlite3.o example/sqlite3.c
 example: all example/sqlite3.o $(BUILD_PATH)
 	$(CC) $(CCFLAGS) -o $(BUILD_PATH)/main example/main.cpp example/sqlite3.o $(OBJ_FILES)
-amalgamate:
+amalgamate: $(BUILD_PATH)
 	python3 scripts/amalgamate.py $(BUILD_PATH)/bms_parser.hpp $(SRC_FILES)
 test_amalgamation: amalgamate example/sqlite3.o $(BUILD_PATH)
 	@cp $(BUILD_PATH)/bms_parser.hpp example/
