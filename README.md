@@ -9,5 +9,5 @@ WIP: Parser interface may change
 
 ## TODOs 
 - [ ] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
-- [ ] Provide amalgamated code (need to fix #1)
+- [x] Provide amalgamated code (need to fix #1)
 - [ ] Implement client-specific commands like #SCROLL
