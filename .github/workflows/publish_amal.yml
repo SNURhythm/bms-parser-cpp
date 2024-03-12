@@ -13,27 +13,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Cache cpp-amalgamate
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/cpp-amalgamate
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-          key: ${{ runner.os }}-cpp-amalgamate-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cpp-amalgamate-
-
-      - name: Install cpp-amalgamate if not cached
-        run: |
-          if ! command -v cpp-amalgamate &> /dev/null
-          then
-              cargo install cpp-amalgamate
-          fi
-      - name: cpp-amalgamate
+      - name: amalgamate
         run: |
           rm -f bms_parser.hpp
-          cpp-amalgamate ./src/** >> bms_parser.hpp
+          python3 scripts/amalgamate.py bms_parser.hpp src/**
       # create new release
       - name: Create Release
         id: create_release
