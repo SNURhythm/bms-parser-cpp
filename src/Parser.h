@@ -48,7 +48,7 @@ namespace bms_parser
 		int Seed;
 		int DecodeBase36(const std::wstring &Str);
 		void ParseHeader(Chart *Chart, const std::wstring &Cmd, const std::wstring &Xx, std::wstring Value);
-
+		bool MatchHeader(const std::wstring &str, const std::wstring &headerUpper);
 		static int Gcd(int A, int B);
 		static bool CheckResourceIdRange(int Id);
 		int ToWaveId(Chart *Chart, const std::wstring &Wav, bool metaOnly);

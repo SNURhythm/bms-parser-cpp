@@ -1,15 +1,15 @@
-/* 
+/*
  * Copyright (C) 2024 VioletXF, khoeun03
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -82,7 +82,22 @@ namespace bms_parser
 
 	int Parser::NoWav = -1;
 	int Parser::MetronomeWav = -2;
-
+	bool Parser::MatchHeader(const std::wstring &str, const std::wstring &headerUpper)
+	{
+		auto size = headerUpper.length();
+		if (str.length() < size)
+		{
+			return false;
+		}
+		for (size_t i = 0; i < size; ++i)
+		{
+			if (std::towupper(str[i]) != headerUpper[i])
+			{
+				return false;
+			}
+		}
+		return true;
+	}
 	void Parser::Parse(std::wstring path, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
 	{
 		auto new_chart = new Chart();
@@ -164,9 +179,8 @@ namespace bms_parser
 				return;
 			}
 
-			std::wstring upperLine;
-			std::transform(line.begin(), line.begin() + std::min(10, static_cast<int>(line.size())), std::back_inserter(upperLine), ::toupper);
-			if (upperLine.rfind(L"#IF", 0) == 0) // #IF n
+
+			if (MatchHeader(line, L"#IF")) // #IF n
 			{
 				if (RandomStack.empty())
 				{
@@ -178,7 +192,7 @@ namespace bms_parser
 				SkipStack.push_back(CurrentRandom != n);
 				continue;
 			}
-			if (upperLine.rfind(L"#ELSE", 0) == 0)
+			if (MatchHeader(line, L"#ELSE"))
 			{
 				if (SkipStack.empty())
 				{
@@ -190,7 +204,7 @@ namespace bms_parser
 				SkipStack.push_back(!CurrentSkip);
 				continue;
 			}
-			if (upperLine.rfind(L"#ELSEIF", 0) == 0)
+			if (MatchHeader(line, L"#ELSEIF"))
 			{
 				if (SkipStack.empty())
 				{
@@ -204,7 +218,7 @@ namespace bms_parser
 				SkipStack.push_back(CurrentSkip && CurrentRandom != n);
 				continue;
 			}
-			if (upperLine.rfind(L"#ENDIF", 0) == 0 || upperLine.rfind(L"#END IF", 0) == 0)
+			if (MatchHeader(line, L"#ENDIF") || MatchHeader(line, L"#END IF"))
 			{
 				if (SkipStack.empty())
 				{
@@ -218,14 +232,14 @@ namespace bms_parser
 			{
 				continue;
 			}
-			if (upperLine.rfind(L"#RANDOM", 0) == 0 || upperLine.rfind(L"#RONDAM", 0) == 0) // #RANDOM n
+			if (MatchHeader(line, L"#RANDOM") || MatchHeader(line, L"#RONDAM")) // #RANDOM n
 			{
 				int n = static_cast<int>(std::wcstol(line.substr(7).c_str(), nullptr, 10));
 				std::uniform_int_distribution<int> dist(1, n);
 				RandomStack.push_back(dist(Prng));
 				continue;
 			}
-			if (upperLine.rfind(L"#ENDRANDOM", 0) == 0)
+			if (MatchHeader(line, L"#ENDRANDOM"))
 			{
 				if (RandomStack.empty())
 				{
@@ -253,7 +267,7 @@ namespace bms_parser
 			}
 			else
 			{
-				if (upperLine.rfind(L"#WAV", 0) == 0 || upperLine.rfind(L"#BMP", 0) == 0)
+				if (MatchHeader(line, L"#WAV"))
 				{
 					if (metaOnly)
 					{
@@ -265,10 +279,23 @@ namespace bms_parser
 					}
 					auto xx = line.substr(4, 2);
 					auto value = line.substr(7);
-					std::wstring cmd = upperLine.substr(1, 3);
-					ParseHeader(new_chart, cmd, xx, value);
+					ParseHeader(new_chart, L"WAV", xx, value);
 				}
-				else if (upperLine.rfind(L"#STOP", 0) == 0)
+				else if (MatchHeader(line, L"#BMP"))
+				{
+					if (metaOnly)
+					{
+						continue;
+					}
+					if (line.length() < 7)
+					{
+						continue;
+					}
+					auto xx = line.substr(4, 2);
+					auto value = line.substr(7);
+					ParseHeader(new_chart, L"BMP", xx, value);
+				}
+				else if (MatchHeader(line, L"#STOP"))
 				{
 					if (line.length() < 8)
 					{
@@ -279,7 +306,7 @@ namespace bms_parser
 					std::wstring cmd = L"STOP";
 					ParseHeader(new_chart, cmd, xx, value);
 				}
-				else if (upperLine.rfind(L"#BPM", 0) == 0)
+				else if (MatchHeader(line, L"#BPM"))
 				{
 					if (line.substr(4).rfind(L" ", 0) == 0)
 					{
