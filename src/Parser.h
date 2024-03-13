@@ -46,11 +46,11 @@ namespace bms_parser
 		int Lnobj = -1;
 		int Lntype = 1;
 		int Seed;
-		int DecodeBase36(const std::wstring &Str);
-		void ParseHeader(Chart *Chart, const std::wstring &Cmd, const std::wstring &Xx, std::wstring Value);
-		bool MatchHeader(const std::wstring &str, const std::wstring &headerUpper);
+		int DecodeBase36(std::wstring_view Str);
+		void ParseHeader(Chart *Chart, std::wstring_view Cmd, std::wstring_view Xx, std::wstring Value);
+		bool MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper);
 		static int Gcd(int A, int B);
 		static bool CheckResourceIdRange(int Id);
-		int ToWaveId(Chart *Chart, const std::wstring &Wav, bool metaOnly);
+		int ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly);
 	};
 }

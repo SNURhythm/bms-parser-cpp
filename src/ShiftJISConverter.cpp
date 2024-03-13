@@ -7,10 +7,9 @@
 #include "ShiftJISConverter.h"
 namespace bms_parser
 {
-	std::wstring ShiftJISConverter::BytesToUTF8(const unsigned char *input, int size)
+	void ShiftJISConverter::BytesToUTF8(const unsigned char *input, int size, std::wstring &result)
 	{
 		// ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed
-		std::vector<unsigned char> result;
 		result.resize(size * 3, ' ');
 		size_t indexInput = 0, indexOutput = 0;
 
@@ -71,6 +70,5 @@ namespace bms_parser
 		}
 
 		result.resize(indexOutput);
-		return std::wstring(result.begin(), result.end());
 	}
 }

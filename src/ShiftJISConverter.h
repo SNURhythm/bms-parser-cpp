@@ -7,7 +7,7 @@ namespace bms_parser
 {
 	namespace ShiftJISConverter
 	{
-		std::wstring BytesToUTF8(const unsigned char *input, int size);
+		void BytesToUTF8(const unsigned char *input, int size, std::wstring &result);
 	}
 
 	static const unsigned char shiftJIS_convTable[25088] = {

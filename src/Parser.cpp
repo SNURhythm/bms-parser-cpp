@@ -82,7 +82,7 @@ namespace bms_parser
 
 	int Parser::NoWav = -1;
 	int Parser::MetronomeWav = -2;
-	bool Parser::MatchHeader(const std::wstring &str, const std::wstring &headerUpper)
+	bool Parser::MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper)
 	{
 		auto size = headerUpper.length();
 		if (str.length() < size)
@@ -149,7 +149,8 @@ namespace bms_parser
 #if BMS_PARSER_VERBOSE == 1
 		startTime = std::chrono::high_resolution_clock::now();
 #endif
-		std::wstring content = ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size());
+		std::wstring content;
+		ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size(), content);
 #if BMS_PARSER_VERBOSE == 1
 		std::cout << "ShiftJIS-UTF8 conversion took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 #endif
@@ -254,7 +255,7 @@ namespace bms_parser
 			{
 				int measure = static_cast<int>(std::wcstol(line.substr(1, 3).c_str(), nullptr, 10));
 				lastMeasure = std::max(lastMeasure, measure);
-				std::wstring ch = line.substr(4, 2);
+				std::wstring_view ch = line.substr(4, 2);
 				int channel;
 				std::wstring value;
 				channel = DecodeBase36(ch);
@@ -303,17 +304,14 @@ namespace bms_parser
 					}
 					auto xx = line.substr(5, 2);
 					auto value = line.substr(8);
-					std::wstring cmd = L"STOP";
-					ParseHeader(new_chart, cmd, xx, value);
+					ParseHeader(new_chart, L"STOP", xx, value);
 				}
 				else if (MatchHeader(line, L"#BPM"))
 				{
 					if (line.substr(4).rfind(L" ", 0) == 0)
 					{
 						auto value = line.substr(5);
-						std::wstring cmd = L"BPM";
-						std::wstring xx = L"";
-						ParseHeader(new_chart, cmd, xx, value);
+						ParseHeader(new_chart, L"BPM", L"", value);
 					}
 					else
 					{
@@ -323,8 +321,7 @@ namespace bms_parser
 						}
 						auto xx = line.substr(4, 2);
 						auto value = line.substr(7);
-						std::wstring cmd = L"BPM";
-						ParseHeader(new_chart, cmd, xx, value);
+						ParseHeader(new_chart, L"BPM", xx, value);
 					}
 				}
 				else
@@ -843,7 +840,7 @@ namespace bms_parser
 		}
 	}
 
-	void Parser::ParseHeader(Chart *Chart, const std::wstring &CmdUpper, const std::wstring &Xx, std::wstring Value)
+	void Parser::ParseHeader(Chart *Chart, std::wstring_view CmdUpper, std::wstring_view Xx, std::wstring Value)
 	{
 		// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
 		if (CmdUpper == L"PLAYER")
@@ -1033,7 +1030,7 @@ namespace bms_parser
 		return Id >= 0 && Id < 36 * 36;
 	}
 
-	int Parser::ToWaveId(Chart *Chart, const std::wstring &Wav, bool metaOnly)
+	int Parser::ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly)
 	{
 		if (metaOnly)
 		{
@@ -1054,7 +1051,7 @@ namespace bms_parser
 		return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded : NoWav;
 	}
 
-	int Parser::DecodeBase36(const std::wstring &Str)
+	int Parser::DecodeBase36(std::wstring_view Str)
 	{
 		int result = 0;
 		// std::wstring StrUpper;
