@@ -177,6 +177,6 @@ namespace bms_parser
 		{
 			sprintf(buf + i * 2, "%02x", digest[i]);
 		}
-		return std::string(buf);
+		return buf;
 	}
 }

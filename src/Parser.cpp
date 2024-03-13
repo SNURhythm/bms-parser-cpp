@@ -16,6 +16,7 @@
 
 #include "Parser.h"
 #include <iterator>
+#include <thread>
 #include <random>
 #include "LongNote.h"
 #include "Note.h"
@@ -39,6 +40,24 @@
 
 namespace bms_parser
 {
+	class threadRAII
+	{
+		std::thread th;
+
+	public:
+		threadRAII(std::thread &&_th)
+		{
+			th = std::move(_th);
+		}
+
+		~threadRAII()
+		{
+			if (th.joinable())
+			{
+				th.join();
+			}
+		}
+	};
 	enum Channel
 	{
 		LaneAutoplay = 1,
@@ -98,8 +117,9 @@ namespace bms_parser
 		}
 		return true;
 	}
-	void Parser::Parse(std::wstring path, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
+	void Parser::Parse(std::wstring_view path, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
 	{
+		auto startTime = std::chrono::high_resolution_clock::now();
 		auto new_chart = new Chart();
 		*chart = new_chart;
 		new_chart->Meta.BmsPath = path;
@@ -118,7 +138,7 @@ namespace bms_parser
 		}
 #if BMS_PARSER_VERBOSE == 1
 		// measure file read time
-		auto startTime = std::chrono::high_resolution_clock::now();
+		auto midStartTime = std::chrono::high_resolution_clock::now();
 #endif
 		file.seekg(0, std::ios::end);
 		auto size = file.tellg();
@@ -127,32 +147,49 @@ namespace bms_parser
 		file.read(reinterpret_cast<char *>(bytes.data()), size);
 		file.close();
 #if BMS_PARSER_VERBOSE == 1
-		std::cout << "File read took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+		std::cout << "File read took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - midStartTime).count() << "\n";
 #endif
 		if (bCancelled)
 		{
 			return;
 		}
+		// compute hash in separate thread
+		std::thread md5Thread([&bytes, new_chart]
+							   {
 #if BMS_PARSER_VERBOSE == 1
-		startTime = std::chrono::high_resolution_clock::now();
+								   auto startTime = std::chrono::high_resolution_clock::now();
 #endif
-		MD5 md5;
-		md5.update(bytes.data(), bytes.size());
-		md5.finalize();
-		new_chart->Meta.MD5 = md5.hexdigest();
-		new_chart->Meta.SHA256 = sha256(bytes);
+								   MD5 md5;
+								   md5.update(bytes.data(), bytes.size());
+								   md5.finalize();
+								   new_chart->Meta.MD5 = md5.hexdigest();
 #if BMS_PARSER_VERBOSE == 1
-		std::cout << "Hashing took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+								   std::cout << "Hashing MD5 took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 #endif
+							   });
+		threadRAII md5RAII(std::move(md5Thread));
+		std::thread sha256Thread([&bytes, new_chart]
+								 {
+#if BMS_PARSER_VERBOSE == 1
+									auto startTime = std::chrono::high_resolution_clock::now();
+#endif
+								    new_chart->Meta.SHA256 = sha256(bytes);
+#if BMS_PARSER_VERBOSE == 1
+									std::cout << "Hashing SHA256 took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+#endif
+								 });
+		threadRAII sha256RAII(std::move(sha256Thread));
+
+
 		// std::cout<<"file size: "<<size<<std::endl;
 		// bytes to std::wstring
 #if BMS_PARSER_VERBOSE == 1
-		startTime = std::chrono::high_resolution_clock::now();
+		midStartTime = std::chrono::high_resolution_clock::now();
 #endif
 		std::wstring content;
 		ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size(), content);
 #if BMS_PARSER_VERBOSE == 1
-		std::cout << "ShiftJIS-UTF8 conversion took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+		std::cout << "ShiftJIS-UTF8 conversion took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - midStartTime).count() << "\n";
 #endif
 		// std::wcout<<content<<std::endl;
 		std::vector<int> RandomStack;
@@ -163,7 +200,7 @@ namespace bms_parser
 		std::wstring line;
 		std::wistringstream stream(content);
 #if BMS_PARSER_VERBOSE == 1
-		startTime = std::chrono::high_resolution_clock::now();
+		midStartTime = std::chrono::high_resolution_clock::now();
 #endif
 		auto lastMeasure = -1;
 		while (std::getline(stream, line))
@@ -179,7 +216,6 @@ namespace bms_parser
 			{
 				return;
 			}
-
 
 			if (MatchHeader(line, L"#IF")) // #IF n
 			{
@@ -346,7 +382,7 @@ namespace bms_parser
 			}
 		}
 #if BMS_PARSER_VERBOSE == 1
-		std::cout << "Parsing headers took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+		std::cout << "Parsing headers took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - midStartTime).count() << "\n";
 #endif
 		if (bCancelled)
 		{
@@ -372,7 +408,7 @@ namespace bms_parser
 		auto lnStart = std::vector<LongNote *>();
 		lnStart.resize(TempKey, nullptr);
 #if BMS_PARSER_VERBOSE == 1
-		startTime = std::chrono::high_resolution_clock::now();
+		midStartTime = std::chrono::high_resolution_clock::now();
 #endif
 		for (auto i = 0; i <= lastMeasure; ++i)
 		{
@@ -483,8 +519,8 @@ namespace bms_parser
 					{
 						break;
 					}
-					auto val = data.substr(j * 2, 2);
-					if (val == L"00")
+					std::wstring_view val_view = data.substr(j * 2, 2);
+					if (val_view == L"00")
 					{
 						if (timelines.size() == 0 && j == 0)
 						{
@@ -520,14 +556,14 @@ namespace bms_parser
 						{
 							break;
 						}
-						if (val == L"**")
+						if (val_view == L"**")
 						{
 							timeline->AddBackgroundNote(new Note{MetronomeWav});
 							break;
 						}
-						if (DecodeBase36(val) != 0)
+						if (DecodeBase36(val_view) != 0)
 						{
-							auto bgNote = new Note{ToWaveId(new_chart, val, metaOnly)};
+							auto bgNote = new Note{ToWaveId(new_chart, val_view, metaOnly)};
 							timeline->AddBackgroundNote(bgNote);
 						}
 
@@ -535,7 +571,7 @@ namespace bms_parser
 					case BpmChange:
 					{
 						std::wstringstream ss;
-						ss << std::hex << val;
+						ss << std::hex << val_view;
 						int bpm;
 						ss >> bpm;
 						// parse hex number
@@ -546,17 +582,17 @@ namespace bms_parser
 						break;
 					}
 					case BgaPlay:
-						timeline->BgaBase = DecodeBase36(val);
+						timeline->BgaBase = DecodeBase36(val_view);
 						break;
 					case PoorPlay:
-						timeline->BgaPoor = DecodeBase36(val);
+						timeline->BgaPoor = DecodeBase36(val_view);
 						break;
 					case LayerPlay:
-						timeline->BgaLayer = DecodeBase36(val);
+						timeline->BgaLayer = DecodeBase36(val_view);
 						break;
 					case BpmChangeExtend:
 					{
-						auto id = DecodeBase36(val);
+						auto id = DecodeBase36(val_view);
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *val);
@@ -576,7 +612,7 @@ namespace bms_parser
 					}
 					case Stop:
 					{
-						auto id = DecodeBase36(val);
+						auto id = DecodeBase36(val_view);
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid StopLength id: %s"), *val);
@@ -595,7 +631,7 @@ namespace bms_parser
 					}
 					case P1KeyBase:
 					{
-						auto ch = DecodeBase36(val);
+						auto ch = DecodeBase36(val_view);
 						if (ch == Lnobj && lastNote[laneNumber] != nullptr)
 						{
 							if (isScratch)
@@ -626,7 +662,7 @@ namespace bms_parser
 						}
 						else
 						{
-							auto note = new Note{ToWaveId(new_chart, val, metaOnly)};
+							auto note = new Note{ToWaveId(new_chart, val_view, metaOnly)};
 							lastNote[laneNumber] = note;
 							++totalNotes;
 							if (isScratch)
@@ -649,7 +685,7 @@ namespace bms_parser
 						{
 							break;
 						}
-						auto invNote = new Note{ToWaveId(new_chart, val, metaOnly)};
+						auto invNote = new Note{ToWaveId(new_chart, val_view, metaOnly)};
 						timeline->SetInvisibleNote(
 							laneNumber, invNote);
 						break;
@@ -670,7 +706,7 @@ namespace bms_parser
 									++totalLongNotes;
 								}
 
-								auto ln = new LongNote{ToWaveId(new_chart, val, metaOnly)};
+								auto ln = new LongNote{ToWaveId(new_chart, val_view, metaOnly)};
 								lnStart[laneNumber] = ln;
 
 								if (metaOnly)
@@ -704,7 +740,7 @@ namespace bms_parser
 						{
 							break;
 						}
-						auto damage = DecodeBase36(val) / 2.0f;
+						auto damage = DecodeBase36(val_view) / 2.0f;
 						timeline->SetNote(
 							laneNumber, new LandmineNote{damage});
 						break;
@@ -784,7 +820,7 @@ namespace bms_parser
 			}
 		}
 #if BMS_PARSER_VERBOSE == 1
-		std::cout << "Reading data field took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+		std::cout << "Reading data field took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - midStartTime).count() << "\n";
 #endif
 		new_chart->Meta.TotalLength = static_cast<long long>(timePassed);
 		new_chart->Meta.MinBpm = minBpm;
@@ -838,9 +874,13 @@ namespace bms_parser
 				}
 			}
 		}
+
+#if BMS_PARSER_VERBOSE == 1
+		std::cout << "Total time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+#endif
 	}
 
-	void Parser::ParseHeader(Chart *Chart, std::wstring_view CmdUpper, std::wstring_view Xx, std::wstring Value)
+	void Parser::ParseHeader(Chart *Chart, std::wstring_view CmdUpper, std::wstring_view Xx, const std::wstring &Value)
 	{
 		// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
 		if (CmdUpper == L"PLAYER")

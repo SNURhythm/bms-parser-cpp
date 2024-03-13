@@ -30,15 +30,15 @@ namespace bms_parser
 	public:
 		Parser();
 		void SetRandomSeed(int RandomSeed);
-		void Parse(std::wstring path, Chart **Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
+		void Parse(std::wstring_view path, Chart **Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
 		~Parser();
 		static int NoWav;
 		static int MetronomeWav;
 
 	private:
 		// bpmTable
-		std::map<int, double> BpmTable;
-		std::map<int, double> StopLengthTable;
+		std::unordered_map<int, double> BpmTable;
+		std::unordered_map<int, double> StopLengthTable;
 
 		// abstract analysis for control branches
 		std::pair<int, int> BpmInterval;
@@ -47,7 +47,7 @@ namespace bms_parser
 		int Lntype = 1;
 		int Seed;
 		int DecodeBase36(std::wstring_view Str);
-		void ParseHeader(Chart *Chart, std::wstring_view Cmd, std::wstring_view Xx, std::wstring Value);
+		void ParseHeader(Chart *Chart, std::wstring_view Cmd, std::wstring_view Xx, const std::wstring &Value);
 		bool MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper);
 		static int Gcd(int A, int B);
 		static bool CheckResourceIdRange(int Id);

@@ -352,7 +352,7 @@ namespace bms_parser
       sprintf(buf + i * 2, "%02x", digest[i]);
     buf[32] = 0;
 
-    return std::string(buf);
+    return buf;
   }
 
   //////////////////////////////
