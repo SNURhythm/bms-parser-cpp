@@ -125,7 +125,7 @@ namespace bms_parser
 		new_chart->Meta.BmsPath = path;
 		std::filesystem::path fpath = path;
 		new_chart->Meta.Folder = fpath.parent_path().wstring();
-		std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
+		static std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
 
 		auto measures = std::unordered_map<int, std::vector<std::pair<int, std::wstring>>>();
 		std::vector<unsigned char> bytes;
