@@ -1,5 +1,5 @@
 CC=g++
-CCFLAGS=-std=c++17 -g -DBMS_PARSER_VERBOSE=1
+CCFLAGS=-std=c++17 -DBMS_PARSER_VERBOSE=1
 SRC_FILES = $(wildcard src/*.cpp)
 OBJ_PATH=obj
 BUILD_PATH=build

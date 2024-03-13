@@ -366,9 +366,6 @@ namespace bms_parser
 
 					if (std::regex_search(line, matcher, headerRegex))
 					{
-						std::wstring cmd = matcher[1].str();
-						std::wstring cmdUpper;
-						std::transform(cmd.begin(), cmd.end(), std::back_inserter(cmdUpper), ::toupper);
 						std::wstring xx = matcher[2].str();
 						std::wstring value = matcher[3].str();
 						if (value.empty())
@@ -376,7 +373,7 @@ namespace bms_parser
 							value = xx;
 							xx = L"";
 						}
-						ParseHeader(new_chart, cmdUpper, xx, value);
+						ParseHeader(new_chart, matcher[1].str(), xx, value);
 					}
 				}
 			}
@@ -880,38 +877,38 @@ namespace bms_parser
 #endif
 	}
 
-	void Parser::ParseHeader(Chart *Chart, std::wstring_view CmdUpper, std::wstring_view Xx, const std::wstring &Value)
+	void Parser::ParseHeader(Chart *Chart, std::wstring_view cmd, std::wstring_view Xx, const std::wstring &Value)
 	{
 		// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
-		if (CmdUpper == L"PLAYER")
+		if (MatchHeader(cmd, L"PLAYER"))
 		{
 			Chart->Meta.Player = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 		}
-		else if (CmdUpper == L"GENRE")
+		else if (MatchHeader(cmd, L"GENRE"))
 		{
 			Chart->Meta.Genre = Value;
 		}
-		else if (CmdUpper == L"TITLE")
+		else if (MatchHeader(cmd, L"TITLE"))
 		{
 			Chart->Meta.Title = Value;
 		}
-		else if (CmdUpper == L"SUBTITLE")
+		else if (MatchHeader(cmd, L"SUBTITLE"))
 		{
 			Chart->Meta.SubTitle = Value;
 		}
-		else if (CmdUpper == L"ARTIST")
+		else if (MatchHeader(cmd, L"ARTIST"))
 		{
 			Chart->Meta.Artist = Value;
 		}
-		else if (CmdUpper == L"SUBARTIST")
+		else if (MatchHeader(cmd, L"SUBARTIST"))
 		{
 			Chart->Meta.SubArtist = Value;
 		}
-		else if (CmdUpper == L"DIFFICULTY")
+		else if (MatchHeader(cmd, L"DIFFICULTY"))
 		{
 			Chart->Meta.Difficulty = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 		}
-		else if (CmdUpper == L"BPM")
+		else if (MatchHeader(cmd, L"BPM"))
 		{
 			if (Value.empty())
 			{
@@ -935,7 +932,7 @@ namespace bms_parser
 				BpmTable[id] = std::wcstod(Value.c_str(), nullptr);
 			}
 		}
-		else if (CmdUpper == L"STOP")
+		else if (MatchHeader(cmd, L"STOP"))
 		{
 			if (Value.empty() || Xx.empty() || Xx.length() == 0)
 			{
@@ -949,21 +946,21 @@ namespace bms_parser
 			}
 			StopLengthTable[id] = std::wcstod(Value.c_str(), nullptr);
 		}
-		else if (CmdUpper == L"MIDIFILE")
+		else if (MatchHeader(cmd, L"MIDIFILE"))
 		{
 		}
-		else if (CmdUpper == L"VIDEOFILE")
+		else if (MatchHeader(cmd, L"VIDEOFILE"))
 		{
 		}
-		else if (CmdUpper == L"PLAYLEVEL")
+		else if (MatchHeader(cmd, L"PLAYLEVEL"))
 		{
 			Chart->Meta.PlayLevel = std::wcstod(Value.c_str(), nullptr); // TODO: handle error
 		}
-		else if (CmdUpper == L"RANK")
+		else if (MatchHeader(cmd, L"RANK"))
 		{
 			Chart->Meta.Rank = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 		}
-		else if (CmdUpper == L"TOTAL")
+		else if (MatchHeader(cmd, L"TOTAL"))
 		{
 			auto total = std::wcstod(Value.c_str(), nullptr);
 			if (total > 0)
@@ -971,26 +968,26 @@ namespace bms_parser
 				Chart->Meta.Total = total;
 			}
 		}
-		else if (CmdUpper == L"VOLWAV")
+		else if (MatchHeader(cmd, L"VOLWAV"))
 		{
 		}
-		else if (CmdUpper == L"STAGEFILE")
+		else if (MatchHeader(cmd, L"STAGEFILE"))
 		{
 			Chart->Meta.StageFile = Value;
 		}
-		else if (CmdUpper == L"BANNER")
+		else if (MatchHeader(cmd, L"BANNER"))
 		{
 			Chart->Meta.Banner = Value;
 		}
-		else if (CmdUpper == L"BACKBMP")
+		else if (MatchHeader(cmd, L"BACKBMP"))
 		{
 			Chart->Meta.BackBmp = Value;
 		}
-		else if (CmdUpper == L"PREVIEW")
+		else if (MatchHeader(cmd, L"PREVIEW"))
 		{
 			Chart->Meta.Preview = Value;
 		}
-		else if (CmdUpper == L"WAV")
+		else if (MatchHeader(cmd, L"WAV"))
 		{
 			if (Xx.empty() || Value.empty())
 			{
@@ -1005,7 +1002,7 @@ namespace bms_parser
 			}
 			Chart->WavTable[id] = Value;
 		}
-		else if (CmdUpper == L"BMP")
+		else if (MatchHeader(cmd, L"BMP"))
 		{
 			if (Xx.empty() || Value.empty())
 			{
@@ -1024,30 +1021,21 @@ namespace bms_parser
 				Chart->Meta.BgaPoorDefault = true;
 			}
 		}
-		else if (CmdUpper == L"RANDOM")
-		{
-		}
-		else if (CmdUpper == L"IF")
-		{
-		}
-		else if (CmdUpper == L"ENDIF")
-		{
-		}
-		else if (CmdUpper == L"LNOBJ")
+		else if (MatchHeader(cmd, L"LNOBJ"))
 		{
 			Lnobj = DecodeBase36(Value);
 		}
-		else if (CmdUpper == L"LNTYPE")
+		else if (MatchHeader(cmd, L"LNTYPE"))
 		{
 			Lntype = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 		}
-		else if (CmdUpper == L"LNMODE")
+		else if (MatchHeader(cmd, L"LNMODE"))
 		{
 			Chart->Meta.LnMode = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 		}
 		else
 		{
-			std::wcout << "Unknown command: " << CmdUpper << std::endl;
+			std::wcout << "Unknown command: " << cmd << std::endl;
 		}
 	}
 
@@ -1094,8 +1082,6 @@ namespace bms_parser
 	int Parser::DecodeBase36(std::wstring_view Str)
 	{
 		int result = 0;
-		// std::wstring StrUpper;
-		// std::transform(Str.begin(), Str.end(), std::back_inserter(StrUpper), ::toupper);
 		for (auto c : Str)
 		{
 			result *= 36;

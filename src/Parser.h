@@ -40,14 +40,11 @@ namespace bms_parser
 		std::unordered_map<int, double> BpmTable;
 		std::unordered_map<int, double> StopLengthTable;
 
-		// abstract analysis for control branches
-		std::pair<int, int> BpmInterval;
-
 		int Lnobj = -1;
 		int Lntype = 1;
 		int Seed;
 		int DecodeBase36(std::wstring_view Str);
-		void ParseHeader(Chart *Chart, std::wstring_view Cmd, std::wstring_view Xx, const std::wstring &Value);
+		void ParseHeader(Chart *Chart, std::wstring_view cmd, std::wstring_view Xx, const std::wstring &Value);
 		bool MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper);
 		static int Gcd(int A, int B);
 		static bool CheckResourceIdRange(int Id);
