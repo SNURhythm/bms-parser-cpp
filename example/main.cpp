@@ -286,7 +286,7 @@ bool construct_folder_db(const std::filesystem::path &path)
     std::wcout << diff.path << L" " << diff.type << std::endl;
   }
   std::atomic_bool is_committing = false;
-  std::atomic_int success_count = 0; // commit every 100 files
+  std::atomic_int success_count = 0; // commit every 1000 files
 
   auto startTime = std::chrono::high_resolution_clock::now();
 
