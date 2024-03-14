@@ -156,7 +156,7 @@ namespace bms_parser
 		std::cout << "Total parsing+reading took " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "\n";
 #endif
 	}
-	void Parser::Parse(std::vector<unsigned char> &bytes, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
+	void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
 	{
 #if BMS_PARSER_VERBOSE == 1
 		auto startTime = std::chrono::high_resolution_clock::now();

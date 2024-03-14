@@ -331,10 +331,12 @@ bool construct_folder_db(const std::filesystem::path &path)
           // std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
           // std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
         }catch(std::exception &e){
+          fileBytes[i].clear();
           delete chart;
           std::wcerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
           continue;
         }
+        fileBytes[i].clear();
         if(chart == nullptr){
           continue;
         }
