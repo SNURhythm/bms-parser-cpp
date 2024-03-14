@@ -20,6 +20,8 @@
 #include "../src/Chart.h"
 #endif
 #include <atomic>
+#include <chrono>
+#include <mutex>
 #include <iostream>
 #include <fstream>
 #include <string>
