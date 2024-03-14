@@ -289,28 +289,6 @@ bool construct_folder_db(const std::filesystem::path &path)
   std::atomic_int success_count = 0; // commit every 100 files
 
   auto startTime = std::chrono::high_resolution_clock::now();
-  std::unordered_map<int, std::vector<unsigned char>> fileBytes;
-
-  for (int i = 0; i < diffs.size(); i++)
-  {
-    if (diffs[i].type == Added)
-    {
-      std::filesystem::path fpath = diffs[i].path;
-      std::ifstream file(fpath, std::ios::binary);
-      if (!file.is_open())
-      {
-        std::wcerr << "Failed to open file: " << diffs[i].path << std::endl;
-        continue;
-      }
-      fileBytes[i] = std::vector<unsigned char>();
-      file.seekg(0, std::ios::end);
-      auto size = file.tellg();
-      file.seekg(0, std::ios::beg);
-      fileBytes[i].resize(static_cast<size_t>(size));
-      file.read(reinterpret_cast<char *>(fileBytes[i].data()), size);
-      file.close();
-    }
-  }
 
   sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
 
@@ -319,29 +297,26 @@ bool construct_folder_db(const std::filesystem::path &path)
 
     for(int i = start; i < end; i++){
       if(diffs[i].type == Added){
-        if(fileBytes.find(i) == fileBytes.end()){
-          continue;
-        }
+
         bms_parser::Parser parser;
         bms_parser::Chart *chart;
         std::atomic_bool cancel = false;
         try{
-          parser.Parse(fileBytes[i], &chart, false, true, cancel);
+          parser.Parse(diffs[i].path.wstring(), &chart, false, true, cancel);
           // std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
           // std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
           // std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
         }catch(std::exception &e){
-          fileBytes[i].clear();
           delete chart;
-          std::wcerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
+          std::cerr << "Error parsing " << diffs[i].path << ": " << e.what() << std::endl;
           continue;
         }
-        fileBytes[i].clear();
+
         if(chart == nullptr){
           continue;
         }
         ++success_count;
-        if(success_count % 100 == 0 && !is_committing){
+        if(success_count % 1000 == 0 && !is_committing){
           is_committing = true;
           sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr);
           sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
