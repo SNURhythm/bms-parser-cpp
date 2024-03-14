@@ -1,15 +1,15 @@
-/* 
+/*
  * Copyright (C) 2024 VioletXF, khoeun03
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -287,35 +287,36 @@ bool construct_folder_db(const std::filesystem::path &path)
   }
   std::atomic_bool is_committing = false;
   std::atomic_int success_count = 0; // commit every 100 files
-  std::mutex fileReadLock;
+
   auto startTime = std::chrono::high_resolution_clock::now();
+  std::unordered_map<int, std::vector<unsigned char>> fileBytes;
+
+  for (int i = 0; i < diffs.size(); i++)
+  {
+    if (diffs[i].type == Added)
+    {
+      std::filesystem::path fpath = diffs[i].path;
+      std::ifstream file(fpath, std::ios::binary);
+      if (!file.is_open())
+      {
+        std::wcerr << "Failed to open file: " << diffs[i].path << std::endl;
+        continue;
+      }
+      fileBytes[i] = std::vector<unsigned char>();
+      file.seekg(0, std::ios::end);
+      auto size = file.tellg();
+      file.seekg(0, std::ios::beg);
+      fileBytes[i].resize(static_cast<size_t>(size));
+      file.read(reinterpret_cast<char *>(fileBytes[i].data()), size);
+      file.close();
+    }
+  }
+
   sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
 
   parallel_for(diffs.size(), [&](int start, int end)
                {
-    std::unordered_map<int, std::vector<unsigned char>> fileBytes;
-    fileReadLock.lock();
-    for (int i = start; i < end; i++)
-    {
-      if (diffs[i].type == Added)
-      {
-        std::filesystem::path fpath = diffs[i].path;
-        std::ifstream file(fpath, std::ios::binary);
-        if (!file.is_open())
-        {
-          std::wcerr << "Failed to open file: " << diffs[i].path << std::endl;
-          continue;
-        }
-        fileBytes[i] = std::vector<unsigned char>();
-        file.seekg(0, std::ios::end);
-        auto size = file.tellg();
-        file.seekg(0, std::ios::beg);
-        fileBytes[i].resize(static_cast<size_t>(size));
-        file.read(reinterpret_cast<char *>(fileBytes[i].data()), size);
-        file.close();
-      }
-    }
-    fileReadLock.unlock();
+
     for(int i = start; i < end; i++){
       if(diffs[i].type == Added){
         if(fileBytes.find(i) == fileBytes.end()){
