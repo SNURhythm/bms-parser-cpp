@@ -21,6 +21,7 @@
 #endif
 #include <atomic>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -284,17 +285,45 @@ bool construct_folder_db(const std::filesystem::path &path)
   }
   std::atomic_bool is_committing = false;
   std::atomic_int success_count = 0; // commit every 100 files
+  std::mutex fileReadLock;
+  auto startTime = std::chrono::high_resolution_clock::now();
   sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
 
   parallel_for(diffs.size(), [&](int start, int end)
                {
+    std::unordered_map<int, std::vector<unsigned char>> fileBytes;
+    fileReadLock.lock();
+    for (int i = start; i < end; i++)
+    {
+      if (diffs[i].type == Added)
+      {
+        std::filesystem::path fpath = diffs[i].path;
+        std::ifstream file(fpath, std::ios::binary);
+        if (!file.is_open())
+        {
+          std::wcerr << "Failed to open file: " << diffs[i].path << std::endl;
+          continue;
+        }
+        fileBytes[i] = std::vector<unsigned char>();
+        file.seekg(0, std::ios::end);
+        auto size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        fileBytes[i].resize(static_cast<size_t>(size));
+        file.read(reinterpret_cast<char *>(fileBytes[i].data()), size);
+        file.close();
+      }
+    }
+    fileReadLock.unlock();
     for(int i = start; i < end; i++){
       if(diffs[i].type == Added){
+        if(fileBytes.find(i) == fileBytes.end()){
+          continue;
+        }
         bms_parser::Parser parser;
         bms_parser::Chart *chart;
         std::atomic_bool cancel = false;
         try{
-          parser.Parse(diffs[i].path.wstring(), &chart, false, true, cancel);
+          parser.Parse(fileBytes[i], &chart, false, true, cancel);
           // std::cout << "Title: " << ws2s(chart->Meta.Title) << std::endl;
           // std::cout << "SubTitle: " << ws2s(chart->Meta.SubTitle) << std::endl;
           // std::cout << "Artist: " << ws2s(chart->Meta.Artist) << std::endl;
@@ -420,6 +449,8 @@ bool construct_folder_db(const std::filesystem::path &path)
   sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr);
 
   sqlite3_close(db);
+  auto endTime = std::chrono::high_resolution_clock::now();
+  std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count() << "ms" << std::endl;
   return true;
 }
 

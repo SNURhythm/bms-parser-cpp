@@ -119,17 +119,11 @@ namespace bms_parser
 	}
 	void Parser::Parse(std::wstring_view path, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
 	{
+#if BMS_PARSER_VERBOSE == 1
 		auto startTime = std::chrono::high_resolution_clock::now();
-		auto new_chart = new Chart();
-		*chart = new_chart;
-		new_chart->Meta.BmsPath = path;
-		std::filesystem::path fpath = path;
-		new_chart->Meta.Folder = fpath.parent_path().wstring();
-		static std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
-
-		auto measures = std::unordered_map<int, std::vector<std::pair<int, std::wstring>>>();
+#endif
 		std::vector<unsigned char> bytes;
-
+		std::filesystem::path fpath = path;
 		std::ifstream file(fpath, std::ios::binary);
 		if (!file.is_open())
 		{
@@ -149,42 +143,67 @@ namespace bms_parser
 #if BMS_PARSER_VERBOSE == 1
 		std::cout << "File read took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - midStartTime).count() << "\n";
 #endif
+		Parse(bytes, chart, addReadyMeasure, metaOnly, bCancelled);
+		auto new_chart = *chart;
+		if (new_chart != nullptr)
+		{
+			new_chart->Meta.BmsPath = path;
+
+			new_chart->Meta.Folder = fpath.parent_path().wstring();
+		}
+#if BMS_PARSER_VERBOSE == 1
+		auto endTime = std::chrono::high_resolution_clock::now();
+		std::cout << "Total parsing+reading took " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "\n";
+#endif
+	}
+	void Parser::Parse(std::vector<unsigned char> &bytes, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled)
+	{
+#if BMS_PARSER_VERBOSE == 1
+		auto startTime = std::chrono::high_resolution_clock::now();
+#endif
+		auto new_chart = new Chart();
+		*chart = new_chart;
+
+		static std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
+
 		if (bCancelled)
 		{
 			return;
 		}
+
+		auto measures = std::unordered_map<int, std::vector<std::pair<int, std::wstring>>>();
+
 		// compute hash in separate thread
 		std::thread md5Thread([&bytes, new_chart]
-							   {
+							  {
 #if BMS_PARSER_VERBOSE == 1
-								   auto startTime = std::chrono::high_resolution_clock::now();
+								  auto startTime = std::chrono::high_resolution_clock::now();
 #endif
-								   MD5 md5;
-								   md5.update(bytes.data(), bytes.size());
-								   md5.finalize();
-								   new_chart->Meta.MD5 = md5.hexdigest();
+								  MD5 md5;
+								  md5.update(bytes.data(), bytes.size());
+								  md5.finalize();
+								  new_chart->Meta.MD5 = md5.hexdigest();
 #if BMS_PARSER_VERBOSE == 1
-								   std::cout << "Hashing MD5 took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+								  std::cout << "Hashing MD5 took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 #endif
-							   });
+							  });
 		threadRAII md5RAII(std::move(md5Thread));
 		std::thread sha256Thread([&bytes, new_chart]
 								 {
 #if BMS_PARSER_VERBOSE == 1
-									auto startTime = std::chrono::high_resolution_clock::now();
+									 auto startTime = std::chrono::high_resolution_clock::now();
 #endif
-								    new_chart->Meta.SHA256 = sha256(bytes);
+									 new_chart->Meta.SHA256 = sha256(bytes);
 #if BMS_PARSER_VERBOSE == 1
-									std::cout << "Hashing SHA256 took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+									 std::cout << "Hashing SHA256 took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 #endif
 								 });
 		threadRAII sha256RAII(std::move(sha256Thread));
 
-
 		// std::cout<<"file size: "<<size<<std::endl;
 		// bytes to std::wstring
 #if BMS_PARSER_VERBOSE == 1
-		midStartTime = std::chrono::high_resolution_clock::now();
+		auto midStartTime = std::chrono::high_resolution_clock::now();
 #endif
 		std::wstring content;
 		ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size(), content);
@@ -873,7 +892,7 @@ namespace bms_parser
 		}
 
 #if BMS_PARSER_VERBOSE == 1
-		std::cout << "Total time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
+		std::cout << "Total parsing time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 #endif
 	}
 

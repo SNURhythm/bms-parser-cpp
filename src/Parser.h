@@ -32,6 +32,7 @@ namespace bms_parser
 		void SetRandomSeed(int RandomSeed);
 		void Parse(std::wstring_view path, Chart **Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
 		~Parser();
+		void Parse(std::vector<unsigned char>& bytes, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
 		static int NoWav;
 		static int MetronomeWav;
 
