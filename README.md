@@ -11,5 +11,4 @@ You can get amalgamated code from [releases](https://github.com/SNURhythm/bms-pa
 
 ## TODOs 
 - [ ] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
-- [x] Provide amalgamated code (need to fix #1)
 - [ ] Implement client-specific commands like #SCROLL
