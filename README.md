@@ -10,5 +10,5 @@ You can get amalgamated code from [releases](https://github.com/SNURhythm/bms-pa
 - [ ] Implement blazing-fast parser with parallel processing
 
 ## TODOs 
-- [ ] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
+- [x] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
 - [ ] Implement client-specific commands like #SCROLL

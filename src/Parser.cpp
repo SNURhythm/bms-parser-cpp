@@ -313,7 +313,7 @@ namespace bms_parser
 				std::wstring_view ch = line.substr(4, 2);
 				int channel;
 				std::wstring value;
-				channel = DecodeBase36(ch);
+				channel = ParseInt(ch);
 				value = line.substr(7);
 				if (measures.find(measure) == measures.end())
 				{
@@ -577,7 +577,7 @@ namespace bms_parser
 							timeline->AddBackgroundNote(new Note{MetronomeWav});
 							break;
 						}
-						if (DecodeBase36(val_view) != 0)
+						if (ParseInt(val_view) != 0)
 						{
 							auto bgNote = new Note{ToWaveId(new_chart, val_view, metaOnly)};
 							timeline->AddBackgroundNote(bgNote);
@@ -598,17 +598,17 @@ namespace bms_parser
 						break;
 					}
 					case BgaPlay:
-						timeline->BgaBase = DecodeBase36(val_view);
+						timeline->BgaBase = ParseInt(val_view);
 						break;
 					case PoorPlay:
-						timeline->BgaPoor = DecodeBase36(val_view);
+						timeline->BgaPoor = ParseInt(val_view);
 						break;
 					case LayerPlay:
-						timeline->BgaLayer = DecodeBase36(val_view);
+						timeline->BgaLayer = ParseInt(val_view);
 						break;
 					case BpmChangeExtend:
 					{
-						auto id = DecodeBase36(val_view);
+						auto id = ParseInt(val_view);
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *val);
@@ -628,7 +628,7 @@ namespace bms_parser
 					}
 					case Stop:
 					{
-						auto id = DecodeBase36(val_view);
+						auto id = ParseInt(val_view);
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid StopLength id: %s"), *val);
@@ -647,7 +647,7 @@ namespace bms_parser
 					}
 					case P1KeyBase:
 					{
-						auto ch = DecodeBase36(val_view);
+						auto ch = ParseInt(val_view);
 						if (ch == Lnobj && lastNote[laneNumber] != nullptr)
 						{
 							if (isScratch)
@@ -756,7 +756,7 @@ namespace bms_parser
 						{
 							break;
 						}
-						auto damage = DecodeBase36(val_view) / 2.0f;
+						auto damage = ParseInt(val_view, true) / 2.0f;
 						timeline->SetNote(
 							laneNumber, new LandmineNote{damage});
 						break;
@@ -899,7 +899,20 @@ namespace bms_parser
 	void Parser::ParseHeader(Chart *Chart, std::wstring_view cmd, std::wstring_view Xx, const std::wstring &Value)
 	{
 		// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
-		if (MatchHeader(cmd, L"PLAYER"))
+		// BASE 62
+		if(MatchHeader(cmd, L"BASE")){
+			if (Value.empty())
+			{
+				return; // TODO: handle this
+			}
+			auto base = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			std::wcout << "BASE: " << base << std::endl;
+			if(base != 36 && base != 62) {
+				return; // TODO: handle this
+			}
+			this->UseBase62 = base == 62;
+		}
+		else if (MatchHeader(cmd, L"PLAYER"))
 		{
 			Chart->Meta.Player = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
 		}
@@ -942,7 +955,7 @@ namespace bms_parser
 			else
 			{
 				// Debug.Log($"BPM: {DecodeBase36(xx)} = {double.Parse(value)}");
-				int id = DecodeBase36(Xx);
+				int id = ParseInt(Xx);
 				if (!CheckResourceIdRange(id))
 				{
 					// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *Xx);
@@ -957,7 +970,7 @@ namespace bms_parser
 			{
 				return; // TODO: handle this
 			}
-			int id = DecodeBase36(Xx);
+			int id = ParseInt(Xx);
 			if (!CheckResourceIdRange(id))
 			{
 				// UE_LOG(LogTemp, Warning, TEXT("Invalid STOP id: %s"), *Xx);
@@ -1013,7 +1026,7 @@ namespace bms_parser
 				// UE_LOG(LogTemp, Warning, TEXT("WAV command requires two arguments"));
 				return;
 			}
-			int id = DecodeBase36(Xx);
+			int id = ParseInt(Xx);
 			if (!CheckResourceIdRange(id))
 			{
 				// UE_LOG(LogTemp, Warning, TEXT("Invalid WAV id: %s"), *Xx);
@@ -1028,7 +1041,7 @@ namespace bms_parser
 				// UE_LOG(LogTemp, Warning, TEXT("BMP command requires two arguments"));
 				return;
 			}
-			int id = DecodeBase36(Xx);
+			int id = ParseInt(Xx);
 			if (!CheckResourceIdRange(id))
 			{
 				// UE_LOG(LogTemp, Warning, TEXT("Invalid BMP id: %s"), *Xx);
@@ -1042,7 +1055,7 @@ namespace bms_parser
 		}
 		else if (MatchHeader(cmd, L"LNOBJ"))
 		{
-			Lnobj = DecodeBase36(Value);
+			Lnobj = ParseInt(Value);
 		}
 		else if (MatchHeader(cmd, L"LNTYPE"))
 		{
@@ -1074,7 +1087,7 @@ namespace bms_parser
 
 	bool Parser::CheckResourceIdRange(int Id)
 	{
-		return Id >= 0 && Id < 36 * 36;
+		return Id >= 0 && Id < (UseBase62 ? 62*62 : 36*36);
 	}
 
 	int Parser::ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly)
@@ -1087,7 +1100,7 @@ namespace bms_parser
 		{
 			return NoWav;
 		}
-		auto decoded = DecodeBase36(Wav);
+		auto decoded = ParseInt(Wav);
 		// check range
 		if (!CheckResourceIdRange(decoded))
 		{
@@ -1098,25 +1111,32 @@ namespace bms_parser
 		return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded : NoWav;
 	}
 
-	int Parser::DecodeBase36(std::wstring_view Str)
+	int Parser::ParseInt(std::wstring_view Str, bool forceBase36)
 	{
-		int result = 0;
-		for (auto c : Str)
+		if(forceBase36 || !UseBase62) {
+			auto result = static_cast<int>(std::wcstol(Str.data(), nullptr, 36));
+			// std::wcout << "ParseInt36: " << Str << " = " << result << std::endl;
+			return result;
+		}
+		
+		auto result = 0;
+		for (auto i = 0; i < Str.length(); ++i)
 		{
-			result *= 36;
-			if (std::isdigit(c))
+			auto c = Str[i];
+			if (c >= '0' && c <= '9')
 			{
-				result += c - '0';
+				result = result * 62 + c - '0';
 			}
-			else if (isalpha(c))
+			else if (c >= 'A' && c <= 'Z')
 			{
-				result += c - (isupper(c) ? 'A' : 'a') + 10;
+				result = result * 62 + c - 'A' + 10;
 			}
-			else
+			else if (c >= 'a' && c <= 'z')
 			{
-				return -1;
+				result = result * 62 + c - 'a' + 36;
 			}
 		}
+		// std::wcout << "ParseInt62: " << Str << " = " << result << std::endl;
 		return result;
 	}
 

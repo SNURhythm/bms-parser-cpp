@@ -40,15 +40,15 @@ namespace bms_parser
 		// bpmTable
 		std::unordered_map<int, double> BpmTable;
 		std::unordered_map<int, double> StopLengthTable;
-
+		bool UseBase62 = false;
 		int Lnobj = -1;
 		int Lntype = 1;
 		int Seed;
-		int DecodeBase36(std::wstring_view Str);
+		int ParseInt(std::wstring_view Str, bool forceBase32 = false);
 		void ParseHeader(Chart *Chart, std::wstring_view cmd, std::wstring_view Xx, const std::wstring &Value);
 		bool MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper);
 		static int Gcd(int A, int B);
-		static bool CheckResourceIdRange(int Id);
+		bool CheckResourceIdRange(int Id);
 		int ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly);
 	};
 }
