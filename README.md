@@ -10,5 +10,4 @@ You can get amalgamated code from [releases](https://github.com/SNURhythm/bms-pa
 - [ ] Implement blazing-fast parser with parallel processing
 
 ## TODOs 
-- [x] Support base62 mode [#](https://twitter.com/Nekokan_Server/status/1762783932721098858)
-- [ ] Implement client-specific commands like #SCROLL
+- [ ] Implement client-specific commands like [#SCROLL](https://bemuse.ninja/project/docs/bms-extensions/#speed-and-scroll-segments)
