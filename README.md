@@ -11,3 +11,4 @@ You can get amalgamated code from [releases](https://github.com/SNURhythm/bms-pa
 
 ## TODOs 
 - [ ] Implement client-specific commands like [#SCROLL](https://bemuse.ninja/project/docs/bms-extensions/#speed-and-scroll-segments)
+- [ ] Refactor interface to fit standard conventions
