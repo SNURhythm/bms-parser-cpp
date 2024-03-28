@@ -40,6 +40,8 @@ namespace bms_parser
 		// bpmTable
 		std::unordered_map<int, double> BpmTable;
 		std::unordered_map<int, double> StopLengthTable;
+		std::unordered_map<int, double> ScrollTable;
+
 		bool UseBase62 = false;
 		int Lnobj = -1;
 		int Lntype = 1;

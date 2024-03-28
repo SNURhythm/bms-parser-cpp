@@ -224,6 +224,10 @@ namespace bms_parser
 		auto lastMeasure = -1;
 		while (std::getline(stream, line))
 		{
+			if (!line.empty() && line.back() == '\r')
+			{
+				line.pop_back();
+			}
 			if (bCancelled)
 			{
 				return;
@@ -609,6 +613,7 @@ namespace bms_parser
 					case BpmChangeExtend:
 					{
 						auto id = ParseInt(val_view);
+						// std::cout << "BPM_CHANGE_EXTEND: " << id << ", on measure " << i << std::endl;
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *val);
@@ -621,6 +626,7 @@ namespace bms_parser
 						else
 						{
 							timeline->Bpm = 0;
+							// std::cout<<"Undefined BPM: "<<id<<std::endl;
 						}
 						// Debug.Log($"BPM_CHANGE_EXTEND: {timeline.Bpm}, on measure {i}, {val}");
 						timeline->BpmChange = true;
@@ -804,7 +810,6 @@ namespace bms_parser
 				{
 					measure->TimeLines.push_back(timeline);
 				}
-				new_chart->Meta.PlayLength = static_cast<long long>(timePassed);
 
 				lastPosition = position;
 			}
@@ -825,6 +830,7 @@ namespace bms_parser
 				timeline->Bpm = currentBpm;
 				measure->TimeLines.push_back(timeline);
 			}
+			new_chart->Meta.PlayLength = static_cast<long long>(timePassed);
 			timePassed += 240000000.0 * (1 - lastPosition) * measure->Scale / currentBpm;
 			if (!metaOnly)
 			{
@@ -1134,7 +1140,7 @@ namespace bms_parser
 			else if (c >= 'a' && c <= 'z')
 			{
 				result = result * 62 + c - 'a' + 36;
-			}
+			} else return -1;
 		}
 		// std::wcout << "ParseInt62: " << Str << " = " << result << std::endl;
 		return result;

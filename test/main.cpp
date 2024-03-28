@@ -171,6 +171,11 @@ int main()
                     auto out = std::stoi(line.substr(6));
                     ASSERT_EQ(out, chart->Meta.Rank, "rank: ");
                 }
+                else if (line.rfind(L"playlength: ", 0) == 0)
+                {
+                    auto out = std::stoi(line.substr(11));
+                    ASSERT_EQ(out, chart->Meta.PlayLength, "playlength: ");
+                }
             }
             delete chart;
             std::cout << "\tPass" << std::endl;
