@@ -157,6 +157,19 @@ void findFilesWin(const std::wstring &directoryPath, std::vector<Diff> &diffs, c
   }
 }
 #else
+void resolveDType(const std::filesystem::path& directoryPath, struct dirent *entry){
+  if(entry->d_type == DT_UNKNOWN){
+    std::filesystem::path fullPath = directoryPath / entry->d_name;
+    struct stat statbuf;
+    if(stat(fullPath.c_str(), &statbuf) == 0){
+      if(S_ISREG(statbuf.st_mode)){
+        entry->d_type = DT_REG;
+      }else if(S_ISDIR(statbuf.st_mode)){
+        entry->d_type = DT_DIR;
+      }
+    }
+  }
+}
 // TODO: Use platform-specific method for faster traversal
 void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff> &diffs, const std::unordered_set<std::wstring> &oldFiles, std::vector<std::filesystem::path> &directoriesToVisit)
 {
@@ -166,6 +179,7 @@ void findFilesUnix(const std::filesystem::path &directoryPath, std::vector<Diff>
     struct dirent *entry;
     while ((entry = readdir(dir)) != nullptr)
     {
+      resolveDType(directoryPath, entry);
       if (entry->d_type == DT_REG)
       {
         std::string filename = entry->d_name;
