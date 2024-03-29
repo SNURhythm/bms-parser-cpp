@@ -76,7 +76,9 @@ namespace bms_parser
 		P1LongKeyBase = 5 * 36 + 1,
 		P2LongKeyBase = 6 * 36 + 1,
 		P1MineKeyBase = 13 * 36 + 1,
-		P2MineKeyBase = 14 * 36 + 1
+		P2MineKeyBase = 14 * 36 + 1,
+
+		Scroll = 1020
 	};
 
 	namespace KeyAssign
@@ -86,9 +88,8 @@ namespace bms_parser
 	};
 
 	constexpr int TempKey = 16;
-	constexpr int Scroll = 1020;
 
-	Parser::Parser() : BpmTable{}, StopLengthTable{}
+	Parser::Parser() : BpmTable{}, StopLengthTable{}, ScrollTable{}
 	{
 		std::random_device seeder;
 		Seed = seeder();
@@ -383,6 +384,16 @@ namespace bms_parser
 						ParseHeader(new_chart, L"BPM", xx, value);
 					}
 				}
+				else if (MatchHeader(line, L"#SCROLL"))
+				{
+					if (line.length() < 10)
+					{
+						continue;
+					}
+					auto xx = line.substr(7, 2);
+					auto value = line.substr(10);
+					ParseHeader(new_chart, L"SCROLL", xx, value);
+				}
 				else
 				{
 					std::wsmatch matcher;
@@ -630,6 +641,25 @@ namespace bms_parser
 						}
 						// Debug.Log($"BPM_CHANGE_EXTEND: {timeline.Bpm}, on measure {i}, {val}");
 						timeline->BpmChange = true;
+						break;
+					}
+					case Scroll:
+					{
+						auto id = ParseInt(val_view);
+						if (!CheckResourceIdRange(id))
+						{
+							// UE_LOG(LogTemp, Warning, TEXT("Invalid Scroll id: %s"), *val);
+							break;
+						}
+						if (ScrollTable.find(id) != ScrollTable.end())
+						{
+							timeline->Scroll = ScrollTable[id];
+						}
+						else
+						{
+							timeline->Scroll = 1;
+						}
+						// Debug.Log($"SCROLL: {timeline.Scroll}, on measure {i}");
 						break;
 					}
 					case Stop:
@@ -1070,6 +1100,13 @@ namespace bms_parser
 		else if (MatchHeader(cmd, L"LNMODE"))
 		{
 			Chart->Meta.LnMode = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+		}
+		else if (MatchHeader(cmd, L"SCROLL"))
+		{
+			auto xx = ParseInt(Xx);
+			auto value = std::wcstod(Value.c_str(), nullptr);
+			ScrollTable[xx] = value;
+			std::wcout << "SCROLL: " << xx << " = " << value << std::endl;
 		}
 		else
 		{
