@@ -10,5 +10,6 @@ You can get amalgamated code from [releases](https://github.com/SNURhythm/bms-pa
 - [ ] Implement blazing-fast parser with parallel processing
 
 ## TODOs 
-- [ ] Implement client-specific commands like [#SCROLL](https://bemuse.ninja/project/docs/bms-extensions/#speed-and-scroll-segments)
+- [ ] Implement client-specific commands like 
+  - [x] [#SCROLL](https://bemuse.ninja/project/docs/bms-extensions/#speed-and-scroll-segments)
 - [ ] Refactor interface to fit standard conventions
