@@ -14,3 +14,8 @@ You can get amalgamated code from [releases](https://github.com/SNURhythm/bms-pa
   - [x] [#SCROLL](https://bemuse.ninja/project/docs/bms-extensions/#speed-and-scroll-segments)
 - [ ] Refactor interface to fit standard conventions
 - [ ] Provide note position calculator
+
+## Others
+
+Check [bms-parser-py](https://github.com/SNURhythm/bms-parser-py) for Python implementation
+
