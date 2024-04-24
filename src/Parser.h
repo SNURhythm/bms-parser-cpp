@@ -50,7 +50,7 @@ namespace bms_parser
 		void ParseHeader(Chart *Chart, std::wstring_view cmd, std::wstring_view Xx, const std::wstring &Value);
 		bool MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper);
 		static int Gcd(int A, int B);
-		bool CheckResourceIdRange(int Id);
+		inline bool CheckResourceIdRange(int Id);
 		int ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly);
 	};
 }

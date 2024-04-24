@@ -248,8 +248,8 @@ namespace bms_parser
 					// UE_LOG(LogTemp, Warning, TEXT("RandomStack is empty!"));
 					continue;
 				}
-				int CurrentRandom = RandomStack.back();
-				int n = static_cast<int>(std::wcstol(line.substr(4).c_str(), nullptr, 10));
+				const int CurrentRandom = RandomStack.back();
+				const int n = static_cast<int>(std::wcstol(line.substr(4).c_str(), nullptr, 10));
 				SkipStack.push_back(CurrentRandom != n);
 				continue;
 			}
@@ -260,7 +260,7 @@ namespace bms_parser
 					// UE_LOG(LogTemp, Warning, TEXT("SkipStack is empty!"));
 					continue;
 				}
-				bool CurrentSkip = SkipStack.back();
+				const bool CurrentSkip = SkipStack.back();
 				SkipStack.pop_back();
 				SkipStack.push_back(!CurrentSkip);
 				continue;
@@ -272,10 +272,10 @@ namespace bms_parser
 					// UE_LOG(LogTemp, Warning, TEXT("SkipStack is empty!"));
 					continue;
 				}
-				bool CurrentSkip = SkipStack.back();
+				const bool CurrentSkip = SkipStack.back();
 				SkipStack.pop_back();
-				int CurrentRandom = RandomStack.back();
-				int n = static_cast<int>(std::wcstol(line.substr(8).c_str(), nullptr, 10));
+				const int CurrentRandom = RandomStack.back();
+				const int n = static_cast<int>(std::wcstol(line.substr(8).c_str(), nullptr, 10));
 				SkipStack.push_back(CurrentSkip && CurrentRandom != n);
 				continue;
 			}
@@ -295,7 +295,7 @@ namespace bms_parser
 			}
 			if (MatchHeader(line, L"#RANDOM") || MatchHeader(line, L"#RONDAM")) // #RANDOM n
 			{
-				int n = static_cast<int>(std::wcstol(line.substr(7).c_str(), nullptr, 10));
+				const int n = static_cast<int>(std::wcstol(line.substr(7).c_str(), nullptr, 10));
 				std::uniform_int_distribution<int> dist(1, n);
 				RandomStack.push_back(dist(Prng));
 				continue;
@@ -313,18 +313,16 @@ namespace bms_parser
 
 			if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) && std::isdigit(line[3]) && line[6] == ':')
 			{
-				int measure = static_cast<int>(std::wcstol(line.substr(1, 3).c_str(), nullptr, 10));
+				const int measure = static_cast<int>(std::wcstol(line.substr(1, 3).c_str(), nullptr, 10));
 				lastMeasure = std::max(lastMeasure, measure);
-				std::wstring_view ch = line.substr(4, 2);
-				int channel;
-				std::wstring value;
-				channel = ParseInt(ch);
-				value = line.substr(7);
+				const std::wstring_view ch = line.substr(4, 2);
+				const int channel = ParseInt(ch);
+				const std::wstring value = line.substr(7);
 				if (measures.find(measure) == measures.end())
 				{
 					measures[measure] = std::vector<std::pair<int, std::wstring>>();
 				}
-				measures[measure].push_back(std::pair<int, std::wstring>(channel, value));
+				measures[measure].emplace_back(channel, value);
 			}
 			else
 			{
@@ -338,8 +336,8 @@ namespace bms_parser
 					{
 						continue;
 					}
-					auto xx = line.substr(4, 2);
-					auto value = line.substr(7);
+					const auto xx = line.substr(4, 2);
+					const auto value = line.substr(7);
 					ParseHeader(new_chart, L"WAV", xx, value);
 				}
 				else if (MatchHeader(line, L"#BMP"))
@@ -352,8 +350,8 @@ namespace bms_parser
 					{
 						continue;
 					}
-					auto xx = line.substr(4, 2);
-					auto value = line.substr(7);
+					const auto xx = line.substr(4, 2);
+					const auto value = line.substr(7);
 					ParseHeader(new_chart, L"BMP", xx, value);
 				}
 				else if (MatchHeader(line, L"#STOP"))
@@ -362,15 +360,15 @@ namespace bms_parser
 					{
 						continue;
 					}
-					auto xx = line.substr(5, 2);
-					auto value = line.substr(8);
+					const auto xx = line.substr(5, 2);
+					const auto value = line.substr(8);
 					ParseHeader(new_chart, L"STOP", xx, value);
 				}
 				else if (MatchHeader(line, L"#BPM"))
 				{
 					if (line.substr(4).rfind(L" ", 0) == 0)
 					{
-						auto value = line.substr(5);
+						const auto value = line.substr(5);
 						ParseHeader(new_chart, L"BPM", L"", value);
 					}
 					else
@@ -379,8 +377,8 @@ namespace bms_parser
 						{
 							continue;
 						}
-						auto xx = line.substr(4, 2);
-						auto value = line.substr(7);
+						const auto xx = line.substr(4, 2);
+						const auto value = line.substr(7);
 						ParseHeader(new_chart, L"BPM", xx, value);
 					}
 				}
@@ -390,8 +388,8 @@ namespace bms_parser
 					{
 						continue;
 					}
-					auto xx = line.substr(7, 2);
-					auto value = line.substr(10);
+					const auto xx = line.substr(7, 2);
+					const auto value = line.substr(10);
 					ParseHeader(new_chart, L"SCROLL", xx, value);
 				}
 				else
@@ -422,7 +420,7 @@ namespace bms_parser
 		if (addReadyMeasure)
 		{
 			measures[0] = std::vector<std::pair<int, std::wstring>>();
-			measures[0].push_back(std::pair<int, std::wstring>(LaneAutoplay, L"********"));
+			measures[0].emplace_back(LaneAutoplay, L"********");
 		}
 
 		double timePassed = 0;
@@ -518,7 +516,7 @@ namespace bms_parser
 				{
 					continue;
 				}
-				auto isScratch = laneNumber == 7 || laneNumber == 15;
+				const bool isScratch = laneNumber == 7 || laneNumber == 15;
 				if (laneNumber == 5 || laneNumber == 6 || laneNumber == 13 || laneNumber == 14)
 				{
 					if (new_chart->Meta.KeyMode == 5)
@@ -543,7 +541,7 @@ namespace bms_parser
 					new_chart->Meta.IsDP = true;
 				}
 
-				auto dataCount = data.length() / 2;
+				const auto dataCount = data.length() / 2;
 				for (auto j = 0; j < dataCount; ++j)
 				{
 					if (bCancelled)
@@ -562,14 +560,13 @@ namespace bms_parser
 						continue;
 					}
 
-					auto g = Gcd(j, dataCount);
+					const auto g = Gcd(j, dataCount);
 					// ReSharper disable PossibleLossOfFraction
-					auto position = static_cast<double>(j / g) / (dataCount / g);
+					const auto position = static_cast<double>(j / g) / (dataCount / g);
 
 					if (timelines.find(position) == timelines.end())
 					{
-						auto timeline = new TimeLine(TempKey, metaOnly);
-						timelines[position] = timeline;
+						timelines[position] = new TimeLine(TempKey, metaOnly);
 					}
 
 					auto timeline = timelines[position];
@@ -623,7 +620,7 @@ namespace bms_parser
 						break;
 					case BpmChangeExtend:
 					{
-						auto id = ParseInt(val_view);
+						const auto id = ParseInt(val_view);
 						// std::cout << "BPM_CHANGE_EXTEND: " << id << ", on measure " << i << std::endl;
 						if (!CheckResourceIdRange(id))
 						{
@@ -645,7 +642,7 @@ namespace bms_parser
 					}
 					case Scroll:
 					{
-						auto id = ParseInt(val_view);
+						const auto id = ParseInt(val_view);
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid Scroll id: %s"), *val);
@@ -664,7 +661,7 @@ namespace bms_parser
 					}
 					case Stop:
 					{
-						auto id = ParseInt(val_view);
+						const auto id = ParseInt(val_view);
 						if (!CheckResourceIdRange(id))
 						{
 							// UE_LOG(LogTemp, Warning, TEXT("Invalid StopLength id: %s"), *val);
@@ -683,7 +680,7 @@ namespace bms_parser
 					}
 					case P1KeyBase:
 					{
-						auto ch = ParseInt(val_view);
+						const auto ch = ParseInt(val_view);
 						if (ch == Lnobj && lastNote[laneNumber] != nullptr)
 						{
 							if (isScratch)
@@ -792,7 +789,7 @@ namespace bms_parser
 						{
 							break;
 						}
-						auto damage = ParseInt(val_view, true) / 2.0f;
+						const auto damage = ParseInt(val_view, true) / 2.0f;
 						timeline->SetNote(
 							laneNumber, new LandmineNote{damage});
 						break;
@@ -815,11 +812,11 @@ namespace bms_parser
 				{
 					break;
 				}
-				auto position = pair.first;
-				auto timeline = pair.second;
+				const auto position = pair.first;
+				const auto timeline = pair.second;
 
 				// Debug.Log($"measure: {i}, position: {position}, lastPosition: {lastPosition} bpm: {bpm} scale: {measure.scale} interval: {240 * 1000 * 1000 * (position - lastPosition) * measure.scale / bpm}");
-				auto interval = 240000000.0 * (position - lastPosition) * measure->Scale / currentBpm;
+				const auto interval = 240000000.0 * (position - lastPosition) * measure->Scale / currentBpm;
 				timePassed += interval;
 				timeline->Timing = static_cast<long long>(timePassed);
 				if (timeline->BpmChange)
@@ -879,9 +876,10 @@ namespace bms_parser
 		new_chart->Meta.MaxBpm = maxBpm;
 		if (new_chart->Meta.Difficulty == 0)
 		{
-			std::wstring temp = new_chart->Meta.Title + new_chart->Meta.SubTitle;
 			std::wstring FullTitle;
-			std::transform(temp.begin(), temp.end(), std::back_inserter(FullTitle), ::tolower);
+			FullTitle.reserve(new_chart->Meta.Title.length() + new_chart->Meta.SubTitle.length());
+			std::transform(new_chart->Meta.Title.begin(), new_chart->Meta.Title.end(), std::back_inserter(FullTitle), ::towlower);
+			std::transform(new_chart->Meta.SubTitle.begin(), new_chart->Meta.SubTitle.end(), std::back_inserter(FullTitle), ::towlower);
 			if (FullTitle.find(L"easy") != std::wstring::npos)
 			{
 				new_chart->Meta.Difficulty = 1;
@@ -1106,7 +1104,7 @@ namespace bms_parser
 			auto xx = ParseInt(Xx);
 			auto value = std::wcstod(Value.c_str(), nullptr);
 			ScrollTable[xx] = value;
-			std::wcout << "SCROLL: " << xx << " = " << value << std::endl;
+			// std::wcout << "SCROLL: " << xx << " = " << value << std::endl;
 		}
 		else
 		{
@@ -1128,7 +1126,7 @@ namespace bms_parser
 		}
 	}
 
-	bool Parser::CheckResourceIdRange(int Id)
+	inline bool Parser::CheckResourceIdRange(int Id)
 	{
 		return Id >= 0 && Id < (UseBase62 ? 62*62 : 36*36);
 	}
