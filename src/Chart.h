@@ -32,7 +32,7 @@ namespace bms_parser
 		std::wstring Folder;
 		std::wstring Artist = L"";
 		std::wstring SubArtist = L"";
-		double Bpm;
+		double Bpm = 0;
 		std::wstring Genre = L"";
 		std::wstring Title = L"";
 		std::wstring SubTitle = L"";
@@ -48,15 +48,15 @@ namespace bms_parser
 		bool BgaPoorDefault = false;
 		int Difficulty = 0;
 		double PlayLevel = 3;
-		double MinBpm;
-		double MaxBpm;
+		double MinBpm = 0;
+		double MaxBpm = 0;
 		int Player = 1;
 		int KeyMode = 5;
 		bool IsDP = false;
-		int TotalNotes;
-		int TotalLongNotes;
-		int TotalScratchNotes;
-		int TotalBackSpinNotes;
+		int TotalNotes = 0;
+		int TotalLongNotes = 0;
+		int TotalScratchNotes = 0;
+		int TotalBackSpinNotes = 0;
 		int LnMode = 0; // 0: user decides, 1: LN, 2: CN, 3: HCN
 
 		int GetKeyLaneCount() const { return KeyMode; }

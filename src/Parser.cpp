@@ -102,7 +102,7 @@ namespace bms_parser
 
 	int Parser::NoWav = -1;
 	int Parser::MetronomeWav = -2;
-	bool Parser::MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper)
+	inline bool Parser::MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper)
 	{
 		auto size = headerUpper.length();
 		if (str.length() < size)
@@ -598,12 +598,8 @@ namespace bms_parser
 						break;
 					case BpmChange:
 					{
-						std::wstringstream ss;
-						ss << std::hex << val_view;
-						int bpm;
-						ss >> bpm;
-						// parse hex number
-						timeline->Bpm = bpm;
+						int bpm = ParseHex(val_view);
+						timeline->Bpm = static_cast<double>(bpm);
 						// std::cout << "BPM_CHANGE: " << timeline->Bpm << ", on measure " << i << std::endl;
 						// Debug.Log($"BPM_CHANGE: {timeline.Bpm}, on measure {i}");
 						timeline->BpmChange = true;
@@ -1112,7 +1108,7 @@ namespace bms_parser
 		}
 	}
 
-	int Parser::Gcd(int A, int B)
+	inline int Parser::Gcd(int A, int B)
 	{
 		while (true)
 		{
@@ -1131,7 +1127,7 @@ namespace bms_parser
 		return Id >= 0 && Id < (UseBase62 ? 62*62 : 36*36);
 	}
 
-	int Parser::ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly)
+	inline int Parser::ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly)
 	{
 		if (metaOnly)
 		{
@@ -1151,8 +1147,28 @@ namespace bms_parser
 
 		return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded : NoWav;
 	}
-
-	int Parser::ParseInt(std::wstring_view Str, bool forceBase36)
+	inline int Parser::ParseHex(std::wstring_view Str)
+	{
+		auto result = 0;
+		for (auto i = 0; i < Str.length(); ++i)
+		{
+			auto c = Str[i];
+			if (c >= '0' && c <= '9')
+			{
+				result = result * 16 + c - '0';
+			}
+			else if (c >= 'A' && c <= 'F')
+			{
+				result = result * 16 + c - 'A' + 10;
+			}
+			else if (c >= 'a' && c <= 'f')
+			{
+				result = result * 16 + c - 'a' + 10;
+			}
+		}
+		return result;
+	}
+	inline int Parser::ParseInt(std::wstring_view Str, bool forceBase36)
 	{
 		if(forceBase36 || !UseBase62) {
 			auto result = static_cast<int>(std::wcstol(Str.data(), nullptr, 36));
