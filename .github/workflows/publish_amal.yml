@@ -16,7 +16,7 @@ jobs:
       - name: amalgamate
         run: |
           rm -f bms_parser.hpp bms_parser.cpp
-          python3 scripts/amalgamate.py bms_parser.hpp bms_parser.cpp src/**
+          python3 scripts/amalgamate.py bms_parser.hpp bms_parser.cpp src/*.cpp
       # create new release
       - name: Create Release
         id: create_release
