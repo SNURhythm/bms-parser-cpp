@@ -175,7 +175,7 @@ namespace bms_parser
 		buf[2 * SHA256::DIGEST_SIZE] = 0;
 		for (unsigned int i = 0; i < SHA256::DIGEST_SIZE; i++)
 		{
-			sprintf(buf + i * 2, "%02x", digest[i]);
+			snprintf(buf + i * 2, 3, "%02x", digest[i]);
 		}
 		return buf;
 	}

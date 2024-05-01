@@ -116,6 +116,11 @@ int main()
                     auto out = std::stoi(line.substr(21));
                     ASSERT_EQ(out, chart->Meta.TotalScratchNotes, "total_scratch_notes: ");
                 }
+                else if (line.rfind(L"total_landmine_notes: ", 0) == 0)
+                {
+                    auto out = std::stoi(line.substr(22));
+                    ASSERT_EQ(out, chart->Meta.TotalLandmineNotes, "total_landmine_notes: ");
+                }
                 else if (line.rfind(L"min_bpm: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(9));
