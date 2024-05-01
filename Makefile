@@ -51,7 +51,7 @@ example/sqlite3.o: example/sqlite3.c
 example: all example/sqlite3.o $(BUILD_PATH)
 	$(CC) $(CCFLAGS) -o $(BUILD_PATH)/main example/main.cpp example/sqlite3.o $(OBJ_FILES)
 amalgamate: $(BUILD_PATH)
-	python3 scripts/amalgamate.py $(BUILD_PATH)/bms_parser.hpp $(SRC_FILES)
+	python3 scripts/amalgamate.py $(BUILD_PATH)/bms_parser.hpp $(BUILD_PATH)/bms_parser.cpp $(SRC_FILES)
 test_amalgamation: amalgamate $(BUILD_PATH)
 	$(CP) $(BUILD_PATH)$(SLASH)bms_parser.hpp test
 	$(CC) $(CCFLAGS) -DWITH_AMALGAMATION=1 -o test/test_amalgamation test/main.cpp

@@ -8,13 +8,13 @@
 import os
 import re
 
-def amalgamate(paths: [str], out: str):
+def amalgamate(paths: [str], out_header: str, out_source: str):
     visited = set()
-    content = "#pragma once\n"
-    files = []
+    header_content = "#pragma once\n"
+    source_content = f'#include "{os.path.basename(out_header)}"\n'
+    header_files = []
 
-    def dfs(path):
-        nonlocal content
+    def dfs(path, is_source=False):
         if path in visited:
             return
         visited.add(path)
@@ -26,31 +26,41 @@ def amalgamate(paths: [str], out: str):
                         include = m.group(1)
                         include_path = os.path.join(os.path.dirname(path), include)
                         dfs(include_path)
-            files.append(path)
+            if not is_source:
+                header_files.append(path)
 
     for path in paths:
-        dfs(path)
-    for path in files:
+        dfs(path, is_source=True)
         with open(path, "r") as f:
             for line in f:
                 if line.strip().startswith("#pragma once"):
                     continue
                 m = re.match(r'#include\s+<(.*)>', line)
                 if not line.strip().startswith("#include") or m:
-                    content += line
+                    source_content += line
+    for path in header_files:
+        with open(path, "r") as f:
+            for line in f:
+                if line.strip().startswith("#pragma once"):
+                    continue
+                m = re.match(r'#include\s+<(.*)>', line)
+                if not line.strip().startswith("#include") or m:
+                    header_content += line
 
-    with open(out, "w") as f:
-        f.write(content)
+    with open(out_header, "w") as f:
+        f.write(header_content)
+    with open(out_source, "w") as f:
+        f.write(source_content)
 
 
 if __name__ == "__main__":
     # glob to get all files
     import sys
-    if len(sys.argv) < 3:
-        print("Usage: python amalgamate.py <out> <in>...")
+    if len(sys.argv) < 4:
+        print("Usage: python amalgamate.py <out_header> <out_source> <in>...")
         sys.exit(1)
-    out = sys.argv[1]
-    ins = sys.argv[2:]
-    print("Amalgamating", ins, "into", out)
-    amalgamate(ins, out)
-
+    out_header = sys.argv[1]
+    out_source = sys.argv[2]
+    ins = sys.argv[3:]
+    print("Amalgamating", ins, "into", out_header, out_source)
+    amalgamate(ins, out_header, out_source)

@@ -15,8 +15,8 @@ jobs:
           fetch-depth: 0
       - name: amalgamate
         run: |
-          rm -f bms_parser.hpp
-          python3 scripts/amalgamate.py bms_parser.hpp src/**
+          rm -f bms_parser.hpp bms_parser.cpp
+          python3 scripts/amalgamate.py bms_parser.hpp bms_parser.cpp src/**
       # create new release
       - name: Create Release
         id: create_release
@@ -27,7 +27,7 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           body: |
-            You can find the amalgamated code in the file `bms_parser.hpp`.
+            You can find the amalgamated code in the file `bms_parser.hpp` and `bms_parser.cpp`.
           draft: false
           prerelease: false
       # upload amalgamated code
@@ -41,3 +41,11 @@ jobs:
           asset_path: ./bms_parser.hpp
           asset_name: bms_parser.hpp
           asset_content_type: text/plain
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./bms_parser.cpp
+          asset_name: bms_parser.cpp
+          asset_content_type: text/plain
+
