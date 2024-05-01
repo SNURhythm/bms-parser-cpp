@@ -54,7 +54,7 @@ amalgamate: $(BUILD_PATH)
 	python3 scripts/amalgamate.py $(BUILD_PATH)/bms_parser.hpp $(BUILD_PATH)/bms_parser.cpp $(SRC_FILES)
 test_amalgamation: amalgamate $(BUILD_PATH)
 	$(CP) $(BUILD_PATH)$(SLASH)bms_parser.hpp test
-	$(CC) $(CCFLAGS) -DWITH_AMALGAMATION=1 -o test/test_amalgamation test/main.cpp
+	$(CC) $(CCFLAGS) -DWITH_AMALGAMATION=1 -o test/test_amalgamation test/main.cpp build/bms_parser.cpp
 	cd test && .$(SLASH)test_amalgamation$(EXE_EXT)
 test: all $(BUILD_PATH)
 	$(CC) $(CCFLAGS) -o test/test test/main.cpp $(OBJ_FILES)
