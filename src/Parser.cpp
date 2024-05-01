@@ -542,7 +542,7 @@ namespace bms_parser
 				}
 
 				const auto dataCount = data.length() / 2;
-				for (auto j = 0; j < dataCount; ++j)
+				for (size_t j = 0; j < dataCount; ++j)
 				{
 					if (bCancelled)
 					{
@@ -1150,7 +1150,7 @@ namespace bms_parser
 	inline int Parser::ParseHex(std::wstring_view Str)
 	{
 		auto result = 0;
-		for (auto i = 0; i < Str.length(); ++i)
+		for (size_t i = 0; i < Str.length(); ++i)
 		{
 			auto c = Str[i];
 			if (c >= '0' && c <= '9')
@@ -1177,7 +1177,7 @@ namespace bms_parser
 		}
 		
 		auto result = 0;
-		for (auto i = 0; i < Str.length(); ++i)
+		for (size_t i = 0; i < Str.length(); ++i)
 		{
 			auto c = Str[i];
 			if (c >= '0' && c <= '9')

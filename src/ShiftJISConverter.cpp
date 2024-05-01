@@ -7,7 +7,7 @@
 #include "ShiftJISConverter.h"
 namespace bms_parser
 {
-	void ShiftJISConverter::BytesToUTF8(const unsigned char *input, int size, std::wstring &result)
+	void ShiftJISConverter::BytesToUTF8(const unsigned char *input, size_t size, std::wstring &result)
 	{
 		// ShiftJis won't give 4byte UTF8, so max. 3 byte per input char are needed
 		result.resize(size * 3, ' ');
