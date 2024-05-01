@@ -15,6 +15,7 @@
  */
 
 #include "Parser.h"
+#include <cwctype>
 #include <iterator>
 #include <thread>
 #include <random>
