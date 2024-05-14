@@ -20,6 +20,7 @@
 #include <string>
 #include <map>
 #include <atomic>
+#include <filesystem>
 /**
  *
  */
@@ -30,7 +31,7 @@ namespace bms_parser
 	public:
 		Parser();
 		void SetRandomSeed(int RandomSeed);
-		void Parse(std::wstring_view path, Chart **Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
+		void Parse(std::filesystem::path path, Chart **Chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
 		~Parser();
 		void Parse(const std::vector<unsigned char>& bytes, Chart **chart, bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
 		static int NoWav;
