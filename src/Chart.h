@@ -30,12 +30,12 @@ namespace bms_parser
 		std::string MD5;
 		std::filesystem::path BmsPath;
 		std::filesystem::path Folder;
-		std::wstring Artist = L"";
-		std::wstring SubArtist = L"";
+		std::string Artist = "";
+		std::string SubArtist = "";
 		double Bpm = 0;
-		std::wstring Genre = L"";
-		std::wstring Title = L"";
-		std::wstring SubTitle = L"";
+		std::string Genre = "";
+		std::string Title = "";
+		std::string SubTitle = "";
 		int Rank = 3;
 		double Total = 100;
 		long long PlayLength = 0; // Timing of the last playable note, in microseconds
@@ -106,7 +106,7 @@ namespace bms_parser
 		~Chart();
 		ChartMeta Meta;
 		std::vector<Measure *> Measures;
-		std::unordered_map<int, std::wstring> WavTable;
-		std::unordered_map<int, std::wstring> BmpTable;
+		std::unordered_map<int, std::string> WavTable;
+		std::unordered_map<int, std::string> BmpTable;
 	};
 }

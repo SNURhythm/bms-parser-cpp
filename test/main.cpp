@@ -56,127 +56,127 @@ int main()
             bms_parser::Chart *chart;
             std::atomic_bool cancel = false;
             bms_parser::Parser parser;
-            parser.Parse(input.wstring(), &chart, false, false, cancel);
-            std::wifstream ifs(output_path);
-            std::wstring line;
+            parser.Parse(input, &chart, false, false, cancel);
+            std::ifstream ifs(output_path);
+            std::string line;
             while (std::getline(ifs, line))
             {
-                if (line.rfind(L"md5: ", 0) == 0)
+                if (line.rfind("md5: ", 0) == 0)
                 {
                     auto out = line.substr(5);
-                    ASSERT_EQ(ws2s(out), chart->Meta.MD5, "md5: ");
+                    ASSERT_EQ(out, chart->Meta.MD5, "md5: ");
                 }
-                else if (line.rfind(L"sha256: ", 0) == 0)
+                else if (line.rfind("sha256: ", 0) == 0)
                 {
                     auto out = line.substr(8);
-                    ASSERT_EQ(ws2s(out), chart->Meta.SHA256, "sha256: ");
+                    ASSERT_EQ(out, chart->Meta.SHA256, "sha256: ");
                 }
-                else if (line.rfind(L"title: ", 0) == 0)
+                else if (line.rfind("title: ", 0) == 0)
                 {
-                    auto out = std::wstring(line.begin() + 7, line.end());
-                    ASSERT_EQW(out, chart->Meta.Title, "title: ");
+                    auto out = line.substr(7);
+                    ASSERT_EQ(out, chart->Meta.Title, "title: ");
                 }
-                else if (line.rfind(L"artist: ", 0) == 0)
+                else if (line.rfind("artist: ", 0) == 0)
                 {
-                    auto out = std::wstring(line.begin() + 8, line.end());
-                    ASSERT_EQW(out, chart->Meta.Artist, "artist: ");
+                    auto out = line.substr(8);
+                    ASSERT_EQ(out, chart->Meta.Artist, "artist: ");
                 }
-                else if (line.rfind(L"genre: ", 0) == 0)
+                else if (line.rfind("genre: ", 0) == 0)
                 {
-                    auto out = std::wstring(line.begin() + 7, line.end());
-                    ASSERT_EQW(out, chart->Meta.Genre, "genre: ");
+                    auto out = line.substr(7);
+                    ASSERT_EQ(out, chart->Meta.Genre, "genre: ");
                 }
-                else if (line.rfind(L"subartist: ", 0) == 0)
+                else if (line.rfind("subartist: ", 0) == 0)
                 {
-                    auto out = std::wstring(line.begin() + 11, line.end());
-                    ASSERT_EQW(out, chart->Meta.SubArtist, "subartist: ");
+                    auto out = line.substr(11);
+                    ASSERT_EQ(out, chart->Meta.SubArtist, "subartist: ");
                 }
-                else if (line.rfind(L"total: ", 0) == 0)
+                else if (line.rfind("total: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(7));
                     ASSERT_EQ(out, chart->Meta.Total, "total: ");
                 }
-                else if (line.rfind(L"total_notes: ", 0) == 0)
+                else if (line.rfind("total_notes: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(13));
                     ASSERT_EQ(out, chart->Meta.TotalNotes, "total_notes: ");
                 }
-                else if (line.rfind(L"total_backspin_notes: ", 0) == 0)
+                else if (line.rfind("total_backspin_notes: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(22));
                     ASSERT_EQ(out, chart->Meta.TotalBackSpinNotes, "total_backspin_notes: ");
                 }
-                else if (line.rfind(L"total_long_notes: ", 0) == 0)
+                else if (line.rfind("total_long_notes: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(18));
                     ASSERT_EQ(out, chart->Meta.TotalLongNotes, "total_long_notes: ");
                 }
-                else if (line.rfind(L"total_scratch_notes: ", 0) == 0)
+                else if (line.rfind("total_scratch_notes: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(21));
                     ASSERT_EQ(out, chart->Meta.TotalScratchNotes, "total_scratch_notes: ");
                 }
-                else if (line.rfind(L"total_landmine_notes: ", 0) == 0)
+                else if (line.rfind("total_landmine_notes: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(22));
                     ASSERT_EQ(out, chart->Meta.TotalLandmineNotes, "total_landmine_notes: ");
                 }
-                else if (line.rfind(L"min_bpm: ", 0) == 0)
+                else if (line.rfind("min_bpm: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(9));
                     ASSERT_EQ(out, chart->Meta.MinBpm, "min_bpm: ");
                 }
-                else if (line.rfind(L"max_bpm: ", 0) == 0)
+                else if (line.rfind("max_bpm: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(9));
                     ASSERT_EQ(out, chart->Meta.MaxBpm, "max_bpm: ");
                 }
-                else if (line.rfind(L"bpm: ", 0) == 0)
+                else if (line.rfind("bpm: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(5));
                     ASSERT_EQ(out, chart->Meta.Bpm, "bpm: ");
                 }
-                else if (line.rfind(L"minbpm: ", 0) == 0)
+                else if (line.rfind("minbpm: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(8));
                     ASSERT_EQ(out, chart->Meta.MinBpm, "minbpm: ");
                 }
-                else if (line.rfind(L"maxbpm: ", 0) == 0)
+                else if (line.rfind("maxbpm: ", 0) == 0)
                 {
                     auto out = std::stod(line.substr(8));
                     ASSERT_EQ(out, chart->Meta.MaxBpm, "maxbpm: ");
                 }
-                else if (line.rfind(L"is_dp: ", 0) == 0)
+                else if (line.rfind("is_dp: ", 0) == 0)
                 {
-                    auto out = line.substr(7) == L"true";
+                    auto out = line.substr(7) == "true";
                     ASSERT_EQ(out, chart->Meta.IsDP, "is_dp: ");
                 }
-                else if (line.rfind(L"key_mode: ", 0) == 0)
+                else if (line.rfind("key_mode: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(10));
                     ASSERT_EQ(out, chart->Meta.KeyMode, "key_mode: ");
                 }
-                else if (line.rfind(L"difficulty: ", 0) == 0)
+                else if (line.rfind("difficulty: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(12));
                     ASSERT_EQ(out, chart->Meta.Difficulty, "difficulty: ");
                 }
-                else if (line.rfind(L"playlevel: ", 0) == 0)
+                else if (line.rfind("playlevel: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(11));
                     ASSERT_EQ(out, chart->Meta.PlayLevel, "playlevel: ");
                 }
-                else if (line.rfind(L"player: ", 0) == 0)
+                else if (line.rfind("player: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(8));
                     ASSERT_EQ(out, chart->Meta.Player, "player: ");
                 }
-                else if (line.rfind(L"rank: ", 0) == 0)
+                else if (line.rfind("rank: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(6));
                     ASSERT_EQ(out, chart->Meta.Rank, "rank: ");
                 }
-                else if (line.rfind(L"playlength: ", 0) == 0)
+                else if (line.rfind("playlength: ", 0) == 0)
                 {
                     auto out = std::stoi(line.substr(11));
                     ASSERT_EQ(out, chart->Meta.PlayLength, "playlength: ");

@@ -103,7 +103,7 @@ namespace bms_parser
 
 	int Parser::NoWav = -1;
 	int Parser::MetronomeWav = -2;
-	inline bool Parser::MatchHeader(const std::wstring_view &str, const std::wstring_view &headerUpper)
+	inline bool Parser::MatchHeader(const std::string_view &str, const std::string_view &headerUpper)
 	{
 		auto size = headerUpper.length();
 		if (str.length() < size)
@@ -165,14 +165,14 @@ namespace bms_parser
 		auto new_chart = new Chart();
 		*chart = new_chart;
 
-		static std::wregex headerRegex(L"^#([A-Za-z]+?)(\\d\\d)? +?(.+)?");
+		static std::regex headerRegex(R"(^#([A-Za-z]+?)(\d\d)? +?(.+)?)");
 
 		if (bCancelled)
 		{
 			return;
 		}
 
-		auto measures = std::unordered_map<int, std::vector<std::pair<int, std::wstring>>>();
+		auto measures = std::unordered_map<int, std::vector<std::pair<int, std::string>>>();
 
 		// compute hash in separate thread
 		std::thread md5Thread([&bytes, new_chart]
@@ -202,11 +202,11 @@ namespace bms_parser
 		threadRAII sha256RAII(std::move(sha256Thread));
 
 		// std::cout<<"file size: "<<size<<std::endl;
-		// bytes to std::wstring
+		// bytes to std::string
 #if BMS_PARSER_VERBOSE == 1
 		auto midStartTime = std::chrono::high_resolution_clock::now();
 #endif
-		std::wstring content;
+		std::string content;
 		ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size(), content);
 #if BMS_PARSER_VERBOSE == 1
 		std::cout << "ShiftJIS-UTF8 conversion took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - midStartTime).count() << "\n";
@@ -217,8 +217,8 @@ namespace bms_parser
 		// init prng with seed
 		std::mt19937_64 Prng(Seed);
 
-		std::wstring line;
-		std::wistringstream stream(content);
+		std::string line;
+		std::istringstream stream(content);
 #if BMS_PARSER_VERBOSE == 1
 		midStartTime = std::chrono::high_resolution_clock::now();
 #endif
@@ -241,7 +241,7 @@ namespace bms_parser
 				return;
 			}
 
-			if (MatchHeader(line, L"#IF")) // #IF n
+			if (MatchHeader(line, "#IF")) // #IF n
 			{
 				if (RandomStack.empty())
 				{
@@ -249,11 +249,11 @@ namespace bms_parser
 					continue;
 				}
 				const int CurrentRandom = RandomStack.back();
-				const int n = static_cast<int>(std::wcstol(line.substr(4).c_str(), nullptr, 10));
+				const int n = static_cast<int>(std::stol(line.substr(4), nullptr, 10));
 				SkipStack.push_back(CurrentRandom != n);
 				continue;
 			}
-			if (MatchHeader(line, L"#ELSE"))
+			if (MatchHeader(line, "#ELSE"))
 			{
 				if (SkipStack.empty())
 				{
@@ -265,7 +265,7 @@ namespace bms_parser
 				SkipStack.push_back(!CurrentSkip);
 				continue;
 			}
-			if (MatchHeader(line, L"#ELSEIF"))
+			if (MatchHeader(line, "#ELSEIF"))
 			{
 				if (SkipStack.empty())
 				{
@@ -275,11 +275,11 @@ namespace bms_parser
 				const bool CurrentSkip = SkipStack.back();
 				SkipStack.pop_back();
 				const int CurrentRandom = RandomStack.back();
-				const int n = static_cast<int>(std::wcstol(line.substr(8).c_str(), nullptr, 10));
+				const int n = static_cast<int>(std::stol(line.substr(8), nullptr, 10));
 				SkipStack.push_back(CurrentSkip && CurrentRandom != n);
 				continue;
 			}
-			if (MatchHeader(line, L"#ENDIF") || MatchHeader(line, L"#END IF"))
+			if (MatchHeader(line, "#ENDIF") || MatchHeader(line, "#END IF"))
 			{
 				if (SkipStack.empty())
 				{
@@ -293,14 +293,14 @@ namespace bms_parser
 			{
 				continue;
 			}
-			if (MatchHeader(line, L"#RANDOM") || MatchHeader(line, L"#RONDAM")) // #RANDOM n
+			if (MatchHeader(line, "#RANDOM") || MatchHeader(line, "#RONDAM")) // #RANDOM n
 			{
-				const int n = static_cast<int>(std::wcstol(line.substr(7).c_str(), nullptr, 10));
+				const int n = static_cast<int>(std::stol(line.substr(7), nullptr, 10));
 				std::uniform_int_distribution<int> dist(1, n);
 				RandomStack.push_back(dist(Prng));
 				continue;
 			}
-			if (MatchHeader(line, L"#ENDRANDOM"))
+			if (MatchHeader(line, "#ENDRANDOM"))
 			{
 				if (RandomStack.empty())
 				{
@@ -313,20 +313,20 @@ namespace bms_parser
 
 			if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) && std::isdigit(line[3]) && line[6] == ':')
 			{
-				const int measure = static_cast<int>(std::wcstol(line.substr(1, 3).c_str(), nullptr, 10));
+				const int measure = static_cast<int>(std::stol(line.substr(1, 3), nullptr, 10));
 				lastMeasure = std::max(lastMeasure, measure);
-				const std::wstring ch = line.substr(4, 2);
+				const std::string ch = line.substr(4, 2);
 				const int channel = ParseInt(ch);
-				const std::wstring value = line.substr(7);
+				const std::string value = line.substr(7);
 				if (measures.find(measure) == measures.end())
 				{
-					measures[measure] = std::vector<std::pair<int, std::wstring>>();
+					measures[measure] = std::vector<std::pair<int, std::string>>();
 				}
 				measures[measure].emplace_back(channel, value);
 			}
 			else
 			{
-				if (MatchHeader(line, L"#WAV"))
+				if (MatchHeader(line, "#WAV"))
 				{
 					if (metaOnly)
 					{
@@ -338,9 +338,9 @@ namespace bms_parser
 					}
 					const auto xx = line.substr(4, 2);
 					const auto value = line.substr(7);
-					ParseHeader(new_chart, L"WAV", xx, value);
+					ParseHeader(new_chart, "WAV", xx, value);
 				}
-				else if (MatchHeader(line, L"#BMP"))
+				else if (MatchHeader(line, "#BMP"))
 				{
 					if (metaOnly)
 					{
@@ -352,9 +352,9 @@ namespace bms_parser
 					}
 					const auto xx = line.substr(4, 2);
 					const auto value = line.substr(7);
-					ParseHeader(new_chart, L"BMP", xx, value);
+					ParseHeader(new_chart, "BMP", xx, value);
 				}
-				else if (MatchHeader(line, L"#STOP"))
+				else if (MatchHeader(line, "#STOP"))
 				{
 					if (line.length() < 8)
 					{
@@ -362,14 +362,14 @@ namespace bms_parser
 					}
 					const auto xx = line.substr(5, 2);
 					const auto value = line.substr(8);
-					ParseHeader(new_chart, L"STOP", xx, value);
+					ParseHeader(new_chart, "STOP", xx, value);
 				}
-				else if (MatchHeader(line, L"#BPM"))
+				else if (MatchHeader(line, "#BPM"))
 				{
-					if (line.substr(4).rfind(L" ", 0) == 0)
+					if (line.substr(4).rfind(" ", 0) == 0)
 					{
 						const auto value = line.substr(5);
-						ParseHeader(new_chart, L"BPM", L"", value);
+						ParseHeader(new_chart, "BPM", "", value);
 					}
 					else
 					{
@@ -379,10 +379,10 @@ namespace bms_parser
 						}
 						const auto xx = line.substr(4, 2);
 						const auto value = line.substr(7);
-						ParseHeader(new_chart, L"BPM", xx, value);
+						ParseHeader(new_chart, "BPM", xx, value);
 					}
 				}
-				else if (MatchHeader(line, L"#SCROLL"))
+				else if (MatchHeader(line, "#SCROLL"))
 				{
 					if (line.length() < 10)
 					{
@@ -390,20 +390,20 @@ namespace bms_parser
 					}
 					const auto xx = line.substr(7, 2);
 					const auto value = line.substr(10);
-					ParseHeader(new_chart, L"SCROLL", xx, value);
+					ParseHeader(new_chart, "SCROLL", xx, value);
 				}
 				else
 				{
-					std::wsmatch matcher;
+					std::smatch matcher;
 
 					if (std::regex_search(line, matcher, headerRegex))
 					{
-						std::wstring xx = matcher[2].str();
-						std::wstring value = matcher[3].str();
+						std::string xx = matcher[2].str();
+						std::string value = matcher[3].str();
 						if (value.empty())
 						{
 							value = xx;
-							xx = L"";
+							xx = "";
 						}
 						ParseHeader(new_chart, matcher[1].str(), xx, value);
 					}
@@ -419,8 +419,8 @@ namespace bms_parser
 		}
 		if (addReadyMeasure)
 		{
-			measures[0] = std::vector<std::pair<int, std::wstring>>();
-			measures[0].emplace_back(LaneAutoplay, L"********");
+			measures[0] = std::vector<std::pair<int, std::string>>();
+			measures[0].emplace_back(LaneAutoplay, "********");
 		}
 
 		double timePassed = 0;
@@ -447,7 +447,7 @@ namespace bms_parser
 			}
 			if (measures.find(i) == measures.end())
 			{
-				measures[i] = std::vector<std::pair<int, std::wstring>>();
+				measures[i] = std::vector<std::pair<int, std::string>>();
 			}
 
 			// gcd (int, int)
@@ -466,7 +466,7 @@ namespace bms_parser
 				auto &data = pair.second;
 				if (channel == SectionRate)
 				{
-					measure->Scale = std::wcstod(data.c_str(), nullptr);
+					measure->Scale = std::stod(data, nullptr);
 					continue;
 				}
 
@@ -548,8 +548,8 @@ namespace bms_parser
 					{
 						break;
 					}
-					std::wstring val = data.substr(j * 2, 2);
-					if (val == L"00")
+					std::string val = data.substr(j * 2, 2);
+					if (val == "00")
 					{
 						if (timelines.size() == 0 && j == 0)
 						{
@@ -584,7 +584,7 @@ namespace bms_parser
 						{
 							break;
 						}
-						if (val == L"**")
+						if (val == "**")
 						{
 							timeline->AddBackgroundNote(new Note{MetronomeWav});
 							break;
@@ -873,27 +873,27 @@ namespace bms_parser
 		new_chart->Meta.MaxBpm = maxBpm;
 		if (new_chart->Meta.Difficulty == 0)
 		{
-			std::wstring FullTitle;
+			std::string FullTitle;
 			FullTitle.reserve(new_chart->Meta.Title.length() + new_chart->Meta.SubTitle.length());
 			std::transform(new_chart->Meta.Title.begin(), new_chart->Meta.Title.end(), std::back_inserter(FullTitle), ::towlower);
 			std::transform(new_chart->Meta.SubTitle.begin(), new_chart->Meta.SubTitle.end(), std::back_inserter(FullTitle), ::towlower);
-			if (FullTitle.find(L"easy") != std::wstring::npos)
+			if (FullTitle.find("easy") != std::string::npos)
 			{
 				new_chart->Meta.Difficulty = 1;
 			}
-			else if (FullTitle.find(L"normal") != std::wstring::npos)
+			else if (FullTitle.find("normal") != std::string::npos)
 			{
 				new_chart->Meta.Difficulty = 2;
 			}
-			else if (FullTitle.find(L"hyper") != std::wstring::npos)
+			else if (FullTitle.find("hyper") != std::string::npos)
 			{
 				new_chart->Meta.Difficulty = 3;
 			}
-			else if (FullTitle.find(L"another") != std::wstring::npos)
+			else if (FullTitle.find("another") != std::string::npos)
 			{
 				new_chart->Meta.Difficulty = 4;
 			}
-			else if (FullTitle.find(L"insane") != std::wstring::npos)
+			else if (FullTitle.find("insane") != std::string::npos)
 			{
 				new_chart->Meta.Difficulty = 5;
 			}
@@ -927,51 +927,51 @@ namespace bms_parser
 #endif
 	}
 
-	void Parser::ParseHeader(Chart *Chart, std::wstring_view cmd, std::wstring_view Xx, const std::wstring &Value)
+	void Parser::ParseHeader(Chart *Chart, std::string_view cmd, std::string_view Xx, const std::string &Value)
 	{
 		// Debug.Log($"cmd: {cmd}, xx: {xx} isXXNull: {xx == null}, value: {value}");
 		// BASE 62
-		if(MatchHeader(cmd, L"BASE")){
+		if(MatchHeader(cmd, "BASE")){
 			if (Value.empty())
 			{
 				return; // TODO: handle this
 			}
-			auto base = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			auto base = static_cast<int>(std::stol(Value, nullptr, 10));
 			std::wcout << "BASE: " << base << std::endl;
 			if(base != 36 && base != 62) {
 				return; // TODO: handle this
 			}
 			this->UseBase62 = base == 62;
 		}
-		else if (MatchHeader(cmd, L"PLAYER"))
+		else if (MatchHeader(cmd, "PLAYER"))
 		{
-			Chart->Meta.Player = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			Chart->Meta.Player = static_cast<int>(std::stol(Value, nullptr, 10));
 		}
-		else if (MatchHeader(cmd, L"GENRE"))
+		else if (MatchHeader(cmd, "GENRE"))
 		{
 			Chart->Meta.Genre = Value;
 		}
-		else if (MatchHeader(cmd, L"TITLE"))
+		else if (MatchHeader(cmd, "TITLE"))
 		{
 			Chart->Meta.Title = Value;
 		}
-		else if (MatchHeader(cmd, L"SUBTITLE"))
+		else if (MatchHeader(cmd, "SUBTITLE"))
 		{
 			Chart->Meta.SubTitle = Value;
 		}
-		else if (MatchHeader(cmd, L"ARTIST"))
+		else if (MatchHeader(cmd, "ARTIST"))
 		{
 			Chart->Meta.Artist = Value;
 		}
-		else if (MatchHeader(cmd, L"SUBARTIST"))
+		else if (MatchHeader(cmd, "SUBARTIST"))
 		{
 			Chart->Meta.SubArtist = Value;
 		}
-		else if (MatchHeader(cmd, L"DIFFICULTY"))
+		else if (MatchHeader(cmd, "DIFFICULTY"))
 		{
-			Chart->Meta.Difficulty = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			Chart->Meta.Difficulty = static_cast<int>(std::stol(Value, nullptr, 10));
 		}
-		else if (MatchHeader(cmd, L"BPM"))
+		else if (MatchHeader(cmd, "BPM"))
 		{
 			if (Value.empty())
 			{
@@ -980,7 +980,7 @@ namespace bms_parser
 			if (Xx.empty())
 			{
 				// chart initial bpm
-				Chart->Meta.Bpm = std::wcstod(Value.c_str(), nullptr);
+				Chart->Meta.Bpm = std::stod(Value, nullptr);
 				// std::cout << "MainBPM: " << Chart->Meta.Bpm << std::endl;
 			}
 			else
@@ -992,10 +992,10 @@ namespace bms_parser
 					// UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *Xx);
 					return;
 				}
-				BpmTable[id] = std::wcstod(Value.c_str(), nullptr);
+				BpmTable[id] = std::stod(Value, nullptr);
 			}
 		}
-		else if (MatchHeader(cmd, L"STOP"))
+		else if (MatchHeader(cmd, "STOP"))
 		{
 			if (Value.empty() || Xx.empty() || Xx.length() == 0)
 			{
@@ -1007,50 +1007,50 @@ namespace bms_parser
 				// UE_LOG(LogTemp, Warning, TEXT("Invalid STOP id: %s"), *Xx);
 				return;
 			}
-			StopLengthTable[id] = std::wcstod(Value.c_str(), nullptr);
+			StopLengthTable[id] = std::stod(Value, nullptr);
 		}
-		else if (MatchHeader(cmd, L"MIDIFILE"))
+		else if (MatchHeader(cmd, "MIDIFILE"))
 		{
 		}
-		else if (MatchHeader(cmd, L"VIDEOFILE"))
+		else if (MatchHeader(cmd, "VIDEOFILE"))
 		{
 		}
-		else if (MatchHeader(cmd, L"PLAYLEVEL"))
+		else if (MatchHeader(cmd, "PLAYLEVEL"))
 		{
-			Chart->Meta.PlayLevel = std::wcstod(Value.c_str(), nullptr); // TODO: handle error
+			Chart->Meta.PlayLevel = std::stod(Value, nullptr); // TODO: handle error
 		}
-		else if (MatchHeader(cmd, L"RANK"))
+		else if (MatchHeader(cmd, "RANK"))
 		{
-			Chart->Meta.Rank = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			Chart->Meta.Rank = static_cast<int>(std::stol(Value, nullptr, 10));
 		}
-		else if (MatchHeader(cmd, L"TOTAL"))
+		else if (MatchHeader(cmd, "TOTAL"))
 		{
-			auto total = std::wcstod(Value.c_str(), nullptr);
+			auto total = std::stod(Value, nullptr);
 			if (total > 0)
 			{
 				Chart->Meta.Total = total;
 			}
 		}
-		else if (MatchHeader(cmd, L"VOLWAV"))
+		else if (MatchHeader(cmd, "VOLWAV"))
 		{
 		}
-		else if (MatchHeader(cmd, L"STAGEFILE"))
+		else if (MatchHeader(cmd, "STAGEFILE"))
 		{
 			Chart->Meta.StageFile = Value;
 		}
-		else if (MatchHeader(cmd, L"BANNER"))
+		else if (MatchHeader(cmd, "BANNER"))
 		{
 			Chart->Meta.Banner = Value;
 		}
-		else if (MatchHeader(cmd, L"BACKBMP"))
+		else if (MatchHeader(cmd, "BACKBMP"))
 		{
 			Chart->Meta.BackBmp = Value;
 		}
-		else if (MatchHeader(cmd, L"PREVIEW"))
+		else if (MatchHeader(cmd, "PREVIEW"))
 		{
 			Chart->Meta.Preview = Value;
 		}
-		else if (MatchHeader(cmd, L"WAV"))
+		else if (MatchHeader(cmd, "WAV"))
 		{
 			if (Xx.empty() || Value.empty())
 			{
@@ -1065,7 +1065,7 @@ namespace bms_parser
 			}
 			Chart->WavTable[id] = Value;
 		}
-		else if (MatchHeader(cmd, L"BMP"))
+		else if (MatchHeader(cmd, "BMP"))
 		{
 			if (Xx.empty() || Value.empty())
 			{
@@ -1079,33 +1079,33 @@ namespace bms_parser
 				return;
 			}
 			Chart->BmpTable[id] = Value;
-			if (Xx == L"00")
+			if (Xx == "00")
 			{
 				Chart->Meta.BgaPoorDefault = true;
 			}
 		}
-		else if (MatchHeader(cmd, L"LNOBJ"))
+		else if (MatchHeader(cmd, "LNOBJ"))
 		{
 			Lnobj = ParseInt(Value);
 		}
-		else if (MatchHeader(cmd, L"LNTYPE"))
+		else if (MatchHeader(cmd, "LNTYPE"))
 		{
-			Lntype = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			Lntype = static_cast<int>(std::stol(Value, nullptr, 10));
 		}
-		else if (MatchHeader(cmd, L"LNMODE"))
+		else if (MatchHeader(cmd, "LNMODE"))
 		{
-			Chart->Meta.LnMode = static_cast<int>(std::wcstol(Value.c_str(), nullptr, 10));
+			Chart->Meta.LnMode = static_cast<int>(std::stol(Value, nullptr, 10));
 		}
-		else if (MatchHeader(cmd, L"SCROLL"))
+		else if (MatchHeader(cmd, "SCROLL"))
 		{
 			auto xx = ParseInt(Xx);
-			auto value = std::wcstod(Value.c_str(), nullptr);
+			auto value = std::stod(Value, nullptr);
 			ScrollTable[xx] = value;
 			// std::wcout << "SCROLL: " << xx << " = " << value << std::endl;
 		}
 		else
 		{
-			std::wcout << "Unknown command: " << cmd << std::endl;
+			std::cout << "Unknown command: " << cmd << std::endl;
 		}
 	}
 
@@ -1128,7 +1128,7 @@ namespace bms_parser
 		return Id >= 0 && Id < (UseBase62 ? 62*62 : 36*36);
 	}
 
-	inline int Parser::ToWaveId(Chart *Chart, std::wstring_view Wav, bool metaOnly)
+	inline int Parser::ToWaveId(Chart *Chart, std::string_view Wav, bool metaOnly)
 	{
 		if (metaOnly)
 		{
@@ -1148,7 +1148,7 @@ namespace bms_parser
 
 		return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded : NoWav;
 	}
-	inline int Parser::ParseHex(std::wstring_view Str)
+	inline int Parser::ParseHex(std::string_view Str)
 	{
 		auto result = 0;
 		for (size_t i = 0; i < Str.length(); ++i)
@@ -1169,10 +1169,10 @@ namespace bms_parser
 		}
 		return result;
 	}
-	inline int Parser::ParseInt(std::wstring_view Str, bool forceBase36)
+	inline int Parser::ParseInt(std::string_view Str, bool forceBase36)
 	{
 		if(forceBase36 || !UseBase62) {
-			auto result = static_cast<int>(std::wcstol(Str.data(), nullptr, 36));
+			auto result = static_cast<int>(std::stol(Str.data(), nullptr, 36));
 			// std::wcout << "ParseInt36: " << Str << " = " << result << std::endl;
 			return result;
 		}
