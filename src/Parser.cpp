@@ -247,7 +247,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         continue;
       }
       const int CurrentRandom = RandomStack.back();
-      const int n = static_cast<int>(std::stol(line.substr(4), nullptr, 10));
+      const int n =
+          static_cast<int>(std::strtol(line.substr(4).c_str(), nullptr, 10));
       SkipStack.push_back(CurrentRandom != n);
       continue;
     }
@@ -269,7 +270,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       const bool CurrentSkip = SkipStack.back();
       SkipStack.pop_back();
       const int CurrentRandom = RandomStack.back();
-      const int n = static_cast<int>(std::stol(line.substr(8), nullptr, 10));
+      const int n =
+          static_cast<int>(std::strtol(line.substr(8).c_str(), nullptr, 10));
       SkipStack.push_back(CurrentSkip && CurrentRandom != n);
       continue;
     }
@@ -287,7 +289,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     if (MatchHeader(line, "#RANDOM") ||
         MatchHeader(line, "#RONDAM")) // #RANDOM n
     {
-      const int n = static_cast<int>(std::stol(line.substr(7), nullptr, 10));
+      const int n =
+          static_cast<int>(std::strtol(line.substr(7).c_str(), nullptr, 10));
       std::uniform_int_distribution<int> dist(1, n);
       RandomStack.push_back(dist(Prng));
       continue;
@@ -304,7 +307,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) &&
         std::isdigit(line[3]) && line[6] == ':') {
       const int measure =
-          static_cast<int>(std::stol(line.substr(1, 3), nullptr, 10));
+          static_cast<int>(std::strtol(line.substr(1, 3).c_str(), nullptr, 10));
       lastMeasure = std::max(lastMeasure, measure);
       const std::string ch = line.substr(4, 2);
       const int channel = ParseInt(ch);
@@ -427,7 +430,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       auto channel = pair.first;
       auto &data = pair.second;
       if (channel == SectionRate) {
-        measure->Scale = std::stod(data, nullptr);
+        measure->Scale = std::strtod(data.c_str(), nullptr);
         continue;
       }
 
@@ -807,14 +810,15 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
     if (Value.empty()) {
       return; // TODO: handle this
     }
-    auto base = static_cast<int>(std::stol(Value, nullptr, 10));
+    auto base = static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
     std::wcout << "BASE: " << base << std::endl;
     if (base != 36 && base != 62) {
       return; // TODO: handle this
     }
     this->UseBase62 = base == 62;
   } else if (MatchHeader(cmd, "PLAYER")) {
-    Chart->Meta.Player = static_cast<int>(std::stol(Value, nullptr, 10));
+    Chart->Meta.Player =
+        static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
   } else if (MatchHeader(cmd, "GENRE")) {
     Chart->Meta.Genre = Value;
   } else if (MatchHeader(cmd, "TITLE")) {
@@ -826,14 +830,15 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
   } else if (MatchHeader(cmd, "SUBARTIST")) {
     Chart->Meta.SubArtist = Value;
   } else if (MatchHeader(cmd, "DIFFICULTY")) {
-    Chart->Meta.Difficulty = static_cast<int>(std::stol(Value, nullptr, 10));
+    Chart->Meta.Difficulty =
+        static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
   } else if (MatchHeader(cmd, "BPM")) {
     if (Value.empty()) {
       return; // TODO: handle this
     }
     if (Xx.empty()) {
       // chart initial bpm
-      Chart->Meta.Bpm = std::stod(Value, nullptr);
+      Chart->Meta.Bpm = std::strtod(Value.c_str(), nullptr);
       // std::cout << "MainBPM: " << Chart->Meta.Bpm << std::endl;
     } else {
       // Debug.Log($"BPM: {DecodeBase36(xx)} = {double.Parse(value)}");
@@ -842,7 +847,7 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
         // UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *Xx);
         return;
       }
-      BpmTable[id] = std::stod(Value, nullptr);
+      BpmTable[id] = std::strtod(Value.c_str(), nullptr);
     }
   } else if (MatchHeader(cmd, "STOP")) {
     if (Value.empty() || Xx.empty() || Xx.length() == 0) {
@@ -853,15 +858,17 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
       // UE_LOG(LogTemp, Warning, TEXT("Invalid STOP id: %s"), *Xx);
       return;
     }
-    StopLengthTable[id] = std::stod(Value, nullptr);
+    StopLengthTable[id] = std::strtod(Value.c_str(), nullptr);
   } else if (MatchHeader(cmd, "MIDIFILE")) {
   } else if (MatchHeader(cmd, "VIDEOFILE")) {
   } else if (MatchHeader(cmd, "PLAYLEVEL")) {
-    Chart->Meta.PlayLevel = std::stod(Value, nullptr); // TODO: handle error
+    Chart->Meta.PlayLevel =
+        std::strtod(Value.c_str(), nullptr); // TODO: handle error
   } else if (MatchHeader(cmd, "RANK")) {
-    Chart->Meta.Rank = static_cast<int>(std::stol(Value, nullptr, 10));
+    Chart->Meta.Rank =
+        static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
   } else if (MatchHeader(cmd, "TOTAL")) {
-    auto total = std::stod(Value, nullptr);
+    auto total = std::strtod(Value.c_str(), nullptr);
     if (total > 0) {
       Chart->Meta.Total = total;
     }
@@ -902,12 +909,13 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
   } else if (MatchHeader(cmd, "LNOBJ")) {
     Lnobj = ParseInt(Value);
   } else if (MatchHeader(cmd, "LNTYPE")) {
-    Lntype = static_cast<int>(std::stol(Value, nullptr, 10));
+    Lntype = static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
   } else if (MatchHeader(cmd, "LNMODE")) {
-    Chart->Meta.LnMode = static_cast<int>(std::stol(Value, nullptr, 10));
+    Chart->Meta.LnMode =
+        static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
   } else if (MatchHeader(cmd, "SCROLL")) {
     auto xx = ParseInt(Xx);
-    auto value = std::stod(Value, nullptr);
+    auto value = std::strtod(Value.c_str(), nullptr);
     ScrollTable[xx] = value;
     // std::wcout << "SCROLL: " << xx << " = " << value << std::endl;
   } else {
@@ -963,7 +971,7 @@ inline int Parser::ParseHex(std::string_view Str) {
 }
 inline int Parser::ParseInt(std::string_view Str, bool forceBase36) {
   if (forceBase36 || !UseBase62) {
-    auto result = static_cast<int>(std::stol(Str.data(), nullptr, 36));
+    auto result = static_cast<int>(std::strtol(Str.data(), nullptr, 36));
     // std::wcout << "ParseInt36: " << Str << " = " << result << std::endl;
     return result;
   }
