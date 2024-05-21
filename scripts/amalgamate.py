@@ -8,6 +8,7 @@
 import os
 import re
 
+
 def amalgamate(paths: [str], out_header: str, out_source: str):
     visited = set()
     header_content = "#pragma once\n"
@@ -35,17 +36,19 @@ def amalgamate(paths: [str], out_header: str, out_source: str):
             for line in f:
                 if line.strip().startswith("#pragma once"):
                     continue
-                m = re.match(r'#include\s+<(.*)>', line)
+                m = re.match(r"#include\s+<(.*)>", line)
                 if not line.strip().startswith("#include") or m:
                     source_content += line
+            source_content += "\n"
     for path in header_files:
         with open(path, "r") as f:
             for line in f:
                 if line.strip().startswith("#pragma once"):
                     continue
-                m = re.match(r'#include\s+<(.*)>', line)
+                m = re.match(r"#include\s+<(.*)>", line)
                 if not line.strip().startswith("#include") or m:
                     header_content += line
+            header_content += "\n"
 
     with open(out_header, "w") as f:
         f.write(header_content)
@@ -56,6 +59,7 @@ def amalgamate(paths: [str], out_header: str, out_source: str):
 if __name__ == "__main__":
     # glob to get all files
     import sys
+
     if len(sys.argv) < 4:
         print("Usage: python amalgamate.py <out_header> <out_source> <in>...")
         sys.exit(1)
