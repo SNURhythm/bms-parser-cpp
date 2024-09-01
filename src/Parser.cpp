@@ -410,12 +410,12 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
 #if BMS_PARSER_VERBOSE == 1
   midStartTime = std::chrono::high_resolution_clock::now();
 #endif
-  for (auto i = 0; i <= lastMeasure; ++i) {
+  for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {
     if (bCancelled) {
       return;
     }
-    if (measures.find(i) == measures.end()) {
-      measures[i] = std::vector<std::pair<int, std::string>>();
+    if (measures.find(measureIdx) == measures.end()) {
+      measures[measureIdx] = std::vector<std::pair<int, std::string>>();
     }
 
     // gcd (int, int)
@@ -424,7 +424,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     // NOTE: this should be an ordered map
     auto timelines = std::map<double, TimeLine *>();
 
-    for (auto &pair : measures[i]) {
+    for (auto &pair : measures[measureIdx]) {
       if (bCancelled) {
         break;
       }
@@ -533,8 +533,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           int bpm = ParseHex(val);
           timeline->Bpm = static_cast<double>(bpm);
           // std::cout << "BPM_CHANGE: " << timeline->Bpm << ", on measure " <<
-          // i << std::endl; Debug.Log($"BPM_CHANGE: {timeline.Bpm}, on measure
-          // {i}");
+          // measureIdx << std::endl; Debug.Log($"BPM_CHANGE: {timeline.Bpm}, on
+          // measure {measureIdx}");
           timeline->BpmChange = true;
           break;
         }
@@ -549,8 +549,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           break;
         case BpmChangeExtend: {
           const auto id = ParseInt(val);
-          // std::cout << "BPM_CHANGE_EXTEND: " << id << ", on measure " << i <<
-          // std::endl;
+          // std::cout << "BPM_CHANGE_EXTEND: " << id << ", on measure " <<
+          // measureIdx << std::endl;
           if (!CheckResourceIdRange(id)) {
             // UE_LOG(LogTemp, Warning, TEXT("Invalid BPM id: %s"), *val);
             break;
@@ -561,8 +561,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
             timeline->Bpm = 0;
             // std::cout<<"Undefined BPM: "<<id<<std::endl;
           }
-          // Debug.Log($"BPM_CHANGE_EXTEND: {timeline.Bpm}, on measure {i},
-          // {val}");
+          // Debug.Log($"BPM_CHANGE_EXTEND: {timeline.Bpm}, on measure
+          // {measureIdx}, {val}");
           timeline->BpmChange = true;
           break;
         }
@@ -577,7 +577,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           } else {
             timeline->Scroll = 1;
           }
-          // Debug.Log($"SCROLL: {timeline.Scroll}, on measure {i}");
+          // Debug.Log($"SCROLL: {timeline.Scroll}, on measure {measureIdx}");
           break;
         }
         case Stop: {
@@ -592,7 +592,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           } else {
             timeline->StopLength = 0;
           }
-          // Debug.Log($"STOP: {timeline.StopLength}, on measure {i}");
+          // Debug.Log($"STOP: {timeline.StopLength}, on measure {measureIdx}");
           break;
         }
         case P1KeyBase: {
@@ -701,13 +701,14 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       const auto position = pair.first;
       const auto timeline = pair.second;
 
-      // Debug.Log($"measure: {i}, position: {position}, lastPosition:
+      // Debug.Log($"measure: {measureIdx}, position: {position}, lastPosition:
       // {lastPosition} bpm: {bpm} scale: {measure.scale} interval: {240 * 1000
       // * 1000 * (position - lastPosition) * measure.scale / bpm}");
       const auto interval =
           240000000.0 * (position - lastPosition) * measure->Scale / currentBpm;
       timePassed += interval;
       timeline->Timing = static_cast<long long>(timePassed);
+      timeline->BeatPosition = measureIdx + position;
       if (timeline->BpmChange) {
         currentBpm = timeline->Bpm;
         minBpm = std::min(minBpm, timeline->Bpm);
@@ -716,7 +717,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         timeline->Bpm = currentBpm;
       }
 
-      // Debug.Log($"measure: {i}, position: {position}, lastPosition:
+      // Debug.Log($"measure: {measureIdx}, position: {position}, lastPosition:
       // {lastPosition}, bpm: {currentBpm} scale: {measure.Scale} interval:
       // {interval} stop: {timeline.GetStopDuration()}");
 
@@ -738,6 +739,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     if (!metaOnly && measure->TimeLines.empty()) {
       auto timeline = new TimeLine(TempKey, metaOnly);
       timeline->Timing = static_cast<long long>(timePassed);
+      timeline->BeatPosition = measureIdx;
       timeline->Bpm = currentBpm;
       measure->TimeLines.push_back(timeline);
     }

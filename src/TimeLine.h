@@ -40,11 +40,15 @@ public:
   double StopLength = 0;
   double Scroll = 1;
 
+  // musical timing in microseconds
   long long Timing = 0;
-  double Pos = 0;
+
+  // beat position; measure number + position in
+  // measure. 1.25 means 1 measure and 1/4 beat
+  double BeatPosition = 0;
 
   explicit TimeLine(int lanes, bool metaOnly);
-  
+
   TimeLine *SetNote(int lane, Note *note);
 
   TimeLine *SetInvisibleNote(int lane, Note *note);
