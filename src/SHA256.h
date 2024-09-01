@@ -45,7 +45,6 @@ class SHA256 {
 protected:
   using uint8 = unsigned char;
   using uint32 = unsigned int;
-  using uint64 = unsigned long long;
 
   const static uint32 sha256_k[];
   static constexpr unsigned int SHA224_256_BLOCK_SIZE = (512 / 8);
@@ -68,7 +67,6 @@ std::string sha256(const std::vector<unsigned char> &bytes);
 
 #define SHA2_SHFR(x, n) (x >> n)
 #define SHA2_ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
-#define SHA2_ROTL(x, n) ((x << n) | (x >> ((sizeof(x) << 3) - n)))
 #define SHA2_CH(x, y, z) ((x & y) ^ (~x & z))
 #define SHA2_MAJ(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
 #define SHA256_F1(x) (SHA2_ROTR(x, 2) ^ SHA2_ROTR(x, 13) ^ SHA2_ROTR(x, 22))

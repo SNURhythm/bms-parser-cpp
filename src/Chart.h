@@ -29,12 +29,12 @@ public:
   std::string MD5;
   std::filesystem::path BmsPath;
   std::filesystem::path Folder;
-  std::string Artist = "";
-  std::string SubArtist = "";
+  std::string Artist;
+  std::string SubArtist;
   double Bpm = 0;
-  std::string Genre = "";
-  std::string Title = "";
-  std::string SubTitle = "";
+  std::string Genre;
+  std::string Title;
+  std::string SubTitle;
   int Rank = 3;
   double Total = 100;
   long long PlayLength = 0; // Timing of the last playable note, in microseconds
@@ -60,11 +60,11 @@ public:
   int TotalLandmineNotes = 0;
   int LnMode = 0; // 0: user decides, 1: LN, 2: CN, 3: HCN
 
-  int GetKeyLaneCount() const { return KeyMode; }
-  int GetScratchLaneCount() const { return IsDP ? 2 : 1; }
-  int GetTotalLaneCount() const { return KeyMode + GetScratchLaneCount(); }
+  [[nodiscard]] int GetKeyLaneCount() const { return KeyMode; }
+  [[nodiscard]] int GetScratchLaneCount() const { return IsDP ? 2 : 1; }
+  [[nodiscard]] int GetTotalLaneCount() const { return KeyMode + GetScratchLaneCount(); }
 
-  std::vector<int> GetKeyLaneIndices() const {
+  [[nodiscard]] std::vector<int> GetKeyLaneIndices() const {
     switch (KeyMode) {
     case 5:
       return {0, 1, 2, 3, 4};
@@ -79,14 +79,14 @@ public:
     }
   }
 
-  std::vector<int> GetScratchLaneIndices() const {
+  [[nodiscard]] std::vector<int> GetScratchLaneIndices() const {
     if (IsDP) {
       return {7, 15};
     }
     return {7};
   }
 
-  std::vector<int> GetTotalLaneIndices() const {
+  [[nodiscard]] std::vector<int> GetTotalLaneIndices() const {
     std::vector<int> Result;
     Result.insert(Result.end(), GetKeyLaneIndices().begin(),
                   GetKeyLaneIndices().end());

@@ -18,5 +18,5 @@
 namespace bms_parser {
 LandmineNote::LandmineNote(float Damage) : Note(0) { this->Damage = Damage; }
 
-LandmineNote::~LandmineNote() {}
+LandmineNote::~LandmineNote() = default;
 } // namespace bms_parser

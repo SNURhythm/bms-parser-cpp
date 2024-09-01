@@ -16,7 +16,7 @@
 
 #include "Chart.h"
 namespace bms_parser {
-Chart::Chart() {}
+Chart::Chart() = default;
 
 Chart::~Chart() {
   for (const auto &measure : Measures) {

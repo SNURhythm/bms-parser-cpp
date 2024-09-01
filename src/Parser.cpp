@@ -45,7 +45,7 @@ class threadRAII {
   std::thread th;
 
 public:
-  threadRAII(std::thread &&_th) { th = std::move(_th); }
+  explicit threadRAII(std::thread &&_th) { th = std::move(_th); }
 
   ~threadRAII() {
     if (th.joinable()) {
@@ -78,7 +78,7 @@ enum Channel {
 namespace KeyAssign {
 int Beat7[] = {0, 1, 2, 3, 4, 7, -1, 5, 6, 8, 9, 10, 11, 12, 15, -1, 13, 14};
 int PopN[] = {0, 1, 2, 3, 4, -1, -1, -1, -1, -1, 5, 6, 7, 8, -1, -1, -1, -1};
-}; // namespace KeyAssign
+} // namespace KeyAssign
 
 constexpr int TempKey = 16;
 
@@ -87,7 +87,7 @@ Parser::Parser() : BpmTable{}, StopLengthTable{}, ScrollTable{} {
   Seed = seeder();
 }
 
-void Parser::SetRandomSeed(int RandomSeed) { Seed = RandomSeed; }
+void Parser::SetRandomSeed(unsigned int RandomSeed) { Seed = RandomSeed; }
 
 int Parser::NoWav = -1;
 int Parser::MetronomeWav = -2;
@@ -104,7 +104,8 @@ inline bool Parser::MatchHeader(const std::string_view &str,
   }
   return true;
 }
-void Parser::Parse(std::filesystem::path fpath, Chart **chart,
+
+void Parser::Parse(const std::filesystem::path& fpath, Chart **chart,
                    bool addReadyMeasure, bool metaOnly,
                    std::atomic_bool &bCancelled) {
 #if BMS_PARSER_VERBOSE == 1
@@ -345,7 +346,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         const auto value = line.substr(8);
         ParseHeader(new_chart, "STOP", xx, value);
       } else if (MatchHeader(line, "#BPM")) {
-        if (line.substr(4).rfind(" ", 0) == 0) {
+        if (line.substr(4).rfind(' ', 0) == 0) {
           const auto value = line.substr(5);
           ParseHeader(new_chart, "BPM", "", value);
         } else {
@@ -491,7 +492,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         }
         std::string val = data.substr(j * 2, 2);
         if (val == "00") {
-          if (timelines.size() == 0 && j == 0) {
+          if (timelines.empty() && j == 0) {
             auto timeline = new TimeLine(TempKey, metaOnly);
             timelines[0] = timeline; // add ghost timeline
           }
@@ -501,7 +502,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
 
         const auto g = Gcd(j, dataCount);
         // ReSharper disable PossibleLossOfFraction
-        const auto position = static_cast<double>(j / g) / (dataCount / g);
+
+        const auto position = static_cast<double>(j / g) / static_cast<double>(dataCount / g); // NOLINT(*-integer-division)
 
         if (timelines.find(position) == timelines.end()) {
           timelines[position] = new TimeLine(TempKey, metaOnly);
@@ -515,9 +517,6 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         }
         switch (channel) {
         case LaneAutoplay:
-          if (metaOnly) {
-            break;
-          }
           if (val == "**") {
             timeline->AddBackgroundNote(new Note{MetronomeWav});
             break;
@@ -631,9 +630,6 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           }
         } break;
         case P1InvisibleKeyBase: {
-          if (metaOnly) {
-            break;
-          }
           auto invNote = new Note{ToWaveId(new_chart, val, metaOnly)};
           timeline->SetInvisibleNote(laneNumber, invNote);
           break;
@@ -670,15 +666,18 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           }
 
           break;
-        case P1MineKeyBase:
-          // landmine
-          ++totalLandmineNotes;
-          if (metaOnly) {
+        case P1MineKeyBase: {
+            // landmine
+            ++totalLandmineNotes;
+            if (metaOnly) {
+                break;
+            }
+            const auto damage = static_cast<float>(ParseInt(val, true)) / 2.0f;
+            timeline->SetNote(laneNumber, new LandmineNote{damage});
             break;
-          }
-          const auto damage = ParseInt(val, true) / 2.0f;
-          timeline->SetNote(laneNumber, new LandmineNote{damage});
-          break;
+        }
+        default:
+            break;
         }
       }
     }
@@ -734,7 +733,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       timelines.clear();
     }
 
-    if (!metaOnly && measure->TimeLines.size() == 0) {
+    if (!metaOnly && measure->TimeLines.empty()) {
       auto timeline = new TimeLine(TempKey, metaOnly);
       timeline->Timing = static_cast<long long>(timePassed);
       timeline->Bpm = currentBpm;
@@ -850,7 +849,7 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
       BpmTable[id] = std::strtod(Value.c_str(), nullptr);
     }
   } else if (MatchHeader(cmd, "STOP")) {
-    if (Value.empty() || Xx.empty() || Xx.length() == 0) {
+    if (Value.empty() || Xx.empty()) {
       return; // TODO: handle this
     }
     int id = ParseInt(Xx);
@@ -860,6 +859,7 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
     }
     StopLengthTable[id] = std::strtod(Value.c_str(), nullptr);
   } else if (MatchHeader(cmd, "MIDIFILE")) {
+      // TODO: handle this
   } else if (MatchHeader(cmd, "VIDEOFILE")) {
   } else if (MatchHeader(cmd, "PLAYLEVEL")) {
     Chart->Meta.PlayLevel =
@@ -923,7 +923,7 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
   }
 }
 
-inline int Parser::Gcd(int A, int B) {
+inline unsigned long long Parser::Gcd(unsigned long long A, unsigned long long B) {
   while (true) {
     if (B == 0) {
       return A;
@@ -934,7 +934,7 @@ inline int Parser::Gcd(int A, int B) {
   }
 }
 
-inline bool Parser::CheckResourceIdRange(int Id) {
+inline bool Parser::CheckResourceIdRange(int Id) const {
   return Id >= 0 && Id < (UseBase62 ? 62 * 62 : 36 * 36);
 }
 
@@ -969,7 +969,7 @@ inline int Parser::ParseHex(std::string_view Str) {
   }
   return result;
 }
-inline int Parser::ParseInt(std::string_view Str, bool forceBase36) {
+inline int Parser::ParseInt(std::string_view Str, bool forceBase36) const {
   if (forceBase36 || !UseBase62) {
     auto result = static_cast<int>(std::strtol(Str.data(), nullptr, 36));
     // std::wcout << "ParseInt36: " << Str << " = " << result << std::endl;
@@ -992,5 +992,5 @@ inline int Parser::ParseInt(std::string_view Str, bool forceBase36) {
   return result;
 }
 
-Parser::~Parser() {}
+Parser::~Parser() = default;
 } // namespace bms_parser

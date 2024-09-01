@@ -29,8 +29,9 @@ namespace bms_parser {
 class Parser {
 public:
   Parser();
-  void SetRandomSeed(int RandomSeed);
-  void Parse(std::filesystem::path path, Chart **Chart, bool addReadyMeasure,
+  void SetRandomSeed(unsigned int RandomSeed);
+
+  void Parse(const std::filesystem::path& path, Chart **Chart, bool addReadyMeasure,
              bool metaOnly, std::atomic_bool &bCancelled);
   ~Parser();
   void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
@@ -47,15 +48,15 @@ private:
   bool UseBase62 = false;
   int Lnobj = -1;
   int Lntype = 1;
-  int Seed;
-  inline int ParseHex(std::string_view Str);
-  inline int ParseInt(std::string_view Str, bool forceBase32 = false);
+  unsigned int Seed;
+  static inline int ParseHex(std::string_view Str);
+  inline int ParseInt(std::string_view Str, bool forceBase32 = false) const;
   void ParseHeader(Chart *Chart, std::string_view cmd, std::string_view Xx,
                    const std::string &Value);
-  inline bool MatchHeader(const std::string_view &str,
+  static inline bool MatchHeader(const std::string_view &str,
                           const std::string_view &headerUpper);
-  inline int Gcd(int A, int B);
-  inline bool CheckResourceIdRange(int Id);
+  static inline unsigned long long Gcd(unsigned long long A, unsigned long long B);
+  inline bool CheckResourceIdRange(int Id) const;
   inline int ToWaveId(Chart *Chart, std::string_view Wav, bool metaOnly);
 };
 } // namespace bms_parser

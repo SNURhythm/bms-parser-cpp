@@ -53,7 +53,7 @@ public:
 
   TimeLine *AddBackgroundNote(Note *note);
 
-  double GetStopDuration();
+  [[nodiscard]] double GetStopDuration() const;
 
   ~TimeLine();
 };

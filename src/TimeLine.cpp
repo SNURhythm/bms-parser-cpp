@@ -52,33 +52,25 @@ TimeLine *TimeLine::AddBackgroundNote(Note *note) {
   return this;
 }
 
-double TimeLine::GetStopDuration() {
+double TimeLine::GetStopDuration() const {
   return 1250000.0 * StopLength / Bpm; // 1250000 = 240 * 1000 * 1000 / 192
 }
 
 TimeLine::~TimeLine() {
   for (const auto &note : Notes) {
-    if (note != nullptr) {
-      delete note;
-    }
+    delete note;
   }
   Notes.clear();
   for (const auto &note : InvisibleNotes) {
-    if (note != nullptr) {
-      delete note;
-    }
+    delete note;
   }
   InvisibleNotes.clear();
   for (const auto &note : LandmineNotes) {
-    if (note != nullptr) {
-      delete note;
-    }
+    delete note;
   }
   LandmineNotes.clear();
   for (const auto &note : BackgroundNotes) {
-    if (note != nullptr) {
-      delete note;
-    }
+    delete note;
   }
   BackgroundNotes.clear();
 }

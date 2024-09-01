@@ -38,7 +38,6 @@
 // http://www.zedwood.com/article/cpp-sha256-function
 #include "SHA256.h"
 #include <cstring>
-#include <fstream>
 
 namespace bms_parser {
 const unsigned int SHA256::sha256_k[64] = // UL = uint32

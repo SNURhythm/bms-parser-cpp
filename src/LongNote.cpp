@@ -16,7 +16,7 @@
 
 #include "LongNote.h"
 namespace bms_parser {
-bool LongNote::IsTail() { return Tail == nullptr; }
+bool LongNote::IsTail() const { return Tail == nullptr; }
 
 LongNote::LongNote(int Wav) : Note(Wav) { Tail = nullptr; }
 

@@ -23,24 +23,23 @@
 namespace bms_parser {
 class LongNote : public Note {
 public:
-  LongNote();
-  virtual ~LongNote() override;
+  ~LongNote() override;
   LongNote *Tail;
-  LongNote *Head;
+  LongNote *Head = nullptr;
   bool IsHolding = false;
-  bool IsTail();
-  long long ReleaseTime;
+  [[nodiscard]] bool IsTail() const;
+  long long ReleaseTime{};
 
-  LongNote(int Wav);
+  explicit LongNote(int Wav);
 
-  virtual void Press(long long Time) override;
+  void Press(long long Time) override;
 
   void Release(long long Time);
 
   void MissPress(long long Time);
 
-  virtual void Reset() override;
+  void Reset() override;
 
-  virtual bool IsLongNote() override { return true; }
+  bool IsLongNote() override { return true; }
 };
 } // namespace bms_parser

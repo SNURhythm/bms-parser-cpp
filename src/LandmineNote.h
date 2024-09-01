@@ -24,9 +24,9 @@ namespace bms_parser {
 class LandmineNote : public Note {
 public:
   float Damage;
-  LandmineNote(float Damage);
-  virtual ~LandmineNote() override;
+  explicit LandmineNote(float Damage);
+  ~LandmineNote() override;
 
-  virtual bool IsLandmineNote() override { return true; }
+  bool IsLandmineNote() override { return true; }
 };
 } // namespace bms_parser

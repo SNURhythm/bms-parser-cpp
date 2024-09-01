@@ -1,9 +1,7 @@
 // https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion
 
 #include "ShiftJISConverter.h"
-#include <codecvt>
 #include <cstdint>
-#include <locale>
 #include <string>
 
 namespace bms_parser {

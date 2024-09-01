@@ -27,11 +27,11 @@ public:
   bool IsPlayed = false;
   bool IsDead = false;
   long long PlayedTime = 0;
-  TimeLine *Timeline;
+  TimeLine *Timeline = nullptr;
 
   // private Note nextNote;
 
-  Note(int Wav);
+  explicit Note(int Wav);
 
   void Play(long long Time);
 
