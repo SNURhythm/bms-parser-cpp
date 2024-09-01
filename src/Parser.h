@@ -31,8 +31,8 @@ public:
   Parser();
   void SetRandomSeed(unsigned int RandomSeed);
 
-  void Parse(const std::filesystem::path& path, Chart **Chart, bool addReadyMeasure,
-             bool metaOnly, std::atomic_bool &bCancelled);
+  void Parse(const std::filesystem::path &path, Chart **Chart,
+             bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
   ~Parser();
   void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
@@ -54,8 +54,9 @@ private:
   void ParseHeader(Chart *Chart, std::string_view cmd, std::string_view Xx,
                    const std::string &Value);
   static inline bool MatchHeader(const std::string_view &str,
-                          const std::string_view &headerUpper);
-  static inline unsigned long long Gcd(unsigned long long A, unsigned long long B);
+                                 const std::string_view &headerUpper);
+  static inline unsigned long long Gcd(unsigned long long A,
+                                       unsigned long long B);
   inline bool CheckResourceIdRange(int Id) const;
   inline int ToWaveId(Chart *Chart, std::string_view Wav, bool metaOnly);
 };

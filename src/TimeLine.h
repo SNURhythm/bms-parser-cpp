@@ -44,7 +44,7 @@ public:
   double Pos = 0;
 
   explicit TimeLine(int lanes, bool metaOnly);
-
+  
   TimeLine *SetNote(int lane, Note *note);
 
   TimeLine *SetInvisibleNote(int lane, Note *note);

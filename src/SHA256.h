@@ -2,7 +2,6 @@
 #include <string>
 #include <vector>
 
-
 // http://www.zedwood.com/article/cpp-sha256-function
 namespace bms_parser {
 class SHA256 {

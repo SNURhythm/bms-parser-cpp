@@ -105,7 +105,7 @@ inline bool Parser::MatchHeader(const std::string_view &str,
   return true;
 }
 
-void Parser::Parse(const std::filesystem::path& fpath, Chart **chart,
+void Parser::Parse(const std::filesystem::path &fpath, Chart **chart,
                    bool addReadyMeasure, bool metaOnly,
                    std::atomic_bool &bCancelled) {
 #if BMS_PARSER_VERBOSE == 1
@@ -503,7 +503,9 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         const auto g = Gcd(j, dataCount);
         // ReSharper disable PossibleLossOfFraction
 
-        const auto position = static_cast<double>(j / g) / static_cast<double>(dataCount / g); // NOLINT(*-integer-division)
+        const auto position =
+            static_cast<double>(j / g) /
+            static_cast<double>(dataCount / g); // NOLINT(*-integer-division)
 
         if (timelines.find(position) == timelines.end()) {
           timelines[position] = new TimeLine(TempKey, metaOnly);
@@ -667,17 +669,17 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
 
           break;
         case P1MineKeyBase: {
-            // landmine
-            ++totalLandmineNotes;
-            if (metaOnly) {
-                break;
-            }
-            const auto damage = static_cast<float>(ParseInt(val, true)) / 2.0f;
-            timeline->SetNote(laneNumber, new LandmineNote{damage});
+          // landmine
+          ++totalLandmineNotes;
+          if (metaOnly) {
             break;
+          }
+          const auto damage = static_cast<float>(ParseInt(val, true)) / 2.0f;
+          timeline->SetNote(laneNumber, new LandmineNote{damage});
+          break;
         }
         default:
-            break;
+          break;
         }
       }
     }
@@ -859,7 +861,7 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
     }
     StopLengthTable[id] = std::strtod(Value.c_str(), nullptr);
   } else if (MatchHeader(cmd, "MIDIFILE")) {
-      // TODO: handle this
+    // TODO: handle this
   } else if (MatchHeader(cmd, "VIDEOFILE")) {
   } else if (MatchHeader(cmd, "PLAYLEVEL")) {
     Chart->Meta.PlayLevel =
@@ -923,7 +925,8 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
   }
 }
 
-inline unsigned long long Parser::Gcd(unsigned long long A, unsigned long long B) {
+inline unsigned long long Parser::Gcd(unsigned long long A,
+                                      unsigned long long B) {
   while (true) {
     if (B == 0) {
       return A;

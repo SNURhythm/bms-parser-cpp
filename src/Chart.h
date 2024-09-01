@@ -62,7 +62,9 @@ public:
 
   [[nodiscard]] int GetKeyLaneCount() const { return KeyMode; }
   [[nodiscard]] int GetScratchLaneCount() const { return IsDP ? 2 : 1; }
-  [[nodiscard]] int GetTotalLaneCount() const { return KeyMode + GetScratchLaneCount(); }
+  [[nodiscard]] int GetTotalLaneCount() const {
+    return KeyMode + GetScratchLaneCount();
+  }
 
   [[nodiscard]] std::vector<int> GetKeyLaneIndices() const {
     switch (KeyMode) {
