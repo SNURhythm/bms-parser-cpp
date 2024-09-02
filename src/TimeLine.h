@@ -60,5 +60,6 @@ public:
   [[nodiscard]] double GetStopDuration() const;
 
   ~TimeLine();
+  bool IsFirstInMeasure = false;
 };
 } // namespace bms_parser

@@ -53,6 +53,7 @@ public:
     }
   }
 };
+
 enum Channel {
   LaneAutoplay = 1,
   SectionRate = 2,
@@ -91,6 +92,7 @@ void Parser::SetRandomSeed(unsigned int RandomSeed) { Seed = RandomSeed; }
 
 int Parser::NoWav = -1;
 int Parser::MetronomeWav = -2;
+
 inline bool Parser::MatchHeader(const std::string_view &str,
                                 const std::string_view &headerUpper) {
   auto size = headerUpper.length();
@@ -150,6 +152,7 @@ void Parser::Parse(const std::filesystem::path &fpath, Chart **chart,
             << "\n";
 #endif
 }
+
 void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
                    bool addReadyMeasure, bool metaOnly,
                    std::atomic_bool &bCancelled) {
@@ -410,6 +413,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
 #if BMS_PARSER_VERBOSE == 1
   midStartTime = std::chrono::high_resolution_clock::now();
 #endif
+  double measureBeatPosition = 0;
   for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {
     if (bCancelled) {
       return;
@@ -708,7 +712,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           240000000.0 * (position - lastPosition) * measure->Scale / currentBpm;
       timePassed += interval;
       timeline->Timing = static_cast<long long>(timePassed);
-      timeline->BeatPosition = measureIdx + position;
+      timeline->BeatPosition = measureBeatPosition + position * measure->Scale;
       if (timeline->BpmChange) {
         currentBpm = timeline->Bpm;
         minBpm = std::min(minBpm, timeline->Bpm);
@@ -739,13 +743,17 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     if (!metaOnly && measure->TimeLines.empty()) {
       auto timeline = new TimeLine(TempKey, metaOnly);
       timeline->Timing = static_cast<long long>(timePassed);
-      timeline->BeatPosition = measureIdx;
+      timeline->BeatPosition = measureBeatPosition;
       timeline->Bpm = currentBpm;
       measure->TimeLines.push_back(timeline);
+    }
+    if (!metaOnly) {
+      measure->TimeLines[0]->IsFirstInMeasure = true;
     }
     new_chart->Meta.PlayLength = static_cast<long long>(timePassed);
     timePassed +=
         240000000.0 * (1 - lastPosition) * measure->Scale / currentBpm;
+    measureBeatPosition += measure->Scale;
     if (!metaOnly) {
       new_chart->Measures.push_back(measure);
     } else {
@@ -960,6 +968,7 @@ inline int Parser::ToWaveId(Chart *Chart, std::string_view Wav, bool metaOnly) {
   return Chart->WavTable.find(decoded) != Chart->WavTable.end() ? decoded
                                                                 : NoWav;
 }
+
 inline int Parser::ParseHex(std::string_view Str) {
   auto result = 0;
   for (size_t i = 0; i < Str.length(); ++i) {
@@ -974,6 +983,7 @@ inline int Parser::ParseHex(std::string_view Str) {
   }
   return result;
 }
+
 inline int Parser::ParseInt(std::string_view Str, bool forceBase36) const {
   if (forceBase36 || !UseBase62) {
     auto result = static_cast<int>(std::strtol(Str.data(), nullptr, 36));
