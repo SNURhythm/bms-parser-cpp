@@ -90,10 +90,12 @@ public:
 
   [[nodiscard]] std::vector<int> GetTotalLaneIndices() const {
     std::vector<int> Result;
-    Result.insert(Result.end(), GetKeyLaneIndices().begin(),
-                  GetKeyLaneIndices().end());
-    Result.insert(Result.end(), GetScratchLaneIndices().begin(),
-                  GetScratchLaneIndices().end());
+    std::vector<int> keyLaneIndices = GetKeyLaneIndices();
+    std::vector<int> scratchLaneIndices = GetScratchLaneIndices();
+    Result.insert(Result.end(), keyLaneIndices.begin(), keyLaneIndices.end());
+    Result.insert(Result.end(), scratchLaneIndices.begin(),
+                  scratchLaneIndices.end());
+
     return Result;
   }
 };
