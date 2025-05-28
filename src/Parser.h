@@ -59,5 +59,10 @@ private:
                                        unsigned long long B);
   inline bool CheckResourceIdRange(int Id) const;
   inline int ToWaveId(Chart *Chart, std::string_view Wav, bool metaOnly);
+#ifdef _WIN32
+  static std::wstring utf8_to_path_t(const std::string &input);
+#else
+  static std::string utf8_to_path_t(const std::string &input);
+#endif
 };
 } // namespace bms_parser

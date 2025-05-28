@@ -308,8 +308,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       continue;
     }
 
-    if (line.length() >= 7 && std::isdigit(line[1]) && std::isdigit(line[2]) &&
-        std::isdigit(line[3]) && line[6] == ':') {
+    if (line.length() >= 7 && std::isdigit(static_cast<unsigned char>(line[1])) &&
+        std::isdigit(static_cast<unsigned char>(line[2])) &&
+        std::isdigit(static_cast<unsigned char>(line[3])) &&
+        line[6] == ':') {
       const int measure =
           static_cast<int>(std::strtol(line.substr(1, 3).c_str(), nullptr, 10));
       lastMeasure = std::max(lastMeasure, measure);
@@ -886,13 +888,13 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
     }
   } else if (MatchHeader(cmd, "VOLWAV")) {
   } else if (MatchHeader(cmd, "STAGEFILE")) {
-    Chart->Meta.StageFile = Value;
+    Chart->Meta.StageFile = utf8_to_path_t(Value);
   } else if (MatchHeader(cmd, "BANNER")) {
-    Chart->Meta.Banner = Value;
+    Chart->Meta.Banner = utf8_to_path_t(Value);
   } else if (MatchHeader(cmd, "BACKBMP")) {
-    Chart->Meta.BackBmp = Value;
+    Chart->Meta.BackBmp = utf8_to_path_t(Value);
   } else if (MatchHeader(cmd, "PREVIEW")) {
-    Chart->Meta.Preview = Value;
+    Chart->Meta.Preview = utf8_to_path_t(Value);
   } else if (MatchHeader(cmd, "WAV")) {
     if (Xx.empty() || Value.empty()) {
       // UE_LOG(LogTemp, Warning, TEXT("WAV command requires two arguments"));
@@ -1006,6 +1008,33 @@ inline int Parser::ParseInt(std::string_view Str, bool forceBase36) const {
   // std::wcout << "ParseInt62: " << Str << " = " << result << std::endl;
   return result;
 }
+#ifdef _WIN32
+std::wstring Parser::utf8_to_path_t(const std::string &input) {
+
+  // Determine the size of the buffer needed
+  int requiredSize =
+      MultiByteToWideChar(65001 /* UTF8 */, 0, input.c_str(), -1, NULL, 0);
+
+  if (requiredSize <= 0) {
+    // Conversion failed, return an empty string
+    return std::wstring();
+  }
+
+  // Create a string with the required size
+  std::wstring result(requiredSize, '\0');
+
+  // Perform the conversion
+  MultiByteToWideChar(65001 /* UTF8 */, 0, input.c_str(), -1, &result[0],
+                      requiredSize);
+
+  // Remove the extra null terminator added by MultiByteToWideChar
+  result.resize(requiredSize - 1);
+
+  return result;
+}
+#else
+std::string Parser::utf8_to_path_t(const std::string &input) { return input; }
+#endif
 
 Parser::~Parser() = default;
 } // namespace bms_parser
