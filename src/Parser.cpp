@@ -765,12 +765,6 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       } else {
         timeline->Bpm = currentBpm;
       }
-      
-      if (timeline->ScrollChange) {
-        currentScroll = timeline->Scroll;
-      } else {
-        timeline->Scroll = currentScroll;
-      }
 
       if (timeline->ScrollChange) {
         currentScroll = timeline->Scroll;
