@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #if WITH_AMALGAMATION
@@ -33,6 +34,49 @@
 std::string ws2s(const std::wstring &wstr) {
   return std::string().assign(wstr.begin(), wstr.end());
 }
+
+std::string noteLanesByTimeline(const bms_parser::Chart *chart) {
+  std::ostringstream output;
+  bool isFirstTimeline = true;
+  for (const auto *measure : chart->Measures) {
+    for (const auto *timeline : measure->TimeLines) {
+      std::ostringstream lanes;
+      bool isFirstLane = true;
+      for (size_t i = 0; i < timeline->Notes.size(); ++i) {
+        if (timeline->Notes[i] == nullptr) {
+          continue;
+        }
+        if (!isFirstLane) {
+          lanes << "+";
+        }
+        lanes << i;
+        isFirstLane = false;
+      }
+      const auto laneText = lanes.str();
+      if (laneText.empty()) {
+        continue;
+      }
+      if (!isFirstTimeline) {
+        output << ";";
+      }
+      output << laneText;
+      isFirstTimeline = false;
+    }
+  }
+  return output.str();
+}
+
+std::string joinLaneIndices(const std::vector<int> &lanes) {
+  std::ostringstream output;
+  for (size_t i = 0; i < lanes.size(); ++i) {
+    if (i > 0) {
+      output << ",";
+    }
+    output << lanes[i];
+  }
+  return output.str();
+}
+
 int main() {
   // read inputs from ./testcases/*.bme
   std::vector<std::filesystem::path> inputs;
@@ -129,6 +173,16 @@ int main() {
         } else if (line.rfind("playlength: ", 0) == 0) {
           auto out = std::stoi(line.substr(11));
           ASSERT_EQ(out, chart->Meta.PlayLength, "playlength: ");
+        } else if (line.rfind("note_lanes_by_timeline: ", 0) == 0) {
+          const std::string prefix = "note_lanes_by_timeline: ";
+          auto out = line.substr(prefix.length());
+          ASSERT_EQ(out, noteLanesByTimeline(chart),
+                    "note_lanes_by_timeline: ");
+        } else if (line.rfind("total_lane_indices: ", 0) == 0) {
+          const std::string prefix = "total_lane_indices: ";
+          auto out = line.substr(prefix.length());
+          ASSERT_EQ(out, joinLaneIndices(chart->Meta.GetTotalLaneIndices()),
+                    "total_lane_indices: ");
         }
       }
       delete chart;
