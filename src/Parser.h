@@ -30,8 +30,14 @@
 namespace bms_parser {
 class Parser {
 public:
+  static constexpr const char *RandomPrngId = "std::mt19937_64";
+
   Parser();
+  static bool IsSupportedRandomPrng(const std::string &RandomPrng);
+  bool SetRandomPrng(const std::string &RandomPrng);
+  [[nodiscard]] const std::string &GetRandomPrng() const;
   void SetRandomSeed(unsigned int RandomSeed);
+  [[nodiscard]] unsigned int GetRandomSeed() const;
 
   void Parse(const std::filesystem::path &path, Chart **Chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
@@ -51,6 +57,7 @@ private:
   int Lnobj = -1;
   int Lntype = 1;
   unsigned int Seed;
+  std::string RandomPrng = RandomPrngId;
   static inline int ParseHex(std::string_view Str);
   inline int ParseInt(std::string_view Str, bool forceBase32 = false) const;
   void ParseHeader(Chart *Chart, std::string_view cmd, std::string_view Xx,

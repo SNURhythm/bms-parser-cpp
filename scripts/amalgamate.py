@@ -51,9 +51,9 @@ def amalgamate(paths: [str], out_header: str, out_source: str):
             header_content += "\n"
 
     with open(out_header, "w") as f:
-        f.write(header_content)
+        f.write(header_content.rstrip() + "\n")
     with open(out_source, "w") as f:
-        f.write(source_content)
+        f.write(source_content.rstrip() + "\n")
 
 
 if __name__ == "__main__":

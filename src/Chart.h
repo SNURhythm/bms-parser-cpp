@@ -18,6 +18,7 @@
 
 #include "Measure.h"
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -59,6 +60,8 @@ public:
   int TotalBackSpinNotes = 0;
   int TotalLandmineNotes = 0;
   int LnMode = 0; // 0: user decides, 1: LN, 2: CN, 3: HCN
+  std::optional<unsigned int> RandomSeed;
+  std::optional<std::string> RandomPrng;
 
   [[nodiscard]] int GetKeyLaneCount() const { return KeyMode; }
   [[nodiscard]] bool IsScratchlessKeyMode() const {
