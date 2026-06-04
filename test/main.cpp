@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -9,6 +10,7 @@
 #include "bms_parser.hpp"
 #else
 #include "../src/Chart.h"
+#include "../src/Modifier.h"
 #include "../src/Parser.h"
 
 #endif
@@ -75,6 +77,96 @@ std::string joinLaneIndices(const std::vector<int> &lanes) {
     output << lanes[i];
   }
   return output.str();
+}
+
+std::unique_ptr<bms_parser::Chart> makeModifierTestChart(bool includeScratch) {
+  auto chart = std::make_unique<bms_parser::Chart>();
+  chart->Meta.KeyMode = 7;
+  chart->Meta.IsDP = false;
+
+  auto *measure = new bms_parser::Measure();
+  const int laneEnd = includeScratch ? 8 : 7;
+  for (int lane = 0; lane < laneEnd; ++lane) {
+    auto *timeline = new bms_parser::TimeLine(16, false);
+    timeline->Timing = lane * 1000000LL;
+    timeline->BeatPosition = static_cast<double>(lane) / laneEnd;
+    timeline->SetNote(lane, new bms_parser::Note(lane + 1));
+    measure->TimeLines.push_back(timeline);
+  }
+  chart->Measures.push_back(measure);
+  bms_parser::BaseModifier::RecalculateNoteCounts(*chart);
+  return chart;
+}
+
+int runModifierTests() {
+  {
+    auto chart = makeModifierTestChart(false);
+    bms_parser::MirrorModifier modifier;
+    modifier.Modify(*chart);
+    ASSERT_EQ("6;5;4;3;2;1;0", noteLanesByTimeline(chart.get()),
+              "mirror_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(false);
+    bms_parser::RandomModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("5;2;4;6;1;0;3", noteLanesByTimeline(chart.get()),
+              "random_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(false);
+    bms_parser::RRandomModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("4;3;2;1;0;6;5", noteLanesByTimeline(chart.get()),
+              "r_random_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(true);
+    bms_parser::RandomExModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("6;5;0;1;7;2;3;4", noteLanesByTimeline(chart.get()),
+              "random_ex_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(false);
+    bms_parser::SRandomModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("5;4;0;1;4;6;5", noteLanesByTimeline(chart.get()),
+              "s_random_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(false);
+    bms_parser::SpiralModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("2;5;1;4;0;3;6", noteLanesByTimeline(chart.get()),
+              "spiral_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(false);
+    bms_parser::HRandomModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("5;4;0;1;4;6;5", noteLanesByTimeline(chart.get()),
+              "h_random_modifier_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(true);
+    bms_parser::AllScratchModifier modifier(12345);
+    modifier.Modify(*chart);
+    ASSERT_EQ("7;7;7;7;7;7;7;7", noteLanesByTimeline(chart.get()),
+              "all_scr_modifier_lanes: ");
+  }
+  {
+    auto modifier = bms_parser::CreatePlayOptionModifier("S-RANDOM-EX", 12345);
+    const bool modifierCreated = modifier != nullptr;
+    ASSERT_EQ(true, modifierCreated, "modifier_factory_s_random_ex: ");
+    ASSERT_EQ(std::string("S-RANDOM-EX"), std::string(modifier->Name()),
+              "modifier_factory_name: ");
+    auto chart = makeModifierTestChart(true);
+    modifier->Modify(*chart);
+    ASSERT_EQ("2;1;1;6;7;0;5;3", noteLanesByTimeline(chart.get()),
+              "s_random_ex_modifier_lanes: ");
+  }
+  return 0;
 }
 
 int main() {
@@ -190,5 +282,5 @@ int main() {
     }
   }
 
-  return 0;
+  return runModifierTests();
 }
