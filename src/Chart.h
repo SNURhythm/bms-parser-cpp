@@ -62,6 +62,7 @@ public:
   int LnMode = 0; // 0: user decides, 1: LN, 2: CN, 3: HCN
   std::optional<unsigned int> RandomSeed;
   std::optional<std::string> RandomPrng;
+  std::vector<int> RandomValues;
 
   [[nodiscard]] int GetKeyLaneCount() const { return KeyMode; }
   [[nodiscard]] bool IsScratchlessKeyMode() const {

@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <vector>
 
 /**
  *
@@ -38,6 +39,8 @@ public:
   [[nodiscard]] const std::string &GetRandomPrng() const;
   void SetRandomSeed(unsigned int RandomSeed);
   [[nodiscard]] unsigned int GetRandomSeed() const;
+  void SetRandomValues(const std::vector<int> &RandomValues);
+  [[nodiscard]] const std::vector<int> &GetRandomValues() const;
 
   void Parse(const std::filesystem::path &path, Chart **Chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
@@ -58,6 +61,7 @@ private:
   int Lntype = 1;
   unsigned int Seed;
   std::string RandomPrng = RandomPrngId;
+  std::vector<int> RandomValues;
   static inline int ParseHex(std::string_view Str);
   inline int ParseInt(std::string_view Str, bool forceBase32 = false) const;
   void ParseHeader(Chart *Chart, std::string_view cmd, std::string_view Xx,

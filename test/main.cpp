@@ -5,6 +5,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #if WITH_AMALGAMATION
 #include "bms_parser.hpp"
@@ -96,6 +97,72 @@ std::unique_ptr<bms_parser::Chart> makeModifierTestChart(bool includeScratch) {
   chart->Measures.push_back(measure);
   bms_parser::BaseModifier::RecalculateNoteCounts(*chart);
   return chart;
+}
+
+std::vector<unsigned char> bytesFromString(const std::string &content) {
+  return std::vector<unsigned char>(content.begin(), content.end());
+}
+
+int runParserRandomTests() {
+  {
+    const std::string content =
+        "#TITLE base\n"
+        "#RANDOM 2\n"
+        "#IF 1\n"
+        "#RANDOM 3\n"
+        "#ENDRANDOM\n"
+        "#TITLE one\n"
+        "#ENDIF\n"
+        "#IF 2\n"
+        "#TITLE two\n"
+        "#RANDOM 3\n"
+        "#IF 1\n"
+        "#ARTIST nested-one\n"
+        "#ENDIF\n"
+        "#IF 3\n"
+        "#ARTIST nested-three\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.SetRandomValues({2, 1, 3});
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(std::string("two"), chart->Meta.Title,
+              "parser_random_selected_title: ");
+    ASSERT_EQ(std::string("nested-three"), chart->Meta.Artist,
+              "parser_random_selected_nested_artist: ");
+    ASSERT_EQ(std::string("2,1,3"), joinLaneIndices(chart->Meta.RandomValues),
+              "parser_random_selected_values: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE base\n"
+        "#RANDOM 2\n"
+        "#IF 1\n"
+        "#TITLE one\n"
+        "#ENDIF\n"
+        "#IF 2\n"
+        "#TITLE two\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.SetRandomSeed(12345);
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    const auto randomValues = joinLaneIndices(chart->Meta.RandomValues);
+    const bool randomValueInRange = randomValues == "1" || randomValues == "2";
+    ASSERT_EQ(true, randomValueInRange,
+              "parser_random_generated_value_range: ");
+    delete chart;
+  }
+  return 0;
 }
 
 int runModifierTests() {
@@ -282,5 +349,8 @@ int main() {
     }
   }
 
+  if (const int result = runParserRandomTests(); result != 0) {
+    return result;
+  }
   return runModifierTests();
 }
