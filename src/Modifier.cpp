@@ -24,6 +24,7 @@
 #include <limits>
 #include <random>
 #include <unordered_map>
+#include <utility>
 
 namespace bms_parser {
 namespace {
@@ -604,6 +605,27 @@ void BaseModifier::SetPlayer(int player) { Player = player; }
 
 int BaseModifier::GetPlayer() const { return Player; }
 
+std::vector<int> BaseModifier::GetLaneOrder(const ChartMeta &meta) const {
+  const auto destinationLanes = meta.GetTotalLaneIndices();
+  std::vector<int> result;
+  result.reserve(destinationLanes.size());
+  for (int destinationLane : destinationLanes) {
+    int sourceLane = destinationLane;
+    if (destinationLane >= 0 &&
+        destinationLane < static_cast<int>(LaneMap.size())) {
+      sourceLane = LaneMap[static_cast<size_t>(destinationLane)];
+    }
+    result.push_back(sourceLane);
+  }
+  return result;
+}
+
+void BaseModifier::SetLaneMap(std::vector<int> laneMap) {
+  LaneMap = std::move(laneMap);
+}
+
+void BaseModifier::ClearLaneMap() { LaneMap.clear(); }
+
 std::vector<int> BaseModifier::GetModifyLanes(const ChartMeta &meta,
                                               bool includeScratch) const {
   auto keyLanes = meta.GetKeyLaneIndices();
@@ -802,6 +824,7 @@ bool LaneShuffleModifier::IncludesScratch() const { return IncludeScratch; }
 void LaneShuffleModifier::Modify(Chart &chart) {
   const auto keys = GetModifyLanes(chart.Meta, IncludeScratch);
   if (keys.empty()) {
+    ClearLaneMap();
     return;
   }
 
@@ -811,8 +834,10 @@ void LaneShuffleModifier::Modify(Chart &chart) {
   }
   const auto laneMap = MakeLaneMap(chart, keys, laneCount);
   if (laneMap.empty()) {
+    ClearLaneMap();
     return;
   }
+  SetLaneMap(laneMap);
 
   for (auto *timeline : GetAllTimeLines(chart)) {
     std::vector<Note *> notes = timeline->Notes;
@@ -921,8 +946,26 @@ void LaneAssignModifier::Modify(Chart &chart) {
   std::vector<int> sourceLanes;
   if (!BuildLaneAssignMap(chart.Meta, Notation, destinationLanes,
                           sourceLanes)) {
+    ClearLaneMap();
     return;
   }
+
+  size_t laneCount = 0;
+  for (const auto *timeline : GetAllTimeLines(chart)) {
+    laneCount = std::max(laneCount, timeline->Notes.size());
+  }
+  std::vector<int> laneMap(laneCount);
+  for (size_t lane = 0; lane < laneMap.size(); ++lane) {
+    laneMap[lane] = static_cast<int>(lane);
+  }
+  for (size_t i = 0; i < destinationLanes.size(); ++i) {
+    const int destinationLane = destinationLanes[i];
+    if (destinationLane >= 0 &&
+        destinationLane < static_cast<int>(laneMap.size())) {
+      laneMap[static_cast<size_t>(destinationLane)] = sourceLanes[i];
+    }
+  }
+  SetLaneMap(std::move(laneMap));
 
   for (auto *timeline : GetAllTimeLines(chart)) {
     std::vector<Note *> notes = timeline->Notes;

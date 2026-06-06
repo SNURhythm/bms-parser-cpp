@@ -270,6 +270,9 @@ int runModifierTests() {
     modifier.Modify(*chart);
     ASSERT_EQ("6;5;4;3;2;1;0", noteLanesByTimeline(chart.get()),
               "mirror_modifier_lanes: ");
+    ASSERT_EQ("7,6,5,4,3,2,1,0",
+              joinLaneIndices(modifier.GetLaneOrder(chart->Meta)),
+              "mirror_modifier_lane_order: ");
   }
   {
     auto chart = makeModifierTestChart(false);
@@ -305,6 +308,9 @@ int runModifierTests() {
     modifier.Modify(*chart);
     ASSERT_EQ("7;0;1;2;3;4;5;6", noteLanesByTimeline(chart.get()),
               "lane_assign_modifier_rotated_scratch_lanes: ");
+    ASSERT_EQ("0,1,2,3,4,5,6,7",
+              joinLaneIndices(modifier.GetLaneOrder(chart->Meta)),
+              "lane_assign_modifier_rotated_scratch_order: ");
   }
   {
     auto chart = makeDpModifierTestChart();
@@ -321,6 +327,9 @@ int runModifierTests() {
     ASSERT_EQ("0;1;2;3;4;5;6;15;8;9;10;11;12;13;14;7",
               noteLanesByTimeline(chart.get()),
               "lane_assign_modifier_dp_scratch_swap_lanes: ");
+    ASSERT_EQ("15,0,1,2,3,4,5,6,8,9,10,11,12,13,14,7",
+              joinLaneIndices(modifier.GetLaneOrder(chart->Meta)),
+              "lane_assign_modifier_dp_scratch_swap_order: ");
   }
   {
     auto chart = makeModifierTestChart(true);
@@ -390,6 +399,16 @@ int runModifierTests() {
     modifier->Modify(*chart);
     ASSERT_EQ("2;1;1;6;7;0;5;3", noteLanesByTimeline(chart.get()),
               "s_random_ex_modifier_lanes: ");
+  }
+  {
+    auto modifier = bms_parser::CreatePlayOptionModifier("NORMAL");
+    const bool modifierCreated = modifier != nullptr;
+    ASSERT_EQ(true, modifierCreated, "modifier_factory_normal: ");
+    auto chart = makeModifierTestChart(true);
+    modifier->Modify(*chart);
+    ASSERT_EQ("7,0,1,2,3,4,5,6",
+              joinLaneIndices(modifier->GetLaneOrder(chart->Meta)),
+              "modifier_factory_normal_lane_order: ");
   }
   {
     auto modifier =

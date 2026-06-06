@@ -50,16 +50,20 @@ public:
 
   void SetPlayer(int player);
   [[nodiscard]] int GetPlayer() const;
+  [[nodiscard]] std::vector<int> GetLaneOrder(const ChartMeta &meta) const;
 
   static void RecalculateNoteCounts(Chart &chart);
 
 protected:
   [[nodiscard]] std::vector<int> GetModifyLanes(const ChartMeta &meta,
                                                 bool includeScratch) const;
+  void SetLaneMap(std::vector<int> laneMap);
+  void ClearLaneMap();
 
 private:
   long long Seed;
   int Player;
+  std::vector<int> LaneMap;
 };
 
 [[nodiscard]] const char *ToString(PlayOptionModifier option);
