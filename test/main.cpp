@@ -99,6 +99,24 @@ std::unique_ptr<bms_parser::Chart> makeModifierTestChart(bool includeScratch) {
   return chart;
 }
 
+std::unique_ptr<bms_parser::Chart> makeDpModifierTestChart() {
+  auto chart = std::make_unique<bms_parser::Chart>();
+  chart->Meta.KeyMode = 14;
+  chart->Meta.IsDP = true;
+
+  auto *measure = new bms_parser::Measure();
+  for (int lane = 0; lane < 16; ++lane) {
+    auto *timeline = new bms_parser::TimeLine(16, false);
+    timeline->Timing = lane * 1000000LL;
+    timeline->BeatPosition = static_cast<double>(lane) / 16.0;
+    timeline->SetNote(lane, new bms_parser::Note(lane + 1));
+    measure->TimeLines.push_back(timeline);
+  }
+  chart->Measures.push_back(measure);
+  bms_parser::BaseModifier::RecalculateNoteCounts(*chart);
+  return chart;
+}
+
 std::vector<unsigned char> bytesFromString(const std::string &content) {
   return std::vector<unsigned char>(content.begin(), content.end());
 }
@@ -275,6 +293,66 @@ int runModifierTests() {
               "random_ex_modifier_lanes: ");
   }
   {
+    auto chart = makeModifierTestChart(true);
+    bms_parser::LaneAssignModifier modifier("S1234567");
+    modifier.Modify(*chart);
+    ASSERT_EQ("0;1;2;3;4;5;6;7", noteLanesByTimeline(chart.get()),
+              "lane_assign_modifier_identity_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(true);
+    bms_parser::LaneAssignModifier modifier("1234567S");
+    modifier.Modify(*chart);
+    ASSERT_EQ("7;0;1;2;3;4;5;6", noteLanesByTimeline(chart.get()),
+              "lane_assign_modifier_rotated_scratch_lanes: ");
+  }
+  {
+    auto chart = makeDpModifierTestChart();
+    bms_parser::LaneAssignModifier modifier("L123456789ABCDER");
+    modifier.Modify(*chart);
+    ASSERT_EQ("0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15",
+              noteLanesByTimeline(chart.get()),
+              "lane_assign_modifier_dp_identity_lanes: ");
+  }
+  {
+    auto chart = makeDpModifierTestChart();
+    bms_parser::LaneAssignModifier modifier("R123456789ABCDEL");
+    modifier.Modify(*chart);
+    ASSERT_EQ("0;1;2;3;4;5;6;15;8;9;10;11;12;13;14;7",
+              noteLanesByTimeline(chart.get()),
+              "lane_assign_modifier_dp_scratch_swap_lanes: ");
+  }
+  {
+    auto chart = makeModifierTestChart(true);
+    std::string error;
+    ASSERT_EQ(false,
+              bms_parser::ValidateLaneAssignNotation(chart->Meta, "S1234566",
+                                                     &error),
+              "lane_assign_validation_duplicate: ");
+    ASSERT_EQ(std::string("Duplicate lane symbol: 6"), error,
+              "lane_assign_validation_duplicate_error: ");
+  }
+  {
+    auto chart = makeModifierTestChart(true);
+    std::string error;
+    ASSERT_EQ(false,
+              bms_parser::ValidateLaneAssignNotation(chart->Meta, "S123456",
+                                                     &error),
+              "lane_assign_validation_missing_lane: ");
+    ASSERT_EQ(std::string("Expected 8 lane symbols."), error,
+              "lane_assign_validation_missing_lane_error: ");
+  }
+  {
+    auto chart = makeDpModifierTestChart();
+    std::string error;
+    ASSERT_EQ(false,
+              bms_parser::ValidateLaneAssignNotation(
+                  chart->Meta, "L123456789ABCDEE", &error),
+              "lane_assign_validation_dp_duplicate: ");
+    ASSERT_EQ(std::string("Duplicate lane symbol: E"), error,
+              "lane_assign_validation_dp_duplicate_error: ");
+  }
+  {
     auto chart = makeModifierTestChart(false);
     bms_parser::SRandomModifier modifier(12345);
     modifier.Modify(*chart);
@@ -312,6 +390,32 @@ int runModifierTests() {
     modifier->Modify(*chart);
     ASSERT_EQ("2;1;1;6;7;0;5;3", noteLanesByTimeline(chart.get()),
               "s_random_ex_modifier_lanes: ");
+  }
+  {
+    auto modifier =
+        bms_parser::CreatePlayOptionModifier("ASSIGN:1234567S", 12345);
+    const bool modifierCreated = modifier != nullptr;
+    ASSERT_EQ(true, modifierCreated, "modifier_factory_lane_assign: ");
+    ASSERT_EQ(std::string("ASSIGN:1234567S"), std::string(modifier->Name()),
+              "modifier_factory_lane_assign_name: ");
+    auto chart = makeModifierTestChart(true);
+    modifier->Modify(*chart);
+    ASSERT_EQ("7;0;1;2;3;4;5;6", noteLanesByTimeline(chart.get()),
+              "modifier_factory_lane_assign_lanes: ");
+  }
+  {
+    auto modifier =
+        bms_parser::CreatePlayOptionModifier("L123456789ABCDER", 12345);
+    const bool modifierCreated = modifier != nullptr;
+    ASSERT_EQ(true, modifierCreated, "modifier_factory_dp_lane_assign: ");
+    ASSERT_EQ(std::string("ASSIGN:L123456789ABCDER"),
+              std::string(modifier->Name()),
+              "modifier_factory_dp_lane_assign_name: ");
+    auto chart = makeDpModifierTestChart();
+    modifier->Modify(*chart);
+    ASSERT_EQ("0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15",
+              noteLanesByTimeline(chart.get()),
+              "modifier_factory_dp_lane_assign_lanes: ");
   }
   return 0;
 }
