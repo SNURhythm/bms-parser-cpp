@@ -326,20 +326,6 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
                                   parentSkipped || !matched});
       continue;
     }
-    if (MatchHeader(line, "#ELSE")) {
-      if (ConditionalStack.empty()) {
-        // UE_LOG(LogTemp, Warning, TEXT("SkipStack is empty!"));
-        continue;
-      }
-      auto &frame = ConditionalStack.back();
-      if (frame.parentSkipped) {
-        frame.currentSkipped = true;
-      } else {
-        frame.currentSkipped = frame.branchMatched;
-        frame.branchMatched = true;
-      }
-      continue;
-    }
     if (MatchHeader(line, "#ELSEIF")) {
       if (ConditionalStack.empty()) {
         // UE_LOG(LogTemp, Warning, TEXT("SkipStack is empty!"));
@@ -356,6 +342,20 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       const bool matched = CurrentRandom == n;
       frame.branchMatched = matched;
       frame.currentSkipped = !matched;
+      continue;
+    }
+    if (MatchHeader(line, "#ELSE")) {
+      if (ConditionalStack.empty()) {
+        // UE_LOG(LogTemp, Warning, TEXT("SkipStack is empty!"));
+        continue;
+      }
+      auto &frame = ConditionalStack.back();
+      if (frame.parentSkipped) {
+        frame.currentSkipped = true;
+      } else {
+        frame.currentSkipped = frame.branchMatched;
+        frame.branchMatched = true;
+      }
       continue;
     }
     if (MatchHeader(line, "#ENDIF") || MatchHeader(line, "#END IF")) {

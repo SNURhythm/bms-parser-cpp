@@ -169,6 +169,28 @@ int runParserRandomTests() {
   {
     const std::string content =
         "#TITLE base\n"
+        "#RANDOM 3\n"
+        "#IF 1\n"
+        "#TITLE one\n"
+        "#ELSEIF 2\n"
+        "#TITLE two\n"
+        "#ELSE\n"
+        "#TITLE fallback\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.SetRandomValues({3});
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(std::string("fallback"), chart->Meta.Title,
+              "parser_random_elseif_before_else: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE base\n"
         "#RANDOM 2\n"
         "#IF 1\n"
         "#TITLE one\n"
