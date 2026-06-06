@@ -193,6 +193,37 @@ int runParserRandomTests() {
         "#TITLE base\n"
         "#RANDOM 2\n"
         "#IF 1\n"
+        "#TITLE first\n"
+        "#ENDIF\n"
+        "#RANDOM 2\n"
+        "#IF 2\n"
+        "#ARTIST second\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n"
+        "#IF 2\n"
+        "#GENRE after\n"
+        "#ENDIF\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.SetRandomValues({1, 2});
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(std::string("first"), chart->Meta.Title,
+              "parser_random_implicit_sibling_first: ");
+    ASSERT_EQ(std::string("second"), chart->Meta.Artist,
+              "parser_random_implicit_sibling_second: ");
+    ASSERT_EQ(std::string("after"), chart->Meta.Genre,
+              "parser_random_implicit_sibling_closes_parent: ");
+    ASSERT_EQ(std::string("1,2"), joinLaneIndices(chart->Meta.RandomValues),
+              "parser_random_implicit_sibling_values: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE base\n"
+        "#RANDOM 2\n"
+        "#IF 1\n"
         "#TITLE one\n"
         "#ENDIF\n"
         "#IF 2\n"
