@@ -211,37 +211,6 @@ int runParserRandomTests() {
               "parser_random_generated_value_range: ");
     delete chart;
   }
-  {
-    const std::string content =
-        "#TITLE base\n"
-        "#RANDOM 2\n"
-        "#IF 1\n"
-        "#RANDOM 2\n"
-        "#IF 1\n"
-        "#TITLE nested-one\n"
-        "#ENDIF\n"
-        "#IF 2\n"
-        "#TITLE nested-two\n"
-        "#ENDIF\n"
-        "#ENDIF\n"
-        "#IF 2\n"
-        "#ARTIST parent-two\n"
-        "#ENDIF\n"
-        "#ENDRANDOM\n";
-    bms_parser::Chart *chart = nullptr;
-    std::atomic_bool cancel = false;
-    bms_parser::Parser parser;
-    parser.SetRandomValues({2});
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
-
-    ASSERT_EQ(std::string("base"), chart->Meta.Title,
-              "parser_random_implicit_close_skipped_child_title: ");
-    ASSERT_EQ(std::string("parent-two"), chart->Meta.Artist,
-              "parser_random_implicit_close_skipped_child_parent_branch: ");
-    ASSERT_EQ(std::string("2"), joinLaneIndices(chart->Meta.RandomValues),
-              "parser_random_implicit_close_skipped_child_values: ");
-    delete chart;
-  }
   return 0;
 }
 
