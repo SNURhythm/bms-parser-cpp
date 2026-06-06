@@ -128,15 +128,42 @@ int runParserRandomTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.SetRandomValues({2, 1, 3});
+    parser.SetRandomValues({2, 3});
     parser.Parse(bytesFromString(content), &chart, false, false, cancel);
 
     ASSERT_EQ(std::string("two"), chart->Meta.Title,
               "parser_random_selected_title: ");
     ASSERT_EQ(std::string("nested-three"), chart->Meta.Artist,
               "parser_random_selected_nested_artist: ");
-    ASSERT_EQ(std::string("2,1,3"), joinLaneIndices(chart->Meta.RandomValues),
+    ASSERT_EQ(std::string("2,3"), joinLaneIndices(chart->Meta.RandomValues),
               "parser_random_selected_values: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE base\n"
+        "#RANDOM 2\n"
+        "#IF 1\n"
+        "#RANDOM 2\n"
+        "#IF 1\n"
+        "#TITLE leaked\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n"
+        "#ENDIF\n"
+        "#IF 2\n"
+        "#TITLE active\n"
+        "#ENDIF\n"
+        "#ENDRANDOM\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.SetRandomValues({2});
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(std::string("active"), chart->Meta.Title,
+              "parser_random_inactive_nested_branch_not_parsed: ");
+    ASSERT_EQ(std::string("2"), joinLaneIndices(chart->Meta.RandomValues),
+              "parser_random_inactive_nested_values_not_consumed: ");
     delete chart;
   }
   {
