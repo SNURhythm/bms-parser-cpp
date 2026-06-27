@@ -11,6 +11,7 @@
 #include "bms_parser.hpp"
 #else
 #include "../src/Chart.h"
+#include "../src/LongNote.h"
 #include "../src/Modifier.h"
 #include "../src/Parser.h"
 
@@ -78,6 +79,22 @@ std::string joinLaneIndices(const std::vector<int> &lanes) {
     output << lanes[i];
   }
   return output.str();
+}
+
+std::vector<bms_parser::LongNote *> longNoteHeads(
+    const bms_parser::Chart *chart) {
+  std::vector<bms_parser::LongNote *> heads;
+  for (const auto *measure : chart->Measures) {
+    for (const auto *timeline : measure->TimeLines) {
+      for (auto *note : timeline->Notes) {
+        auto *longNote = dynamic_cast<bms_parser::LongNote *>(note);
+        if (longNote != nullptr && !longNote->IsTail()) {
+          heads.push_back(longNote);
+        }
+      }
+    }
+  }
+  return heads;
 }
 
 std::unique_ptr<bms_parser::Chart> makeModifierTestChart(bool includeScratch) {
@@ -439,7 +456,81 @@ int runModifierTests() {
   return 0;
 }
 
+int runLongNoteTypeTests() {
+  {
+    const std::string content =
+        "#TITLE undefined-ln\n"
+        "#WAV01 a.wav\n"
+        "#WAV02 b.wav\n"
+        "#00151:0102\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    auto heads = longNoteHeads(chart);
+    ASSERT_EQ(static_cast<size_t>(1), heads.size(),
+              "long_note_type_undefined_count: ");
+    ASSERT_EQ(static_cast<int>(bms_parser::LongNoteType::Undefined),
+              static_cast<int>(heads[0]->Type),
+              "long_note_type_undefined_head: ");
+    ASSERT_EQ(static_cast<int>(bms_parser::LongNoteType::Undefined),
+              static_cast<int>(heads[0]->Tail->Type),
+              "long_note_type_undefined_tail: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE lnmode-hcn\n"
+        "#LNMODE 3\n"
+        "#WAV01 a.wav\n"
+        "#WAV02 b.wav\n"
+        "#00151:0102\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    auto heads = longNoteHeads(chart);
+    ASSERT_EQ(static_cast<size_t>(1), heads.size(),
+              "long_note_type_hcn_count: ");
+    ASSERT_EQ(static_cast<int>(bms_parser::LongNoteType::HellChargeNote),
+              static_cast<int>(heads[0]->Type),
+              "long_note_type_hcn_head: ");
+    ASSERT_EQ(static_cast<int>(bms_parser::LongNoteType::HellChargeNote),
+              static_cast<int>(heads[0]->Tail->Type),
+              "long_note_type_hcn_tail: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE lnobj\n"
+        "#LNOBJ 02\n"
+        "#WAV01 a.wav\n"
+        "#WAV02 b.wav\n"
+        "#00111:0102\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    auto heads = longNoteHeads(chart);
+    ASSERT_EQ(static_cast<size_t>(1), heads.size(),
+              "long_note_type_lnobj_count: ");
+    ASSERT_EQ(static_cast<int>(bms_parser::LongNoteType::LongNote),
+              static_cast<int>(heads[0]->Type),
+              "long_note_type_lnobj_head: ");
+    ASSERT_EQ(static_cast<int>(bms_parser::LongNoteType::LongNote),
+              static_cast<int>(heads[0]->Tail->Type),
+              "long_note_type_lnobj_tail: ");
+    delete chart;
+  }
+  return 0;
+}
+
 int main() {
+  const int longNoteTypeTestResult = runLongNoteTypeTests();
+  if (longNoteTypeTestResult != 0) {
+    return longNoteTypeTestResult;
+  }
+
   // read inputs from ./testcases/*.bme
   std::vector<std::filesystem::path> inputs;
   for (auto &p : std::filesystem::directory_iterator("./testcases")) {

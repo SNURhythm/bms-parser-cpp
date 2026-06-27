@@ -16,9 +16,35 @@
 
 #include "LongNote.h"
 namespace bms_parser {
+LongNoteType LongNoteTypeFromLnMode(int LnMode) {
+  switch (LnMode) {
+  case 1:
+    return LongNoteType::LongNote;
+  case 2:
+    return LongNoteType::ChargeNote;
+  case 3:
+    return LongNoteType::HellChargeNote;
+  default:
+    return LongNoteType::Undefined;
+  }
+}
+
+LongNoteType ResolveLongNoteType(LongNoteType Type, int LnMode) {
+  if (Type != LongNoteType::Undefined) {
+    return Type;
+  }
+  return LongNoteTypeFromLnMode(LnMode);
+}
+
 bool LongNote::IsTail() const { return Tail == nullptr; }
 
-LongNote::LongNote(int Wav) : Note(Wav) { Tail = nullptr; }
+LongNote::LongNote(int Wav, LongNoteType Type) : Note(Wav), Type(Type) {
+  Tail = nullptr;
+}
+
+LongNoteType LongNote::GetType() const { return Type; }
+
+void LongNote::SetType(LongNoteType Type) { this->Type = Type; }
 
 void LongNote::Press(long long Time) {
   Play(Time);
