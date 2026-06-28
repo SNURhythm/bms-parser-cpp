@@ -15,6 +15,7 @@
  */
 
 #include "Parser.h"
+#include "EucKrConverter.h"
 #include "LandmineNote.h"
 #include "LongNote.h"
 #include "Measure.h"
@@ -29,15 +30,362 @@
 #include "md5.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <string_view>
 
 #ifndef BMS_PARSER_VERBOSE
 #define BMS_PARSER_VERBOSE 0
 #endif
+
+namespace {
+
+bool hasUtf8Bom(const std::vector<unsigned char> &bytes) {
+  return bytes.size() >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb &&
+         bytes[2] == 0xbf;
+}
+
+bool hasUtf16LeBom(const std::vector<unsigned char> &bytes) {
+  return bytes.size() >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe;
+}
+
+bool hasUtf16BeBom(const std::vector<unsigned char> &bytes) {
+  return bytes.size() >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff;
+}
+
+std::string bytesToString(const std::vector<unsigned char> &bytes,
+                          size_t offset) {
+  if (offset >= bytes.size()) {
+    return "";
+  }
+  return std::string(reinterpret_cast<const char *>(bytes.data() + offset),
+                     bytes.size() - offset);
+}
+
+bool isValidUtf8(const std::vector<unsigned char> &bytes, size_t offset) {
+  size_t i = offset;
+  while (i < bytes.size()) {
+    const unsigned char c = bytes[i];
+    if (c < 0x80) {
+      ++i;
+      continue;
+    }
+    if (c >= 0xc2 && c <= 0xdf) {
+      if (i + 1 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 2;
+      continue;
+    }
+    if (c == 0xe0) {
+      if (i + 2 >= bytes.size() || bytes[i + 1] < 0xa0 ||
+          bytes[i + 1] > 0xbf || (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c >= 0xe1 && c <= 0xec) {
+      if (i + 2 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80 ||
+          (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c == 0xed) {
+      if (i + 2 >= bytes.size() || bytes[i + 1] < 0x80 ||
+          bytes[i + 1] > 0x9f || (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c >= 0xee && c <= 0xef) {
+      if (i + 2 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80 ||
+          (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c == 0xf0) {
+      if (i + 3 >= bytes.size() || bytes[i + 1] < 0x90 ||
+          bytes[i + 1] > 0xbf || (bytes[i + 2] & 0xc0) != 0x80 ||
+          (bytes[i + 3] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 4;
+      continue;
+    }
+    if (c >= 0xf1 && c <= 0xf3) {
+      if (i + 3 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80 ||
+          (bytes[i + 2] & 0xc0) != 0x80 ||
+          (bytes[i + 3] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 4;
+      continue;
+    }
+    if (c == 0xf4) {
+      if (i + 3 >= bytes.size() || bytes[i + 1] < 0x80 ||
+          bytes[i + 1] > 0x8f || (bytes[i + 2] & 0xc0) != 0x80 ||
+          (bytes[i + 3] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 4;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+void appendUtf8CodePoint(uint32_t codePoint, std::string &result) {
+  if (codePoint <= 0x7F) {
+    result.push_back(static_cast<char>(codePoint));
+  } else if (codePoint <= 0x7FF) {
+    result.push_back(static_cast<char>(0xC0 | (codePoint >> 6)));
+    result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+  } else if (codePoint <= 0xFFFF) {
+    result.push_back(static_cast<char>(0xE0 | (codePoint >> 12)));
+    result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+    result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+  } else {
+    result.push_back(static_cast<char>(0xF0 | (codePoint >> 18)));
+    result.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F)));
+    result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+    result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+  }
+}
+
+void utf16BytesToUtf8(const std::vector<unsigned char> &bytes, size_t offset,
+                      bool littleEndian, std::string &result) {
+  constexpr uint32_t kReplacementCodePoint = 0xFFFD;
+  result.clear();
+  result.reserve(bytes.size());
+
+  auto readUnit = [&](size_t index) -> uint16_t {
+    if (littleEndian) {
+      return static_cast<uint16_t>(bytes[index] |
+                                   (static_cast<uint16_t>(bytes[index + 1])
+                                    << 8));
+    }
+    return static_cast<uint16_t>((static_cast<uint16_t>(bytes[index]) << 8) |
+                                 bytes[index + 1]);
+  };
+
+  size_t index = offset;
+  while (index + 1 < bytes.size()) {
+    const uint16_t unit = readUnit(index);
+    index += 2;
+
+    uint32_t codePoint = unit;
+    if (unit >= 0xD800 && unit <= 0xDBFF) {
+      if (index + 1 < bytes.size()) {
+        const uint16_t low = readUnit(index);
+        if (low >= 0xDC00 && low <= 0xDFFF) {
+          index += 2;
+          codePoint = 0x10000 + (((unit - 0xD800) << 10) | (low - 0xDC00));
+        } else {
+          codePoint = kReplacementCodePoint;
+        }
+      } else {
+        codePoint = kReplacementCodePoint;
+      }
+    } else if (unit >= 0xDC00 && unit <= 0xDFFF) {
+      codePoint = kReplacementCodePoint;
+    }
+
+    appendUtf8CodePoint(codePoint, result);
+  }
+}
+
+bool asciiWhitespace(unsigned char c) { return c == ' ' || c == '\t'; }
+
+bool asciiEqualsIgnoreCase(const std::vector<unsigned char> &bytes, size_t pos,
+                           size_t end, std::string_view expected) {
+  if (pos + expected.size() > end) {
+    return false;
+  }
+  for (size_t i = 0; i < expected.size(); ++i) {
+    unsigned char actual = bytes[pos + i];
+    if (actual >= 'a' && actual <= 'z') {
+      actual = static_cast<unsigned char>(actual - ('a' - 'A'));
+    }
+    if (actual != static_cast<unsigned char>(expected[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string normalizeCharsetName(const std::vector<unsigned char> &bytes,
+                                 size_t start, size_t end) {
+  while (start < end && asciiWhitespace(bytes[start])) {
+    ++start;
+  }
+  while (end > start && asciiWhitespace(bytes[end - 1])) {
+    --end;
+  }
+  if (end > start + 1 &&
+      ((bytes[start] == '"' && bytes[end - 1] == '"') ||
+       (bytes[start] == '\'' && bytes[end - 1] == '\''))) {
+    ++start;
+    --end;
+  }
+
+  std::string normalized;
+  for (size_t i = start; i < end; ++i) {
+    unsigned char c = bytes[i];
+    if (c >= 'a' && c <= 'z') {
+      c = static_cast<unsigned char>(c - ('a' - 'A'));
+    }
+    if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+      normalized.push_back(static_cast<char>(c));
+    }
+  }
+  return normalized;
+}
+
+std::string declaredCharset(const std::vector<unsigned char> &bytes) {
+  size_t lineStart = hasUtf8Bom(bytes) ? 3 : 0;
+  while (lineStart < bytes.size()) {
+    size_t lineEnd = lineStart;
+    while (lineEnd < bytes.size() && bytes[lineEnd] != '\n' &&
+           bytes[lineEnd] != '\r') {
+      ++lineEnd;
+    }
+
+    size_t pos = lineStart;
+    if (pos < lineEnd && bytes[pos] == '#') {
+      ++pos;
+      for (std::string_view header : {"CHARSET", "ENCODING"}) {
+        if (!asciiEqualsIgnoreCase(bytes, pos, lineEnd, header)) {
+          continue;
+        }
+        size_t valueStart = pos + header.size();
+        if (valueStart < lineEnd && !asciiWhitespace(bytes[valueStart])) {
+          continue;
+        }
+        while (valueStart < lineEnd && asciiWhitespace(bytes[valueStart])) {
+          ++valueStart;
+        }
+        return normalizeCharsetName(bytes, valueStart, lineEnd);
+      }
+    }
+
+    lineStart = lineEnd;
+    while (lineStart < bytes.size() &&
+           (bytes[lineStart] == '\n' || bytes[lineStart] == '\r')) {
+      ++lineStart;
+    }
+  }
+  return "";
+}
+
+bool charsetIsUtf8(const std::string &charset) {
+  return charset == "UTF8" || charset == "UTF8BOM";
+}
+
+bool charsetIsShiftJis(const std::string &charset) {
+  return charset == "SHIFTJIS" || charset == "SJIS" || charset == "CP932" ||
+         charset == "MS932" || charset == "WINDOWS31J";
+}
+
+bool charsetIsEucKr(const std::string &charset) {
+  return charset == "EUCKR" || charset == "KSC5601" ||
+         charset == "KSX1001";
+}
+
+bool isShiftJisLeadByte(unsigned char byte) {
+  return (byte >= 0x81 && byte <= 0x9F) || (byte >= 0xE0 && byte <= 0xFC);
+}
+
+bool isShiftJisTrailByte(unsigned char byte) {
+  return (byte >= 0x40 && byte <= 0x7E) || (byte >= 0x80 && byte <= 0xFC);
+}
+
+bool isEucKrLeadByte(unsigned char byte) {
+  return byte >= 0xA1 && byte <= 0xFE;
+}
+
+bool isEucKrTrailByte(unsigned char byte) {
+  return byte >= 0xA1 && byte <= 0xFE;
+}
+
+size_t countDbcsPairs(const std::vector<unsigned char> &bytes, size_t offset,
+                      bool (*isLeadByte)(unsigned char),
+                      bool (*isTrailByte)(unsigned char)) {
+  size_t count = 0;
+  size_t index = offset;
+  while (index < bytes.size()) {
+    if (isLeadByte(bytes[index]) && index + 1 < bytes.size() &&
+        isTrailByte(bytes[index + 1])) {
+      ++count;
+      index += 2;
+    } else {
+      ++index;
+    }
+  }
+  return count;
+}
+
+bool shouldDecodeNoBomAsEucKr(const std::vector<unsigned char> &bytes,
+                              size_t offset) {
+  const size_t eucKrPairs =
+      countDbcsPairs(bytes, offset, isEucKrLeadByte, isEucKrTrailByte);
+  const size_t shiftJisPairs =
+      countDbcsPairs(bytes, offset, isShiftJisLeadByte, isShiftJisTrailByte);
+  return eucKrPairs > shiftJisPairs;
+}
+
+void decodeBmsText(const std::vector<unsigned char> &bytes,
+                   std::string &content) {
+  const size_t utf8Offset = hasUtf8Bom(bytes) ? 3 : 0;
+  if (hasUtf16LeBom(bytes)) {
+    utf16BytesToUtf8(bytes, 2, true, content);
+    return;
+  }
+  if (hasUtf16BeBom(bytes)) {
+    utf16BytesToUtf8(bytes, 2, false, content);
+    return;
+  }
+
+  const std::string charset = declaredCharset(bytes);
+  if (hasUtf8Bom(bytes) || charsetIsUtf8(charset)) {
+    content = bytesToString(bytes, utf8Offset);
+    return;
+  }
+  if (charsetIsEucKr(charset)) {
+    bms_parser::EucKrConverter::BytesToUTF8(
+        bytes.data() + utf8Offset, bytes.size() - utf8Offset, content);
+    return;
+  }
+  if (charsetIsShiftJis(charset)) {
+    bms_parser::ShiftJISConverter::BytesToUTF8(
+        bytes.data() + utf8Offset, bytes.size() - utf8Offset, content);
+    return;
+  }
+  if (isValidUtf8(bytes, utf8Offset)) {
+    content = bytesToString(bytes, utf8Offset);
+    return;
+  }
+  if (shouldDecodeNoBomAsEucKr(bytes, utf8Offset)) {
+    bms_parser::EucKrConverter::BytesToUTF8(
+        bytes.data() + utf8Offset, bytes.size() - utf8Offset, content);
+    return;
+  }
+
+  bms_parser::ShiftJISConverter::BytesToUTF8(
+      bytes.data() + utf8Offset, bytes.size() - utf8Offset, content);
+}
+
+} // namespace
 
 namespace bms_parser {
 enum Channel {
@@ -236,9 +584,9 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   auto midStartTime = std::chrono::high_resolution_clock::now();
 #endif
   std::string content;
-  ShiftJISConverter::BytesToUTF8(bytes.data(), bytes.size(), content);
+  decodeBmsText(bytes, content);
 #if BMS_PARSER_VERBOSE == 1
-  std::cout << "ShiftJIS-UTF8 conversion took "
+  std::cout << "BMS text decoding took "
             << std::chrono::duration_cast<std::chrono::microseconds>(
                    std::chrono::high_resolution_clock::now() - midStartTime)
                    .count()

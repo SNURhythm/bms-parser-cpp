@@ -138,6 +138,143 @@ std::vector<unsigned char> bytesFromString(const std::string &content) {
   return std::vector<unsigned char>(content.begin(), content.end());
 }
 
+int runEncodingTests() {
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::string content = std::string("#TITLE ") + koreanTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_utf8_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::string content = std::string("#CHARSET UTF-8\n#TITLE ") +
+                                koreanTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_declared_utf8_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::string content =
+        std::string("\xef\xbb\xbf#TITLE ") + koreanTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_utf8_bom_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::vector<unsigned char> content = {
+        0xff, 0xfe, 0x23, 0x00, 0x54, 0x00, 0x49, 0x00, 0x54,
+        0x00, 0x4c, 0x00, 0x45, 0x00, 0x20, 0x00, 0x5c, 0xd5,
+        0x6d, 0xad, 0xb4, 0xc5, 0x0a, 0x00,
+    };
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(content, &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_utf16le_bom_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::vector<unsigned char> content = {
+        0xfe, 0xff, 0x00, 0x23, 0x00, 0x54, 0x00, 0x49, 0x00,
+        0x54, 0x00, 0x4c, 0x00, 0x45, 0x00, 0x20, 0xd5, 0x5c,
+        0xad, 0x6d, 0xc5, 0xb4, 0x00, 0x0a,
+    };
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(content, &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_utf16be_bom_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::string eucKrTitle = "\xc7\xd1\xb1\xb9\xbe\xee";
+    const std::string content = std::string("#TITLE ") + eucKrTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_euckr_heuristic_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string koreanTitle =
+        "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+    const std::string eucKrTitle = "\xc7\xd1\xb1\xb9\xbe\xee";
+    const std::string content =
+        std::string("#CHARSET EUC-KR\n#TITLE ") + eucKrTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(koreanTitle, chart->Meta.Title,
+              "parser_encoding_declared_euckr_korean_title: ");
+    delete chart;
+  }
+  {
+    const std::string shiftJisTitle = "\x83\x65\x83\x58\x83\x67";
+    const std::string utf8Title =
+        "\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88";
+    const std::string content = std::string("#TITLE ") + shiftJisTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(utf8Title, chart->Meta.Title,
+              "parser_encoding_shiftjis_heuristic_title: ");
+    delete chart;
+  }
+  {
+    const std::string shiftJisTitle = "\x83\x65\x83\x58\x83\x67";
+    const std::string utf8Title =
+        "\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88";
+    const std::string content = std::string("#CHARSET SHIFT_JIS\n#TITLE ") +
+                                shiftJisTitle + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+    ASSERT_EQ(utf8Title, chart->Meta.Title,
+              "parser_encoding_declared_shiftjis_title: ");
+    delete chart;
+  }
+  return 0;
+}
+
 int runParserRandomTests() {
   {
     const std::string content =
@@ -526,6 +663,11 @@ int runLongNoteTypeTests() {
 }
 
 int main() {
+  const int encodingTestResult = runEncodingTests();
+  if (encodingTestResult != 0) {
+    return encodingTestResult;
+  }
+
   const int longNoteTypeTestResult = runLongNoteTypeTests();
   if (longNoteTypeTestResult != 0) {
     return longNoteTypeTestResult;
