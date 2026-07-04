@@ -139,11 +139,13 @@ std::vector<unsigned char> bytesFromString(const std::string &content) {
 }
 
 bool hasReferencedWav(const bms_parser::Chart *chart, int wav) {
-  return chart->ReferencedWavIds.find(wav) != chart->ReferencedWavIds.end();
+  return chart->ReferencedWavTable.find(wav) !=
+         chart->ReferencedWavTable.end();
 }
 
 bool hasReferencedBmp(const bms_parser::Chart *chart, int bmp) {
-  return chart->ReferencedBmpIds.find(bmp) != chart->ReferencedBmpIds.end();
+  return chart->ReferencedBmpTable.find(bmp) !=
+         chart->ReferencedBmpTable.end();
 }
 
 int runEncodingTests() {
@@ -308,13 +310,25 @@ int runReferencedWavTests() {
   ASSERT_EQ(true, hasReferencedWav(chart, 3), "referenced_wav_invisible: ");
   ASSERT_EQ(false, hasReferencedWav(chart, 4),
             "referenced_wav_unused: ");
-  ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedWavIds.size(),
+  ASSERT_EQ(std::string("bgm.wav"), chart->ReferencedWavTable[1],
+            "referenced_wav_background_path: ");
+  ASSERT_EQ(std::string("key.wav"), chart->ReferencedWavTable[2],
+            "referenced_wav_playable_path: ");
+  ASSERT_EQ(std::string("invisible.wav"), chart->ReferencedWavTable[3],
+            "referenced_wav_invisible_path: ");
+  ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedWavTable.size(),
             "referenced_wav_count: ");
   ASSERT_EQ(true, hasReferencedBmp(chart, 0), "referenced_bmp_default: ");
   ASSERT_EQ(true, hasReferencedBmp(chart, 1), "referenced_bmp_base: ");
   ASSERT_EQ(true, hasReferencedBmp(chart, 2), "referenced_bmp_layer: ");
   ASSERT_EQ(false, hasReferencedBmp(chart, 3), "referenced_bmp_unused: ");
-  ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedBmpIds.size(),
+  ASSERT_EQ(std::string("default-poor.png"), chart->ReferencedBmpTable[0],
+            "referenced_bmp_default_path: ");
+  ASSERT_EQ(std::string("base.png"), chart->ReferencedBmpTable[1],
+            "referenced_bmp_base_path: ");
+  ASSERT_EQ(std::string("layer.png"), chart->ReferencedBmpTable[2],
+            "referenced_bmp_layer_path: ");
+  ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedBmpTable.size(),
             "referenced_bmp_count: ");
   delete chart;
   return 0;
