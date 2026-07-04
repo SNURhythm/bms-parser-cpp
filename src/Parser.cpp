@@ -30,6 +30,7 @@
 #include "md5.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -37,6 +38,7 @@
 #include <regex>
 #include <sstream>
 #include <string_view>
+#include <type_traits>
 
 #ifndef BMS_PARSER_VERBOSE
 #define BMS_PARSER_VERBOSE 0
@@ -383,6 +385,51 @@ void decodeBmsText(const std::vector<unsigned char> &bytes,
 
   bms_parser::ShiftJISConverter::BytesToUTF8(
       bytes.data() + utf8Offset, bytes.size() - utf8Offset, content);
+}
+
+bool finitePositive(double value) {
+  return std::isfinite(value) && value > 0.0;
+}
+
+int guessedBeatsForScale(double scale) {
+  if (!finitePositive(scale)) {
+    return 4;
+  }
+  const int beats = static_cast<int>(std::lround(scale * 4.0));
+  return std::clamp(beats, 1, 16);
+}
+
+template <typename T>
+void addDuration(std::map<T, long long> &durations, std::vector<T> &order,
+                 T key, long long durationMicros) {
+  if constexpr (std::is_floating_point_v<T>) {
+    if (!finitePositive(key) || durationMicros <= 0) {
+      return;
+    }
+  } else {
+    if (durationMicros <= 0) {
+      return;
+    }
+  }
+  if (durations.find(key) == durations.end()) {
+    order.push_back(key);
+  }
+  durations[key] += durationMicros;
+}
+
+template <typename T>
+T mostPrevalentValue(const std::map<T, long long> &durations,
+                     const std::vector<T> &order, T fallback) {
+  T best = fallback;
+  long long bestDuration = 0;
+  for (const T value : order) {
+    const auto it = durations.find(value);
+    if (it != durations.end() && it->second > bestDuration) {
+      best = value;
+      bestDuration = it->second;
+    }
+  }
+  return bestDuration > 0 ? best : fallback;
 }
 
 } // namespace
@@ -885,6 +932,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   midStartTime = std::chrono::high_resolution_clock::now();
 #endif
   double measureBeatPosition = 0;
+  std::map<double, long long> bpmDurations;
+  std::vector<double> bpmOrder;
+  std::map<int, long long> beatDurations;
+  std::vector<int> beatOrder;
   for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {
     if (bCancelled) {
       return;
@@ -1208,6 +1259,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       // * 1000 * (position - lastPosition) * measure.scale / bpm}");
       const auto interval =
           240000000.0 * (position - lastPosition) * measure->Scale / currentBpm;
+      addDuration(bpmDurations, bpmOrder, currentBpm,
+                  static_cast<long long>(std::llround(interval)));
       timePassed += interval;
       timeline->Timing = static_cast<long long>(timePassed);
       timeline->BeatPosition = measureBeatPosition + position * measure->Scale;
@@ -1229,7 +1282,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       // {lastPosition}, bpm: {currentBpm} scale: {measure.Scale} interval:
       // {interval} stop: {timeline.GetStopDuration()}");
 
-      timePassed += timeline->GetStopDuration();
+      const auto stopDuration = timeline->GetStopDuration();
+      addDuration(bpmDurations, bpmOrder, timeline->Bpm,
+                  static_cast<long long>(std::llround(stopDuration)));
+      timePassed += stopDuration;
       if (!metaOnly) {
         measure->TimeLines.push_back(timeline);
       }
@@ -1256,8 +1312,13 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       measure->TimeLines[0]->IsFirstInMeasure = true;
     }
     new_chart->Meta.PlayLength = static_cast<long long>(timePassed);
-    timePassed +=
+    const auto finalInterval =
         240000000.0 * (1 - lastPosition) * measure->Scale / currentBpm;
+    addDuration(bpmDurations, bpmOrder, currentBpm,
+                static_cast<long long>(std::llround(finalInterval)));
+    timePassed += finalInterval;
+    addDuration(beatDurations, beatOrder, guessedBeatsForScale(measure->Scale),
+                static_cast<long long>(timePassed) - measure->Timing);
     measureBeatPosition += measure->Scale;
     if (!metaOnly) {
       new_chart->Measures.push_back(measure);
@@ -1275,6 +1336,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   new_chart->Meta.TotalLength = static_cast<long long>(timePassed);
   new_chart->Meta.MinBpm = minBpm;
   new_chart->Meta.MaxBpm = maxBpm;
+  new_chart->Meta.MostPrevalentBpm =
+      mostPrevalentValue(bpmDurations, bpmOrder, new_chart->Meta.Bpm);
+  new_chart->Meta.GuessedBeatsPerMeasure =
+      mostPrevalentValue(beatDurations, beatOrder, 4);
   if (new_chart->Meta.Difficulty == 0) {
     std::string FullTitle;
     FullTitle.reserve(new_chart->Meta.Title.length() +

@@ -744,6 +744,56 @@ int runLongNoteTypeTests() {
   return 0;
 }
 
+int runPrepMetadataTests() {
+  {
+    const std::string content =
+        "#TITLE prevalent-bpm\n"
+        "#BPM 999\n"
+        "#BPM01 120\n"
+        "#BPM02 180\n"
+        "#00108:01\n"
+        "#00208:02\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(999.0, chart->Meta.Bpm, "prep_meta_chart_bpm: ");
+    ASSERT_EQ(120.0, chart->Meta.MostPrevalentBpm,
+              "prep_meta_most_prevalent_bpm: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE guessed-beats\n"
+        "#BPM 120\n"
+        "#00102:0.75\n"
+        "#00111:01\n"
+        "#00202:0.75\n"
+        "#00211:01\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(3, chart->Meta.GuessedBeatsPerMeasure,
+              "prep_meta_guessed_beats_3_4: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE default-beats\n"
+        "#BPM 120\n"
+        "#00111:01\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(4, chart->Meta.GuessedBeatsPerMeasure,
+              "prep_meta_guessed_beats_default: ");
+    delete chart;
+  }
+  return 0;
+}
+
 int main() {
   const int encodingTestResult = runEncodingTests();
   if (encodingTestResult != 0) {
@@ -753,6 +803,10 @@ int main() {
   const int longNoteTypeTestResult = runLongNoteTypeTests();
   if (longNoteTypeTestResult != 0) {
     return longNoteTypeTestResult;
+  }
+
+  if (const int result = runPrepMetadataTests(); result != 0) {
+    return result;
   }
 
   // read inputs from ./testcases/*.bme
