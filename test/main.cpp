@@ -138,6 +138,14 @@ std::vector<unsigned char> bytesFromString(const std::string &content) {
   return std::vector<unsigned char>(content.begin(), content.end());
 }
 
+bool hasReferencedWav(const bms_parser::Chart *chart, int wav) {
+  return chart->ReferencedWavIds.find(wav) != chart->ReferencedWavIds.end();
+}
+
+bool hasReferencedBmp(const bms_parser::Chart *chart, int bmp) {
+  return chart->ReferencedBmpIds.find(bmp) != chart->ReferencedBmpIds.end();
+}
+
 int runEncodingTests() {
   {
     const std::string koreanTitle =
@@ -272,6 +280,43 @@ int runEncodingTests() {
               "parser_encoding_declared_shiftjis_title: ");
     delete chart;
   }
+  return 0;
+}
+
+int runReferencedWavTests() {
+  const std::string content =
+      "#WAV01 bgm.wav\n"
+      "#WAV02 key.wav\n"
+      "#WAV03 invisible.wav\n"
+      "#WAV04 unused.wav\n"
+      "#BMP00 default-poor.png\n"
+      "#BMP01 base.png\n"
+      "#BMP02 layer.png\n"
+      "#BMP03 unused.png\n"
+      "#00101:01\n"
+      "#00111:02\n"
+      "#00131:03\n"
+      "#00104:01\n"
+      "#00107:02\n";
+  bms_parser::Chart *chart = nullptr;
+  std::atomic_bool cancel = false;
+  bms_parser::Parser parser;
+  parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+
+  ASSERT_EQ(true, hasReferencedWav(chart, 1), "referenced_wav_background: ");
+  ASSERT_EQ(true, hasReferencedWav(chart, 2), "referenced_wav_playable: ");
+  ASSERT_EQ(true, hasReferencedWav(chart, 3), "referenced_wav_invisible: ");
+  ASSERT_EQ(false, hasReferencedWav(chart, 4),
+            "referenced_wav_unused: ");
+  ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedWavIds.size(),
+            "referenced_wav_count: ");
+  ASSERT_EQ(true, hasReferencedBmp(chart, 0), "referenced_bmp_default: ");
+  ASSERT_EQ(true, hasReferencedBmp(chart, 1), "referenced_bmp_base: ");
+  ASSERT_EQ(true, hasReferencedBmp(chart, 2), "referenced_bmp_layer: ");
+  ASSERT_EQ(false, hasReferencedBmp(chart, 3), "referenced_bmp_unused: ");
+  ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedBmpIds.size(),
+            "referenced_bmp_count: ");
+  delete chart;
   return 0;
 }
 
@@ -809,6 +854,9 @@ int main() {
   }
 
   if (const int result = runParserRandomTests(); result != 0) {
+    return result;
+  }
+  if (const int result = runReferencedWavTests(); result != 0) {
     return result;
   }
   return runModifierTests();

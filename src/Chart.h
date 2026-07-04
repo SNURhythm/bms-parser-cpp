@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace bms_parser {
@@ -132,6 +133,8 @@ public:
   ChartMeta Meta;
   std::vector<Measure *> Measures;
   std::unordered_map<int, std::string> WavTable;
+  std::unordered_set<int> ReferencedWavIds;
   std::unordered_map<int, std::string> BmpTable;
+  std::unordered_set<int> ReferencedBmpIds;
 };
 } // namespace bms_parser

@@ -72,6 +72,9 @@ private:
                                        unsigned long long B);
   inline bool CheckResourceIdRange(int Id) const;
   inline int ToWaveId(Chart *Chart, std::string_view Wav, bool metaOnly);
+  inline void RegisterReferencedWaveId(Chart *Chart, int WavId) const;
+  inline void RegisterReferencedBmpId(Chart *Chart, int BmpId,
+                                      bool metaOnly) const;
 #ifdef _WIN32
   static std::wstring utf8_to_path_t(const std::string &input);
 #else
