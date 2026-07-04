@@ -403,10 +403,25 @@ struct BeatMeasureInfo {
   int beats = 4;
   bool explicitSectionRate = false;
   bool hasPrepTimingContent = false;
+  int prepTimingTimelineCount = 0;
 };
 
-int pairedTripleOpeningCandidate(const std::vector<BeatMeasureInfo> &measures) {
-  constexpr int MinPairedTripleMeasures = 8;
+int tripleTimelineCandidate(int timelineCount) {
+  if (timelineCount == 6) {
+    return 6;
+  }
+  if (timelineCount == 3) {
+    return 3;
+  }
+  return 0;
+}
+
+int openingTripleTimelineCandidate(
+    const std::vector<BeatMeasureInfo> &measures) {
+  constexpr int MinTimelineSignalMeasures = 4;
+  int threeTimelineMeasures = 0;
+  int sixTimelineMeasures = 0;
+  int signalMeasures = 0;
   for (size_t i = 1; i < measures.size(); ++i) {
     const auto &measure = measures[i];
     if (!measure.explicitSectionRate && !measure.hasPrepTimingContent) {
@@ -419,16 +434,32 @@ int pairedTripleOpeningCandidate(const std::vector<BeatMeasureInfo> &measures) {
       return 0;
     }
 
-    int runLength = 1;
-    for (size_t j = i + 1; j < measures.size(); ++j) {
+    for (size_t j = i; j < measures.size(); ++j) {
       const auto &next = measures[j];
       if (!next.explicitSectionRate || !next.hasPrepTimingContent ||
           next.beats != 3) {
         break;
       }
-      ++runLength;
+      const int candidate =
+          tripleTimelineCandidate(next.prepTimingTimelineCount);
+      if (candidate == 3) {
+        ++threeTimelineMeasures;
+        ++signalMeasures;
+      } else if (candidate == 6) {
+        ++sixTimelineMeasures;
+        ++signalMeasures;
+      }
     }
-    return runLength >= MinPairedTripleMeasures ? 6 : 0;
+    if (signalMeasures < MinTimelineSignalMeasures) {
+      return 0;
+    }
+    if (sixTimelineMeasures > threeTimelineMeasures) {
+      return 6;
+    }
+    if (threeTimelineMeasures > sixTimelineMeasures) {
+      return 3;
+    }
+    return 0;
   }
   return 0;
 }
@@ -470,10 +501,7 @@ int guessedBeatsPerMeasure(const std::map<int, long long> &durations,
                            const std::vector<int> &order,
                            const std::vector<BeatMeasureInfo> &measures) {
   const int prevalentBeats = mostPrevalentValue(durations, order, 4);
-  if (prevalentBeats == 3) {
-    return prevalentBeats;
-  }
-  const int openingCandidate = pairedTripleOpeningCandidate(measures);
+  const int openingCandidate = openingTripleTimelineCandidate(measures);
   return openingCandidate != 0 ? openingCandidate : prevalentBeats;
 }
 
@@ -994,6 +1022,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     auto measure = new Measure();
     bool explicitSectionRate = false;
     bool measureHasPrepTimingContent = false;
+    auto prepTimingPositions = std::map<double, bool>();
 
     // NOTE: this should be an ordered map
     auto timelines = std::map<double, TimeLine *>();
@@ -1088,16 +1117,17 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
 
           continue;
         }
-        if (channelCanAnchorPrepTiming) {
-          measureHasPrepTimingContent = true;
-        }
-
         const auto g = Gcd(j, dataCount);
         // ReSharper disable PossibleLossOfFraction
 
         const auto position =
             static_cast<double>(j / g) /
             static_cast<double>(dataCount / g); // NOLINT(*-integer-division)
+
+        if (channelCanAnchorPrepTiming) {
+          measureHasPrepTimingContent = true;
+          prepTimingPositions[position] = true;
+        }
 
         if (timelines.find(position) == timelines.end()) {
           timelines[position] = new TimeLine(TempKey, metaOnly);
@@ -1378,7 +1408,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     addDuration(beatDurations, beatOrder, measureBeats,
                 static_cast<long long>(timePassed) - measure->Timing);
     beatMeasures.push_back(
-        {measureBeats, explicitSectionRate, measureHasPrepTimingContent});
+        {measureBeats, explicitSectionRate, measureHasPrepTimingContent,
+         static_cast<int>(prepTimingPositions.size())});
     measureBeatPosition += measure->Scale;
     if (!metaOnly) {
       new_chart->Measures.push_back(measure);
