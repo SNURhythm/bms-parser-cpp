@@ -399,6 +399,40 @@ int guessedBeatsForScale(double scale) {
   return std::clamp(beats, 1, 16);
 }
 
+struct BeatMeasureInfo {
+  int beats = 4;
+  bool explicitSectionRate = false;
+  bool hasPrepTimingContent = false;
+};
+
+int pairedTripleOpeningCandidate(const std::vector<BeatMeasureInfo> &measures) {
+  constexpr int MinPairedTripleMeasures = 8;
+  for (size_t i = 1; i < measures.size(); ++i) {
+    const auto &measure = measures[i];
+    if (!measure.explicitSectionRate && !measure.hasPrepTimingContent) {
+      continue;
+    }
+    if (!measure.hasPrepTimingContent) {
+      continue;
+    }
+    if (!measure.explicitSectionRate || measure.beats != 3) {
+      return 0;
+    }
+
+    int runLength = 1;
+    for (size_t j = i + 1; j < measures.size(); ++j) {
+      const auto &next = measures[j];
+      if (!next.explicitSectionRate || !next.hasPrepTimingContent ||
+          next.beats != 3) {
+        break;
+      }
+      ++runLength;
+    }
+    return runLength >= MinPairedTripleMeasures ? 6 : 0;
+  }
+  return 0;
+}
+
 template <typename T>
 void addDuration(std::map<T, long long> &durations, std::vector<T> &order,
                  T key, long long durationMicros) {
@@ -430,6 +464,17 @@ T mostPrevalentValue(const std::map<T, long long> &durations,
     }
   }
   return bestDuration > 0 ? best : fallback;
+}
+
+int guessedBeatsPerMeasure(const std::map<int, long long> &durations,
+                           const std::vector<int> &order,
+                           const std::vector<BeatMeasureInfo> &measures) {
+  const int prevalentBeats = mostPrevalentValue(durations, order, 4);
+  if (prevalentBeats == 3) {
+    return prevalentBeats;
+  }
+  const int openingCandidate = pairedTripleOpeningCandidate(measures);
+  return openingCandidate != 0 ? openingCandidate : prevalentBeats;
 }
 
 } // namespace
@@ -936,6 +981,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   std::vector<double> bpmOrder;
   std::map<int, long long> beatDurations;
   std::vector<int> beatOrder;
+  std::vector<BeatMeasureInfo> beatMeasures;
   for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {
     if (bCancelled) {
       return;
@@ -946,6 +992,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
 
     // gcd (int, int)
     auto measure = new Measure();
+    bool explicitSectionRate = false;
+    bool measureHasPrepTimingContent = false;
 
     // NOTE: this should be an ordered map
     auto timelines = std::map<double, TimeLine *>();
@@ -958,6 +1006,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       auto &data = pair.second;
       if (channel == SectionRate) {
         measure->Scale = std::strtod(data.c_str(), nullptr);
+        explicitSectionRate = true;
         continue;
       }
 
@@ -1021,6 +1070,11 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       }
 
       const auto dataCount = data.length() / 2;
+      const bool channelCanAnchorPrepTiming =
+          channel == LaneAutoplay || channel == BpmChange ||
+          channel == BpmChangeExtend || channel == Stop || channel == Scroll ||
+          channel == P1KeyBase || channel == P1InvisibleKeyBase ||
+          channel == P1LongKeyBase || channel == P1MineKeyBase;
       for (size_t j = 0; j < dataCount; ++j) {
         if (bCancelled) {
           break;
@@ -1033,6 +1087,9 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           }
 
           continue;
+        }
+        if (channelCanAnchorPrepTiming) {
+          measureHasPrepTimingContent = true;
         }
 
         const auto g = Gcd(j, dataCount);
@@ -1317,8 +1374,11 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     addDuration(bpmDurations, bpmOrder, currentBpm,
                 static_cast<long long>(std::llround(finalInterval)));
     timePassed += finalInterval;
-    addDuration(beatDurations, beatOrder, guessedBeatsForScale(measure->Scale),
+    const int measureBeats = guessedBeatsForScale(measure->Scale);
+    addDuration(beatDurations, beatOrder, measureBeats,
                 static_cast<long long>(timePassed) - measure->Timing);
+    beatMeasures.push_back(
+        {measureBeats, explicitSectionRate, measureHasPrepTimingContent});
     measureBeatPosition += measure->Scale;
     if (!metaOnly) {
       new_chart->Measures.push_back(measure);
@@ -1339,7 +1399,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   new_chart->Meta.MostPrevalentBpm =
       mostPrevalentValue(bpmDurations, bpmOrder, new_chart->Meta.Bpm);
   new_chart->Meta.GuessedBeatsPerMeasure =
-      mostPrevalentValue(beatDurations, beatOrder, 4);
+      guessedBeatsPerMeasure(beatDurations, beatOrder, beatMeasures);
   if (new_chart->Meta.Difficulty == 0) {
     std::string FullTitle;
     FullTitle.reserve(new_chart->Meta.Title.length() +
