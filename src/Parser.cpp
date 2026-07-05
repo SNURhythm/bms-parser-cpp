@@ -442,7 +442,7 @@ int startingMeasureWeight(int saneSignalMeasureIndex) {
 }
 
 int tripleTimelineCandidate(int timelineCount) {
-  if (timelineCount == 6) {
+  if (timelineCount >= 6) {
     return 6;
   }
   if (timelineCount == 3) {
@@ -1456,7 +1456,9 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     if (isSanePrepMeasureTiming(measureBeats, measureDuration)) {
       const bool measureHasBeatGuessSignal =
           explicitSectionRate || measureHasPrepTimingContent;
-      const int measureWeight = measureHasBeatGuessSignal
+      const bool measureCanUseStartingWeight =
+          measureIdx > 0 && measureHasBeatGuessSignal;
+      const int measureWeight = measureCanUseStartingWeight
                                     ? startingMeasureWeight(saneSignalMeasures++)
                                     : 1;
       addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
