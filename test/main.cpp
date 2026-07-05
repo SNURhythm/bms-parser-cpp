@@ -840,6 +840,31 @@ int runPrepMetadataTests() {
   }
   {
     const std::string content =
+        "#TITLE three-four-after-paired-opening\n"
+        "#BPM 200\n"
+        "#00002:1.5\n"
+        "#00102:1.5\n"
+        "#00101:01\n"
+        "#00202:0.75\n"
+        "#00211:010101010101\n"
+        "#00302:0.75\n"
+        "#00311:010101010101\n"
+        "#00402:0.75\n"
+        "#00411:010101010101\n"
+        "#00502:0.75\n"
+        "#00511:010101010101\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(3, chart->Meta.GuessedBeatsPerMeasure,
+              "prep_meta_guessed_beats_3_4_after_paired_opening: ");
+    ASSERT_EQ(200.0, chart->Meta.GuessedBeatBpm,
+              "prep_meta_guessed_beat_bpm_3_4_after_paired_opening: ");
+    delete chart;
+  }
+  {
+    const std::string content =
         "#TITLE three-four-opening\n"
         "#BPM 220\n"
         "#00002:2\n"

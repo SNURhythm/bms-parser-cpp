@@ -458,6 +458,17 @@ int tripleTimelineCandidate(int timelineCount) {
   return 0;
 }
 
+bool hasPairedTripleLeadIn(const std::vector<BeatMeasureInfo> &measures,
+                           size_t firstTripleMeasure) {
+  if (firstTripleMeasure < 2) {
+    return false;
+  }
+  const auto &firstLeadIn = measures[firstTripleMeasure - 2];
+  const auto &secondLeadIn = measures[firstTripleMeasure - 1];
+  return firstLeadIn.explicitSectionRate && firstLeadIn.beats == 6 &&
+         secondLeadIn.explicitSectionRate && secondLeadIn.beats == 6;
+}
+
 int openingTripleTimelineCandidate(
     const std::vector<BeatMeasureInfo> &measures) {
   constexpr int MinTimelineSignalMeasures = 4;
@@ -473,6 +484,10 @@ int openingTripleTimelineCandidate(
       continue;
     }
     if (!measure.explicitSectionRate || measure.beats != 3) {
+      if (measure.explicitSectionRate && measure.beats == 6 &&
+          i + 1 < measures.size() && hasPairedTripleLeadIn(measures, i + 1)) {
+        continue;
+      }
       return 0;
     }
 
@@ -494,6 +509,9 @@ int openingTripleTimelineCandidate(
     }
     if (signalMeasures < MinTimelineSignalMeasures) {
       return 0;
+    }
+    if (hasPairedTripleLeadIn(measures, i)) {
+      return 3;
     }
     if (sixTimelineMeasures > threeTimelineMeasures) {
       return 6;
