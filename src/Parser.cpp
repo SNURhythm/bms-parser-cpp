@@ -406,6 +406,9 @@ struct BeatMeasureInfo {
   int prepTimingTimelineCount = 0;
 };
 
+constexpr int EarlyAudibleMeasureLimit = 4;
+constexpr int EarlyAudibleWeight = 4;
+
 int tripleTimelineCandidate(int timelineCount) {
   if (timelineCount == 6) {
     return 6;
@@ -500,9 +503,10 @@ T mostPrevalentValue(const std::map<T, long long> &durations,
 int guessedBeatsPerMeasure(const std::map<int, long long> &durations,
                            const std::vector<int> &order,
                            const std::vector<BeatMeasureInfo> &measures) {
-  const int prevalentBeats = mostPrevalentValue(durations, order, 4);
   const int openingCandidate = openingTripleTimelineCandidate(measures);
-  return openingCandidate != 0 ? openingCandidate : prevalentBeats;
+  return openingCandidate != 0
+             ? openingCandidate
+             : mostPrevalentValue(durations, order, 4);
 }
 
 } // namespace
@@ -1007,8 +1011,9 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   double measureBeatPosition = 0;
   std::map<double, long long> bpmDurations;
   std::vector<double> bpmOrder;
-  std::map<int, long long> beatDurations;
-  std::vector<int> beatOrder;
+  std::map<int, long long> weightedBeatDurations;
+  std::vector<int> weightedBeatOrder;
+  int earlyAudibleMeasures = 0;
   std::vector<BeatMeasureInfo> beatMeasures;
   for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {
     if (bCancelled) {
@@ -1022,6 +1027,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     auto measure = new Measure();
     bool explicitSectionRate = false;
     bool measureHasPrepTimingContent = false;
+    bool measureHasAudibleContent = false;
     auto prepTimingPositions = std::map<double, bool>();
 
     // NOTE: this should be an ordered map
@@ -1104,6 +1110,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           channel == BpmChangeExtend || channel == Stop || channel == Scroll ||
           channel == P1KeyBase || channel == P1InvisibleKeyBase ||
           channel == P1LongKeyBase || channel == P1MineKeyBase;
+      const bool channelHasAudibleContent =
+          channel == LaneAutoplay || channel == P1KeyBase ||
+          channel == P1InvisibleKeyBase || channel == P1LongKeyBase ||
+          channel == P1MineKeyBase;
       for (size_t j = 0; j < dataCount; ++j) {
         if (bCancelled) {
           break;
@@ -1127,6 +1137,9 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         if (channelCanAnchorPrepTiming) {
           measureHasPrepTimingContent = true;
           prepTimingPositions[position] = true;
+        }
+        if (channelHasAudibleContent) {
+          measureHasAudibleContent = true;
         }
 
         if (timelines.find(position) == timelines.end()) {
@@ -1405,8 +1418,16 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
                 static_cast<long long>(std::llround(finalInterval)));
     timePassed += finalInterval;
     const int measureBeats = guessedBeatsForScale(measure->Scale);
-    addDuration(beatDurations, beatOrder, measureBeats,
-                static_cast<long long>(timePassed) - measure->Timing);
+    const long long measureDuration =
+        static_cast<long long>(timePassed) - measure->Timing;
+    addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
+                measureDuration);
+    if (measureHasAudibleContent &&
+        earlyAudibleMeasures < EarlyAudibleMeasureLimit) {
+      addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
+                  measureDuration * (EarlyAudibleWeight - 1));
+      ++earlyAudibleMeasures;
+    }
     beatMeasures.push_back(
         {measureBeats, explicitSectionRate, measureHasPrepTimingContent,
          static_cast<int>(prepTimingPositions.size())});
@@ -1430,7 +1451,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   new_chart->Meta.MostPrevalentBpm =
       mostPrevalentValue(bpmDurations, bpmOrder, new_chart->Meta.Bpm);
   new_chart->Meta.GuessedBeatsPerMeasure =
-      guessedBeatsPerMeasure(beatDurations, beatOrder, beatMeasures);
+      guessedBeatsPerMeasure(weightedBeatDurations, weightedBeatOrder,
+                             beatMeasures);
   if (new_chart->Meta.Difficulty == 0) {
     std::string FullTitle;
     FullTitle.reserve(new_chart->Meta.Title.length() +

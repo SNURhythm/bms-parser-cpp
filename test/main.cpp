@@ -854,6 +854,39 @@ int runPrepMetadataTests() {
   }
   {
     const std::string content =
+        "#TITLE early-audible-six\n"
+        "#BPM 120\n"
+        "#00004:01\n"
+        "#00102:1.5\n"
+        "#00101:01\n"
+        "#00202:1.5\n"
+        "#00201:01\n"
+        "#00302:1.5\n"
+        "#00301:01\n"
+        "#00402:1.5\n"
+        "#00401:01\n"
+        "#00501:01\n"
+        "#00601:01\n"
+        "#00701:01\n"
+        "#00801:01\n"
+        "#00901:01\n"
+        "#01001:01\n"
+        "#01101:01\n"
+        "#01201:01\n"
+        "#01301:01\n"
+        "#01401:01\n"
+        "#01501:01\n"
+        "#01601:01\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(6, chart->Meta.GuessedBeatsPerMeasure,
+              "prep_meta_guessed_beats_early_audible: ");
+    delete chart;
+  }
+  {
+    const std::string content =
         "#TITLE default-beats\n"
         "#BPM 120\n"
         "#00111:01\n";
