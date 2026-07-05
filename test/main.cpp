@@ -1157,14 +1157,18 @@ int main() {
     return result;
   }
 
-  // read inputs from ./testcases/*.bme and ./testcases/*.bms
+  // read inputs from ./testcases/**/*.bme and ./testcases/**/*.bms
   std::vector<std::filesystem::path> inputs;
-  for (auto &p : std::filesystem::directory_iterator("./testcases")) {
+  for (auto &p : std::filesystem::recursive_directory_iterator("./testcases")) {
+    if (!p.is_regular_file()) {
+      continue;
+    }
     const auto extension = p.path().extension();
     if (extension == ".bme" || extension == ".bms") {
       inputs.push_back(p.path());
     }
   }
+  std::sort(inputs.begin(), inputs.end());
 
   for (auto &input : inputs) {
     std::filesystem::path output_path = input;
