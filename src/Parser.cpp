@@ -420,13 +420,20 @@ bool isSanePrepMeasureBeats(int beats) {
   return beats >= MinSanePrepMeasureBeats && beats <= MaxSanePrepMeasureBeats;
 }
 
+double prepMeasureBpm(int beats, long long durationMicros) {
+  if (durationMicros <= 0) {
+    return 0.0;
+  }
+  return std::round(
+      60000000.0 * static_cast<double>(beats) /
+      static_cast<double>(durationMicros));
+}
+
 bool isSanePrepMeasureTiming(int beats, long long durationMicros) {
-  if (!isSanePrepMeasureBeats(beats) || durationMicros <= 0) {
+  if (!isSanePrepMeasureBeats(beats)) {
     return false;
   }
-  const double effectiveBpm =
-      60000000.0 * static_cast<double>(beats) /
-      static_cast<double>(durationMicros);
+  const double effectiveBpm = prepMeasureBpm(beats, durationMicros);
   return std::isfinite(effectiveBpm) &&
          effectiveBpm >= MinSanePrepMeasureBpm &&
          effectiveBpm <= MaxSanePrepMeasureBpm;
@@ -530,6 +537,29 @@ T mostPrevalentValue(const std::map<T, long long> &durations,
     }
   }
   return bestDuration > 0 ? best : fallback;
+}
+
+void addPrepBeatBpmDuration(
+    std::map<int, std::map<double, long long>> &durations,
+    std::map<int, std::vector<double>> &order, int beats,
+    long long measureDurationMicros, long long weightedDurationMicros) {
+  if (!isSanePrepMeasureTiming(beats, measureDurationMicros)) {
+    return;
+  }
+  addDuration(durations[beats], order[beats],
+              prepMeasureBpm(beats, measureDurationMicros),
+              weightedDurationMicros);
+}
+
+double mostPrevalentPrepBeatBpm(
+    const std::map<int, std::map<double, long long>> &durations,
+    const std::map<int, std::vector<double>> &order, int beats) {
+  const auto durationIt = durations.find(beats);
+  const auto orderIt = order.find(beats);
+  if (durationIt == durations.end() || orderIt == order.end()) {
+    return 0.0;
+  }
+  return mostPrevalentValue(durationIt->second, orderIt->second, 0.0);
 }
 
 int guessedBeatsPerMeasure(const std::map<int, long long> &durations,
@@ -1045,6 +1075,8 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   std::vector<double> bpmOrder;
   std::map<int, long long> weightedBeatDurations;
   std::vector<int> weightedBeatOrder;
+  std::map<int, std::map<double, long long>> prepBeatBpmDurations;
+  std::map<int, std::vector<double>> prepBeatBpmOrder;
   int saneSignalMeasures = 0;
   int earlyAudibleMeasures = 0;
   std::vector<BeatMeasureInfo> beatMeasures;
@@ -1461,12 +1493,39 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       const int measureWeight = measureCanUseStartingWeight
                                     ? startingMeasureWeight(saneSignalMeasures++)
                                     : 1;
+      const long long weightedMeasureDuration =
+          measureDuration * static_cast<long long>(measureWeight);
       addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
-                  measureDuration * measureWeight);
+                  weightedMeasureDuration);
+      addPrepBeatBpmDuration(prepBeatBpmDurations, prepBeatBpmOrder,
+                             measureBeats, measureDuration,
+                             weightedMeasureDuration);
+      const int timelineBeatCandidate =
+          explicitSectionRate && measureBeats == 3
+              ? tripleTimelineCandidate(
+                    static_cast<int>(prepTimingPositions.size()))
+              : 0;
+      if (timelineBeatCandidate != 0 &&
+          timelineBeatCandidate != measureBeats) {
+        addPrepBeatBpmDuration(prepBeatBpmDurations, prepBeatBpmOrder,
+                               timelineBeatCandidate, measureDuration,
+                               weightedMeasureDuration);
+      }
       if (measureHasAudibleContent &&
           earlyAudibleMeasures < EarlyAudibleMeasureLimit) {
+        const long long earlyAudibleDuration =
+            measureDuration * (EarlyAudibleWeight - 1);
         addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
-                    measureDuration * (EarlyAudibleWeight - 1));
+                    earlyAudibleDuration);
+        addPrepBeatBpmDuration(prepBeatBpmDurations, prepBeatBpmOrder,
+                               measureBeats, measureDuration,
+                               earlyAudibleDuration);
+        if (timelineBeatCandidate != 0 &&
+            timelineBeatCandidate != measureBeats) {
+          addPrepBeatBpmDuration(prepBeatBpmDurations, prepBeatBpmOrder,
+                                 timelineBeatCandidate, measureDuration,
+                                 earlyAudibleDuration);
+        }
         ++earlyAudibleMeasures;
       }
     }
@@ -1492,9 +1551,12 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   new_chart->Meta.MaxBpm = maxBpm;
   new_chart->Meta.MostPrevalentBpm =
       mostPrevalentValue(bpmDurations, bpmOrder, new_chart->Meta.Bpm);
-  new_chart->Meta.GuessedBeatsPerMeasure =
+  const int guessedBeats =
       guessedBeatsPerMeasure(weightedBeatDurations, weightedBeatOrder,
                              beatMeasures);
+  new_chart->Meta.GuessedBeatsPerMeasure = guessedBeats;
+  new_chart->Meta.GuessedBeatBpm = mostPrevalentPrepBeatBpm(
+      prepBeatBpmDurations, prepBeatBpmOrder, guessedBeats);
   if (new_chart->Meta.Difficulty == 0) {
     std::string FullTitle;
     FullTitle.reserve(new_chart->Meta.Title.length() +

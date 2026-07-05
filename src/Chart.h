@@ -52,6 +52,7 @@ public:
   double MinBpm = 0;
   double MaxBpm = 0;
   double MostPrevalentBpm = 0;
+  double GuessedBeatBpm = 0;
   int GuessedBeatsPerMeasure = 4;
   int Player = 1;
   int KeyMode = 5;

@@ -834,6 +834,8 @@ int runPrepMetadataTests() {
     parser.Parse(bytesFromString(content), &chart, false, false, cancel);
     ASSERT_EQ(6, chart->Meta.GuessedBeatsPerMeasure,
               "prep_meta_guessed_beats_dense_6_8_after_pickup: ");
+    ASSERT_EQ(180.0, chart->Meta.GuessedBeatBpm,
+              "prep_meta_guessed_beat_bpm_dense_6_8_after_pickup: ");
     delete chart;
   }
   {
@@ -956,6 +958,8 @@ int runPrepMetadataTests() {
     parser.Parse(bytesFromString(content), &chart, false, false, cancel);
     ASSERT_EQ(5, chart->Meta.GuessedBeatsPerMeasure,
               "prep_meta_guessed_beats_starting_five: ");
+    ASSERT_EQ(120.0, chart->Meta.GuessedBeatBpm,
+              "prep_meta_guessed_beat_bpm_starting_five: ");
     delete chart;
   }
   {
