@@ -887,6 +887,96 @@ int runPrepMetadataTests() {
   }
   {
     const std::string content =
+        "#TITLE starting-five\n"
+        "#BPM 120\n"
+        "#00002:1.25\n"
+        "#00011:01\n"
+        "#00102:1.25\n"
+        "#00111:01\n"
+        "#00202:1.25\n"
+        "#00211:01\n"
+        "#00302:1.25\n"
+        "#00311:01\n"
+        "#00402:1.5\n"
+        "#00411:01\n"
+        "#00502:1.5\n"
+        "#00511:01\n"
+        "#00602:1.5\n"
+        "#00611:01\n"
+        "#00702:1.5\n"
+        "#00711:01\n"
+        "#00802:1.5\n"
+        "#00811:01\n"
+        "#00902:1.5\n"
+        "#00911:01\n"
+        "#01002:1.5\n"
+        "#01011:01\n"
+        "#01102:1.5\n"
+        "#01111:01\n"
+        "#01202:1.5\n"
+        "#01211:01\n"
+        "#01302:1.5\n"
+        "#01311:01\n"
+        "#01402:1.5\n"
+        "#01411:01\n"
+        "#01502:1.5\n"
+        "#01511:01\n"
+        "#01602:1.5\n"
+        "#01611:01\n"
+        "#01702:1.5\n"
+        "#01711:01\n"
+        "#01802:1.5\n"
+        "#01811:01\n"
+        "#01902:1.5\n"
+        "#01911:01\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(5, chart->Meta.GuessedBeatsPerMeasure,
+              "prep_meta_guessed_beats_starting_five: ");
+    delete chart;
+  }
+  {
+    const std::string content =
+        "#TITLE starting-five-after-insane\n"
+        "#BPM 120\n"
+        "#00002:0.03125\n"
+        "#00011:01\n"
+        "#00102:1.25\n"
+        "#00111:01\n"
+        "#00202:1.5\n"
+        "#00211:01\n"
+        "#00302:1.5\n"
+        "#00311:01\n"
+        "#00402:1.5\n"
+        "#00411:01\n"
+        "#00502:1.5\n"
+        "#00511:01\n"
+        "#00602:1.5\n"
+        "#00611:01\n"
+        "#00702:1.5\n"
+        "#00711:01\n"
+        "#00802:1.5\n"
+        "#00811:01\n"
+        "#00902:1.5\n"
+        "#00911:01\n"
+        "#01002:1.5\n"
+        "#01011:01\n"
+        "#01102:1.5\n"
+        "#01111:01\n"
+        "#01202:1.5\n"
+        "#01211:01\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    ASSERT_EQ(5, chart->Meta.GuessedBeatsPerMeasure,
+              "prep_meta_guessed_beats_insane_yields_start_weight: ");
+    delete chart;
+  }
+  {
+    const std::string content =
         "#TITLE default-beats\n"
         "#BPM 120\n"
         "#00111:01\n";

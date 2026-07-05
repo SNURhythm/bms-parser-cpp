@@ -408,6 +408,24 @@ struct BeatMeasureInfo {
 
 constexpr int EarlyAudibleMeasureLimit = 4;
 constexpr int EarlyAudibleWeight = 4;
+constexpr int StartingMeasureWeight = 64;
+constexpr int StartingMeasureDecayShift = 2;
+constexpr int MaxStartingMeasureDecayShift = 6;
+constexpr int MinSanePrepMeasureBeats = 2;
+constexpr int MaxSanePrepMeasureBeats = 8;
+
+bool isSanePrepMeasureBeats(int beats) {
+  return beats >= MinSanePrepMeasureBeats && beats <= MaxSanePrepMeasureBeats;
+}
+
+int startingMeasureWeight(int saneSignalMeasureIndex) {
+  if (saneSignalMeasureIndex < 0) {
+    return 1;
+  }
+  const int shift = std::min(saneSignalMeasureIndex * StartingMeasureDecayShift,
+                             MaxStartingMeasureDecayShift);
+  return std::max(1, StartingMeasureWeight >> shift);
+}
 
 int tripleTimelineCandidate(int timelineCount) {
   if (timelineCount == 6) {
@@ -1013,6 +1031,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   std::vector<double> bpmOrder;
   std::map<int, long long> weightedBeatDurations;
   std::vector<int> weightedBeatOrder;
+  int saneSignalMeasures = 0;
   int earlyAudibleMeasures = 0;
   std::vector<BeatMeasureInfo> beatMeasures;
   for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {
@@ -1420,13 +1439,20 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     const int measureBeats = guessedBeatsForScale(measure->Scale);
     const long long measureDuration =
         static_cast<long long>(timePassed) - measure->Timing;
-    addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
-                measureDuration);
-    if (measureHasAudibleContent &&
-        earlyAudibleMeasures < EarlyAudibleMeasureLimit) {
+    if (isSanePrepMeasureBeats(measureBeats)) {
+      const bool measureHasBeatGuessSignal =
+          explicitSectionRate || measureHasPrepTimingContent;
+      const int measureWeight = measureHasBeatGuessSignal
+                                    ? startingMeasureWeight(saneSignalMeasures++)
+                                    : 1;
       addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
-                  measureDuration * (EarlyAudibleWeight - 1));
-      ++earlyAudibleMeasures;
+                  measureDuration * measureWeight);
+      if (measureHasAudibleContent &&
+          earlyAudibleMeasures < EarlyAudibleMeasureLimit) {
+        addDuration(weightedBeatDurations, weightedBeatOrder, measureBeats,
+                    measureDuration * (EarlyAudibleWeight - 1));
+        ++earlyAudibleMeasures;
+      }
     }
     beatMeasures.push_back(
         {measureBeats, explicitSectionRate, measureHasPrepTimingContent,
