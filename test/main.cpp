@@ -1157,10 +1157,11 @@ int main() {
     return result;
   }
 
-  // read inputs from ./testcases/*.bme
+  // read inputs from ./testcases/*.bme and ./testcases/*.bms
   std::vector<std::filesystem::path> inputs;
   for (auto &p : std::filesystem::directory_iterator("./testcases")) {
-    if (p.path().extension() == ".bme") {
+    const auto extension = p.path().extension();
+    if (extension == ".bme" || extension == ".bms") {
       inputs.push_back(p.path());
     }
   }
@@ -1225,6 +1226,17 @@ int main() {
         } else if (line.rfind("bpm: ", 0) == 0) {
           auto out = std::stod(line.substr(5));
           ASSERT_EQ(out, chart->Meta.Bpm, "bpm: ");
+        } else if (line.rfind("most_prevalent_bpm: ", 0) == 0) {
+          auto out = std::stod(line.substr(20));
+          ASSERT_EQ(out, chart->Meta.MostPrevalentBpm,
+                    "most_prevalent_bpm: ");
+        } else if (line.rfind("guessed_beats_per_measure: ", 0) == 0) {
+          auto out = std::stoi(line.substr(27));
+          ASSERT_EQ(out, chart->Meta.GuessedBeatsPerMeasure,
+                    "guessed_beats_per_measure: ");
+        } else if (line.rfind("guessed_beat_bpm: ", 0) == 0) {
+          auto out = std::stod(line.substr(18));
+          ASSERT_EQ(out, chart->Meta.GuessedBeatBpm, "guessed_beat_bpm: ");
         } else if (line.rfind("minbpm: ", 0) == 0) {
           auto out = std::stod(line.substr(8));
           ASSERT_EQ(out, chart->Meta.MinBpm, "minbpm: ");
