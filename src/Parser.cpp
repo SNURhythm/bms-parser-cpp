@@ -413,9 +413,23 @@ constexpr int StartingMeasureDecayShift = 2;
 constexpr int MaxStartingMeasureDecayShift = 6;
 constexpr int MinSanePrepMeasureBeats = 2;
 constexpr int MaxSanePrepMeasureBeats = 8;
+constexpr double MinSanePrepMeasureBpm = 30.0;
+constexpr double MaxSanePrepMeasureBpm = 400.0;
 
 bool isSanePrepMeasureBeats(int beats) {
   return beats >= MinSanePrepMeasureBeats && beats <= MaxSanePrepMeasureBeats;
+}
+
+bool isSanePrepMeasureTiming(int beats, long long durationMicros) {
+  if (!isSanePrepMeasureBeats(beats) || durationMicros <= 0) {
+    return false;
+  }
+  const double effectiveBpm =
+      60000000.0 * static_cast<double>(beats) /
+      static_cast<double>(durationMicros);
+  return std::isfinite(effectiveBpm) &&
+         effectiveBpm >= MinSanePrepMeasureBpm &&
+         effectiveBpm <= MaxSanePrepMeasureBpm;
 }
 
 int startingMeasureWeight(int saneSignalMeasureIndex) {
@@ -1439,7 +1453,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     const int measureBeats = guessedBeatsForScale(measure->Scale);
     const long long measureDuration =
         static_cast<long long>(timePassed) - measure->Timing;
-    if (isSanePrepMeasureBeats(measureBeats)) {
+    if (isSanePrepMeasureTiming(measureBeats, measureDuration)) {
       const bool measureHasBeatGuessSignal =
           explicitSectionRate || measureHasPrepTimingContent;
       const int measureWeight = measureHasBeatGuessSignal
