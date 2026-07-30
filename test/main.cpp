@@ -1143,6 +1143,20 @@ int runPrepMetadataTests() {
 }
 
 int main() {
+  {
+    bms_parser::ChartMeta meta;
+    meta.KeyMode = 17;
+    std::vector<int> expected;
+    for (int lane = 0; lane < meta.KeyMode; ++lane) {
+      expected.push_back(lane);
+    }
+    ASSERT_EQ(joinLaneIndices(expected),
+              joinLaneIndices(meta.GetKeyLaneIndices()),
+              "chart_meta_arbitrary_key_lanes: ");
+    ASSERT_EQ(joinLaneIndices(expected),
+              joinLaneIndices(meta.GetTotalLaneIndices()),
+              "chart_meta_arbitrary_total_lanes: ");
+  }
   const int encodingTestResult = runEncodingTests();
   if (encodingTestResult != 0) {
     return encodingTestResult;
