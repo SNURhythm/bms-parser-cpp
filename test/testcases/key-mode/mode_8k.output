@@ -2,5 +2,5 @@ title: Mode 8K
 key_mode: 8
 total_notes: 8
 total_scratch_notes: 0
-note_lanes_by_timeline: 0;1;2;3;4;5;6;7
-total_lane_indices: 0,1,2,3,4,5,6,7
+note_lanes_by_timeline: 7;0;1;2;3;4;5;6
+total_lane_indices: 7,0,1,2,3,4,5,6

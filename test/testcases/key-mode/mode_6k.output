@@ -2,5 +2,5 @@ title: Mode 6K
 key_mode: 6
 total_notes: 6
 total_scratch_notes: 0
-note_lanes_by_timeline: 0;1;2;3;4;5
-total_lane_indices: 0,1,2,3,4,5
+note_lanes_by_timeline: 0;1;2;4;5;6
+total_lane_indices: 0,1,2,4,5,6
