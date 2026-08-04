@@ -1,8 +1,10 @@
 #include <atomic>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <new>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -16,6 +18,27 @@
 #include "../src/Parser.h"
 
 #endif
+
+namespace {
+std::atomic_bool *cancelOnAllocationTarget = nullptr;
+size_t cancelOnAllocationSize = 0;
+} // namespace
+
+void *operator new(std::size_t size) {
+  if (cancelOnAllocationTarget != nullptr &&
+      size == cancelOnAllocationSize) {
+    cancelOnAllocationTarget->store(true);
+    cancelOnAllocationTarget = nullptr;
+  }
+  if (void *memory = std::malloc(size)) {
+    return memory;
+  }
+  throw std::bad_alloc();
+}
+
+void operator delete(void *memory) noexcept { std::free(memory); }
+
+void operator delete(void *memory, std::size_t) noexcept { std::free(memory); }
 
 #define ASSERT_EQ(a, b, desc)                                                  \
   if (a != b) {                                                                \
@@ -331,6 +354,155 @@ int runReferencedWavTests() {
   ASSERT_EQ(static_cast<size_t>(3), chart->ReferencedBmpTable.size(),
             "referenced_bmp_count: ");
   delete chart;
+  return 0;
+}
+
+int runBgaPoorSequenceTests() {
+  const auto parse = [](const std::string &content) {
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    return chart;
+  };
+  const auto sequenceAt = [](const bms_parser::Chart *chart,
+                             std::size_t measureIndex)
+      -> const bms_parser::BgaPoorSequence * {
+    if (chart == nullptr || measureIndex >= chart->Measures.size()) {
+      return nullptr;
+    }
+    const auto *measure = chart->Measures[measureIndex];
+    if (measure == nullptr || measure->TimeLines.size() != 1) {
+      return nullptr;
+    }
+    const auto *timeline = measure->TimeLines.front();
+    if (timeline == nullptr || !timeline->BgaPoor.has_value()) {
+      return nullptr;
+    }
+    return &*timeline->BgaPoor;
+  };
+
+  {
+    const auto *chart =
+        parse("#BPM 120\n#BMP01 one.png\n#BMP02 two.png\n#00106:01000200\n");
+    const auto *sequence = sequenceAt(chart, 1);
+    ASSERT_EQ(true, (sequence != nullptr),
+              "bga_poor_sequence_without_bmp00_exists: ");
+    if (sequence == nullptr) {
+      delete chart;
+      return 1;
+    }
+    const std::vector<int> expected = {1, bms_parser::BgaSequenceBlank, 2,
+                                       bms_parser::BgaSequenceBlank};
+    ASSERT_EQ(true, (sequence->Frames == expected),
+              "bga_poor_sequence_without_bmp00_preserves_cells: ");
+    ASSERT_EQ(static_cast<size_t>(1), chart->Measures[1]->TimeLines.size(),
+              "bga_poor_sequence_has_no_fractional_timelines: ");
+    ASSERT_EQ(3000000LL, chart->Meta.PlayLength,
+              "bga_poor_sequence_preserves_timing_extent: ");
+    delete chart;
+  }
+  {
+    const auto *chart = parse("#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n"
+                              "#00106:01000200\n");
+    const auto *sequence = sequenceAt(chart, 1);
+    ASSERT_EQ(true, (sequence != nullptr),
+              "bga_poor_sequence_with_bmp00_exists: ");
+    if (sequence == nullptr) {
+      delete chart;
+      return 1;
+    }
+    const std::vector<int> expected = {1, 0, 2, 0};
+    ASSERT_EQ(true, (sequence->Frames == expected),
+              "bga_poor_sequence_with_bmp00_preserves_zero: ");
+    ASSERT_EQ(true, (hasReferencedBmp(chart, 0)),
+              "bga_poor_sequence_with_bmp00_is_registered: ");
+    delete chart;
+  }
+  {
+    const auto *chart = parse("#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n"
+                              "#BMP03 three.png\n#00106:01000100\n"
+                              "#00106:02000300\n");
+    const auto *sequence = sequenceAt(chart, 1);
+    ASSERT_EQ(true, (sequence != nullptr),
+              "bga_poor_sequence_last_row_exists: ");
+    if (sequence == nullptr) {
+      delete chart;
+      return 1;
+    }
+    const std::vector<int> expected = {2, 0, 3, 0};
+    ASSERT_EQ(true, (sequence->Frames == expected),
+              "bga_poor_sequence_last_active_row_wins: ");
+    delete chart;
+  }
+  {
+    const auto *chart = parse("#BMP01 one.png\n#BMP02 two.png\n"
+                              "#00106:01000100\n#00206:02000200\n");
+    const auto *first = sequenceAt(chart, 1);
+    const auto *second = sequenceAt(chart, 2);
+    ASSERT_EQ(true, (first != nullptr && second != nullptr),
+              "bga_poor_sequence_successive_measures_exist: ");
+    if (first == nullptr || second == nullptr) {
+      delete chart;
+      return 1;
+    }
+    const std::vector<int> firstExpected = {
+        1, bms_parser::BgaSequenceBlank, 1, bms_parser::BgaSequenceBlank};
+    const std::vector<int> secondExpected = {
+        2, bms_parser::BgaSequenceBlank, 2, bms_parser::BgaSequenceBlank};
+    ASSERT_EQ(true, (first->Frames == firstExpected &&
+                     second->Frames == secondExpected),
+              "bga_poor_sequence_successive_measures_stay_separate: ");
+    delete chart;
+  }
+  {
+    const auto *chart = parse("#BMP01 one.png\n#00106:0102\n");
+    const auto *sequence = sequenceAt(chart, 1);
+    ASSERT_EQ(true, (sequence != nullptr),
+              "bga_poor_sequence_unresolved_cell_exists: ");
+    if (sequence == nullptr) {
+      delete chart;
+      return 1;
+    }
+    const std::vector<int> expected = {1, bms_parser::BgaSequenceBlank};
+    ASSERT_EQ(true, (sequence->Frames == expected),
+              "bga_poor_sequence_unresolved_nonzero_is_blank: ");
+    ASSERT_EQ(static_cast<size_t>(1), chart->ReferencedBmpTable.size(),
+              "bga_poor_sequence_unresolved_nonzero_is_not_registered: ");
+    ASSERT_EQ(true, (hasReferencedBmp(chart, 1)),
+              "bga_poor_sequence_defined_nonzero_is_registered: ");
+    delete chart;
+  }
+  {
+    constexpr size_t cellCount = 1'000'123;
+    std::string cells;
+    cells.reserve(cellCount * 2);
+    for (size_t index = 0; index < cellCount; ++index) {
+      cells += "01";
+    }
+    const std::string content =
+        "#BMP01 one.png\n#00001:01\n#00106:" + cells + "\n";
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    cancelOnAllocationTarget = &cancel;
+    cancelOnAllocationSize = cellCount * sizeof(int);
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    cancelOnAllocationTarget = nullptr;
+    cancelOnAllocationSize = 0;
+    std::unique_ptr<bms_parser::Chart> ownedChart(chart);
+    bool publishedPoorSequence = false;
+    if (chart != nullptr) {
+      for (const auto *measure : chart->Measures) {
+        for (const auto *timeline : measure->TimeLines) {
+          publishedPoorSequence =
+              publishedPoorSequence || timeline->BgaPoor.has_value();
+        }
+      }
+    }
+    ASSERT_EQ(true, (cancel && chart == nullptr && !publishedPoorSequence),
+              "bga_poor_sequence_cancellation_discards_partial_sequence: ");
+  }
   return 0;
 }
 
@@ -1168,6 +1340,9 @@ int main() {
   }
 
   if (const int result = runPrepMetadataTests(); result != 0) {
+    return result;
+  }
+  if (const int result = runBgaPoorSequenceTests(); result != 0) {
     return result;
   }
 

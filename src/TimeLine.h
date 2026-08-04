@@ -18,12 +18,19 @@
 
 #include "LandmineNote.h"
 #include "Note.h"
+#include <optional>
 #include <vector>
 
 /**
  *
  */
 namespace bms_parser {
+inline constexpr int BgaSequenceBlank = -1;
+
+struct BgaPoorSequence {
+  std::vector<int> Frames;
+};
+
 class TimeLine {
 public:
   std::vector<Note *> BackgroundNotes;
@@ -36,7 +43,7 @@ public:
   bool ScrollChange = false;
   int BgaBase = -1;
   int BgaLayer = -1;
-  int BgaPoor = -1;
+  std::optional<BgaPoorSequence> BgaPoor;
 
   double StopLength = 0;
   double Scroll = 1;
