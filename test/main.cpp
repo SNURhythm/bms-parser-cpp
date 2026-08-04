@@ -916,6 +916,38 @@ int runLongNoteTypeTests() {
   return 0;
 }
 
+int runChartProvenanceTests() {
+  const auto parse = [](const std::string &content) {
+    bms_parser::Chart *chart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    return std::unique_ptr<bms_parser::Chart>(chart);
+  };
+
+  {
+    const auto chart = parse("#PLAYLEVEL +007\n");
+    ASSERT_EQ(std::string("+007"), chart->Meta.PlayLevelText,
+              "chart_provenance_playlevel_authored_integer: ");
+  }
+  {
+    const auto chart = parse("#PLAYLEVEL   +007  \n");
+    ASSERT_EQ(std::string("+007"), chart->Meta.PlayLevelText,
+              "chart_provenance_playlevel_matches_java_trim: ");
+  }
+  {
+    const auto chart = parse("#PLAYLEVEL 7.5\n");
+    ASSERT_EQ(std::string("7.5"), chart->Meta.PlayLevelText,
+              "chart_provenance_playlevel_authored_decimal: ");
+  }
+  {
+    const auto chart = parse("#PLAYLEVEL not-a-level\n");
+    ASSERT_EQ(std::string("not-a-level"), chart->Meta.PlayLevelText,
+              "chart_provenance_playlevel_authored_invalid: ");
+  }
+  return 0;
+}
+
 int runPrepMetadataTests() {
   {
     const std::string content =
@@ -1337,6 +1369,9 @@ int main() {
   const int longNoteTypeTestResult = runLongNoteTypeTests();
   if (longNoteTypeTestResult != 0) {
     return longNoteTypeTestResult;
+  }
+  if (const int result = runChartProvenanceTests(); result != 0) {
+    return result;
   }
 
   if (const int result = runPrepMetadataTests(); result != 0) {
