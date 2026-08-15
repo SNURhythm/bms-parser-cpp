@@ -398,8 +398,8 @@ int runBgaPoorSequenceTests() {
               "bga_poor_sequence_without_bmp00_preserves_cells: ");
     ASSERT_EQ(static_cast<size_t>(1), chart->Measures[1]->TimeLines.size(),
               "bga_poor_sequence_has_no_fractional_timelines: ");
-    ASSERT_EQ(3000000LL, chart->Meta.PlayLength,
-              "bga_poor_sequence_preserves_timing_extent: ");
+    ASSERT_EQ(0LL, chart->Meta.PlayLength,
+              "bga_poor_sequence_does_not_extend_play_length: ");
     delete chart;
   }
   {
@@ -1346,6 +1346,66 @@ int runPrepMetadataTests() {
   return 0;
 }
 
+int runPlayableEndTimeTests() {
+  // Pinned Beatoraja c2ed5db1a46145ed10790c3872f717e95b59db9d
+  // BMSModel#getLastNoteTime walks backwards through lane notes only,
+  // including long-note tails and mines. Background audio, BGA, and invisible
+  // rows after the last playable lane event must not extend gameplay end time.
+  const std::string content =
+      "#BPM 120\n"
+      "#00111:01\n"
+      "#00251:01\n"
+      "#00351:01\n"
+      "#004D1:01\n"
+      "#00501:01\n"
+      "#00631:01\n"
+      "#00704:01\n";
+
+  for (const bool metaOnly : {false, true}) {
+    bms_parser::Chart *rawChart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(content), &rawChart, false, metaOnly,
+                 cancel);
+    std::unique_ptr<bms_parser::Chart> chart(rawChart);
+    const char *const playLengthDescription =
+        metaOnly ? "play_length_meta_only_uses_last_lane_note: "
+                 : "play_length_uses_last_lane_note: ";
+    const char *const tailDescription =
+        metaOnly ? "play_length_meta_only_ignores_nonplayable_tail: "
+                 : "play_length_ignores_nonplayable_tail: ";
+    const bool hasNonplayableTail =
+        chart->Meta.TotalLength > chart->Meta.PlayLength;
+
+    ASSERT_EQ(8000000LL, chart->Meta.PlayLength, playLengthDescription);
+    ASSERT_EQ(true, hasNonplayableTail, tailDescription);
+  }
+
+  // Beatoraja's BMS decoder keeps 5x/6x channel objects as lane notes under
+  // a #LNTYPE 2 header. Their tail is therefore still visible to
+  // BMSModel#getLastNoteTime.
+  const std::string chargeNoteContent =
+      "#BPM 120\n"
+      "#LNTYPE 2\n"
+      "#00151:01\n"
+      "#00351:01\n"
+      "#00501:01\n";
+  for (const bool metaOnly : {false, true}) {
+    bms_parser::Chart *rawChart = nullptr;
+    std::atomic_bool cancel = false;
+    bms_parser::Parser parser;
+    parser.Parse(bytesFromString(chargeNoteContent), &rawChart, false,
+                 metaOnly, cancel);
+    std::unique_ptr<bms_parser::Chart> chart(rawChart);
+    const char *const chargeNoteDescription =
+        metaOnly ? "play_length_meta_only_includes_lntype_two_tail: "
+                 : "play_length_includes_lntype_two_tail: ";
+    ASSERT_EQ(6000000LL, chart->Meta.PlayLength,
+              chargeNoteDescription);
+  }
+  return 0;
+}
+
 int main() {
   {
     bms_parser::ChartMeta meta;
@@ -1375,6 +1435,9 @@ int main() {
   }
 
   if (const int result = runPrepMetadataTests(); result != 0) {
+    return result;
+  }
+  if (const int result = runPlayableEndTimeTests(); result != 0) {
     return result;
   }
   if (const int result = runBgaPoorSequenceTests(); result != 0) {

@@ -1148,6 +1148,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     bool measureHasAudibleContent = false;
     auto prepTimingPositions =
         std::set<std::pair<unsigned long long, unsigned long long>>();
+    std::set<double> playableTimelinePositions;
 
     // NOTE: this should be an ordered map
     auto timelines = std::map<double, TimeLine *>();
@@ -1409,6 +1410,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           break;
         }
         case P1KeyBase: {
+          playableTimelinePositions.insert(position);
           const auto ch = ParseInt(val);
           if (ch == Lnobj && lastNote[laneNumber] != nullptr) {
             if (isScratch) {
@@ -1454,40 +1456,43 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
           break;
         }
 
-        case P1LongKeyBase:
-          if (Lntype == 1) {
-            if (lnStart[laneNumber] == nullptr) {
-              ++totalNotes;
-              if (isScratch) {
-                ++totalBackSpinNotes;
-              } else {
-                ++totalLongNotes;
-              }
-
-              const int wavId = ToWaveId(new_chart, val, metaOnly);
-              RegisterReferencedWaveId(new_chart, wavId);
-              auto ln = new LongNote{wavId, channelLongNoteType};
-              lnStart[laneNumber] = ln;
-
-              if (metaOnly) {
-                delete ln; // this is intended
-                break;
-              }
-
-              timeline->SetNote(laneNumber, ln);
+        case P1LongKeyBase: {
+          // Beatoraja's BMS decoder always materializes 5x/6x channels as
+          // lane notes. Its effective LN judgement mode is independent of
+          // whether these channel objects exist.
+          playableTimelinePositions.insert(position);
+          if (lnStart[laneNumber] == nullptr) {
+            ++totalNotes;
+            if (isScratch) {
+              ++totalBackSpinNotes;
             } else {
-              if (!metaOnly) {
-                auto tail = new LongNote{NoWav, lnStart[laneNumber]->Type};
-                tail->Head = lnStart[laneNumber];
-                lnStart[laneNumber]->Tail = tail;
-                timeline->SetNote(laneNumber, tail);
-              }
-              lnStart[laneNumber] = nullptr;
+              ++totalLongNotes;
             }
-          }
 
+            const int wavId = ToWaveId(new_chart, val, metaOnly);
+            RegisterReferencedWaveId(new_chart, wavId);
+            auto ln = new LongNote{wavId, channelLongNoteType};
+            lnStart[laneNumber] = ln;
+
+            if (metaOnly) {
+              delete ln; // this is intended
+              break;
+            }
+
+            timeline->SetNote(laneNumber, ln);
+          } else {
+            if (!metaOnly) {
+              auto tail = new LongNote{NoWav, lnStart[laneNumber]->Type};
+              tail->Head = lnStart[laneNumber];
+              lnStart[laneNumber]->Tail = tail;
+              timeline->SetNote(laneNumber, tail);
+            }
+            lnStart[laneNumber] = nullptr;
+          }
           break;
+        }
         case P1MineKeyBase: {
+          playableTimelinePositions.insert(position);
           // landmine
           ++totalLandmineNotes;
           if (metaOnly) {
@@ -1563,6 +1568,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       addDuration(bpmDurations, bpmOrder, timeline->Bpm,
                   static_cast<long long>(std::llround(stopDuration)));
       timePassed += stopDuration;
+      if (playableTimelinePositions.find(position) !=
+          playableTimelinePositions.end()) {
+        new_chart->Meta.PlayLength = timeline->Timing;
+      }
       if (!metaOnly) {
         measure->TimeLines.push_back(timeline);
       }
@@ -1598,7 +1607,6 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
     if (!metaOnly) {
       measure->TimeLines[0]->IsFirstInMeasure = true;
     }
-    new_chart->Meta.PlayLength = static_cast<long long>(timePassed);
     const auto finalInterval =
         240000000.0 * (1 - lastPosition) * measure->Scale / currentBpm;
     addDuration(bpmDurations, bpmOrder, currentBpm,
@@ -1851,8 +1859,6 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
     }
   } else if (MatchHeader(cmd, "LNOBJ")) {
     Lnobj = ParseInt(Value);
-  } else if (MatchHeader(cmd, "LNTYPE")) {
-    Lntype = static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
   } else if (MatchHeader(cmd, "LNMODE")) {
     Chart->Meta.LnMode =
         static_cast<int>(std::strtol(Value.c_str(), nullptr, 10));
