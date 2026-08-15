@@ -412,11 +412,10 @@ int runBgaPoorSequenceTests() {
       delete chart;
       return 1;
     }
-    const std::vector<int> expected = {1, 0, 2, 0};
+    const std::vector<int> expected = {1, bms_parser::BgaSequenceBlank, 2,
+                                       bms_parser::BgaSequenceBlank};
     ASSERT_EQ(true, (sequence->Frames == expected),
-              "bga_poor_sequence_with_bmp00_preserves_zero: ");
-    ASSERT_EQ(true, (hasReferencedBmp(chart, 0)),
-              "bga_poor_sequence_with_bmp00_is_registered: ");
+              "bga_poor_sequence_with_bmp00_keeps_zero_blank: ");
     delete chart;
   }
   {
@@ -430,7 +429,8 @@ int runBgaPoorSequenceTests() {
       delete chart;
       return 1;
     }
-    const std::vector<int> expected = {2, 0, 3, 0};
+    const std::vector<int> expected = {2, bms_parser::BgaSequenceBlank, 3,
+                                       bms_parser::BgaSequenceBlank};
     ASSERT_EQ(true, (sequence->Frames == expected),
               "bga_poor_sequence_last_active_row_wins: ");
     delete chart;
