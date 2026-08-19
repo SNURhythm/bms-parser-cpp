@@ -1406,6 +1406,38 @@ int runPlayableEndTimeTests() {
   return 0;
 }
 
+int runSpeedObjectTests() {
+  // Pinned Beatoraja c2ed5db1a46145ed10790c3872f717e95b59db9d uses
+  // #SPEEDxx definitions through channel SP (base-36 1033). A SPEED object
+  // remains distinguishable from its propagated multiplier so LaneRenderer
+  // can interpolate only between authored objects.
+  const std::string content =
+      "#BPM 120\n"
+      "#SPEED01 0.5\n"
+      "#SPEED02 1.5\n"
+      "#000SP:0102\n"
+      "#00111:01\n";
+  bms_parser::Chart *rawChart = nullptr;
+  std::atomic_bool cancel = false;
+  bms_parser::Parser parser;
+  parser.Parse(bytesFromString(content), &rawChart, false, false, cancel);
+  std::unique_ptr<bms_parser::Chart> chart(rawChart);
+
+  ASSERT_EQ(true, chart->Measures[0]->TimeLines[0]->HasSpeedObject,
+            "speed_object_marks_first_authored_point: ");
+  ASSERT_EQ(0.5, chart->Measures[0]->TimeLines[0]->Speed,
+            "speed_object_reads_first_multiplier: ");
+  ASSERT_EQ(true, chart->Measures[0]->TimeLines[1]->HasSpeedObject,
+            "speed_object_marks_second_authored_point: ");
+  ASSERT_EQ(1.5, chart->Measures[0]->TimeLines[1]->Speed,
+            "speed_object_reads_second_multiplier: ");
+  ASSERT_EQ(false, chart->Measures[1]->TimeLines[0]->HasSpeedObject,
+            "speed_object_does_not_mark_inherited_timeline: ");
+  ASSERT_EQ(1.5, chart->Measures[1]->TimeLines[0]->Speed,
+            "speed_object_propagates_last_multiplier: ");
+  return 0;
+}
+
 int main() {
   {
     bms_parser::ChartMeta meta;
@@ -1438,6 +1470,9 @@ int main() {
     return result;
   }
   if (const int result = runPlayableEndTimeTests(); result != 0) {
+    return result;
+  }
+  if (const int result = runSpeedObjectTests(); result != 0) {
     return result;
   }
   if (const int result = runBgaPoorSequenceTests(); result != 0) {

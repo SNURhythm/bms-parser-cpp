@@ -646,7 +646,8 @@ enum Channel {
   P1MineKeyBase = 13 * 36 + 1,
   P2MineKeyBase = 14 * 36 + 1,
 
-  Scroll = 1020
+  Scroll = 1020,
+  Speed = 1033
 };
 
 namespace KeyAssign {
@@ -675,7 +676,7 @@ const int *Scratchless(int keyMode) {
 
 constexpr int TempKey = 16;
 
-Parser::Parser() : BpmTable{}, StopLengthTable{}, ScrollTable{} {
+Parser::Parser() : BpmTable{}, StopLengthTable{}, ScrollTable{}, SpeedTable{} {
   std::random_device seeder;
   Seed = seeder();
 }
@@ -1075,6 +1076,13 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         const auto xx = line.substr(7, 2);
         const auto value = line.substr(10);
         ParseHeader(new_chart, "SCROLL", xx, value);
+      } else if (MatchHeader(line, "#SPEED")) {
+        if (line.length() < 9) {
+          continue;
+        }
+        const auto xx = line.substr(6, 2);
+        const auto value = line.substr(9);
+        ParseHeader(new_chart, "SPEED", xx, value);
       } else {
         std::smatch matcher;
 
@@ -1113,6 +1121,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
   int totalLandmineNotes = 0;
   auto currentBpm = new_chart->Meta.Bpm;
   auto currentScroll = 1.0;
+  auto currentSpeed = 1.0;
   auto minBpm = new_chart->Meta.Bpm;
   auto maxBpm = new_chart->Meta.Bpm;
   auto lastNote = std::vector<Note *>();
@@ -1282,7 +1291,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       const bool channelCanAnchorPrepTiming =
           channel == LaneAutoplay || channel == BpmChange ||
           channel == BpmChangeExtend || channel == Stop || channel == Scroll ||
-          channel == P1KeyBase || channel == P1InvisibleKeyBase ||
+          channel == Speed || channel == P1KeyBase || channel == P1InvisibleKeyBase ||
           channel == P1LongKeyBase || channel == P1MineKeyBase;
       const bool channelHasAudibleContent =
           channel == LaneAutoplay || channel == P1KeyBase ||
@@ -1395,6 +1404,15 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
             timeline->Scroll = 1;
           }
           // Debug.Log($"SCROLL: {timeline.Scroll}, on measure {measureIdx}");
+          break;
+        }
+        case Speed: {
+          const auto id = ParseInt(val);
+          const auto speed = SpeedTable.find(id);
+          if (speed != SpeedTable.end()) {
+            timeline->Speed = speed->second;
+            timeline->HasSpeedObject = true;
+          }
           break;
         }
         case Stop: {
@@ -1563,6 +1581,12 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
         timeline->Scroll = currentScroll;
       }
 
+      if (timeline->HasSpeedObject) {
+        currentSpeed = timeline->Speed;
+      } else {
+        timeline->Speed = currentSpeed;
+      }
+
       // Debug.Log($"measure: {measureIdx}, position: {position}, lastPosition:
       // {lastPosition}, bpm: {currentBpm} scale: {measure.Scale} interval:
       // {interval} stop: {timeline.GetStopDuration()}");
@@ -1605,6 +1629,7 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
       timeline->BeatPosition = measureBeatPosition;
       timeline->Bpm = currentBpm;
       timeline->Scroll = currentScroll;
+      timeline->Speed = currentSpeed;
       measure->TimeLines.push_back(timeline);
     }
     if (!metaOnly) {
@@ -1870,6 +1895,10 @@ void Parser::ParseHeader(Chart *Chart, std::string_view cmd,
     auto value = std::strtod(Value.c_str(), nullptr);
     ScrollTable[xx] = value;
     // std::wcout << "SCROLL: " << xx << " = " << value << std::endl;
+  } else if (MatchHeader(cmd, "SPEED")) {
+    auto xx = ParseInt(Xx);
+    auto value = std::strtod(Value.c_str(), nullptr);
+    SpeedTable[xx] = value;
   } else {
 #if BMS_PARSER_VERBOSE == 1
     std::cout << "Unknown command: " << cmd << std::endl;

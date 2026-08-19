@@ -55,6 +55,7 @@ private:
   std::unordered_map<int, double> BpmTable;
   std::unordered_map<int, double> StopLengthTable;
   std::unordered_map<int, double> ScrollTable;
+  std::unordered_map<int, double> SpeedTable;
 
   bool UseBase62 = false;
   int Lnobj = -1;
