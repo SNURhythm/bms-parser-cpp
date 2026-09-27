@@ -916,6 +916,35 @@ int runLongNoteTypeTests() {
   return 0;
 }
 
+int runJudgeRankHeaderTests() {
+  const std::vector<std::pair<std::string, int>> cases{
+      {"", 2}, {"#RANK 0\n", 0}, {"#RANK 4\n", 4},
+      {"#RANK +1\n", 1}, {"#RANK 9\n", 2},
+      {"#RANK 1.5\n", 2}, {"#RANK garbage\n", 2},
+      {"#RANK 1\n#RANK -1\n", 1},
+      {"#DEFEXRANK 150\n", 150},
+      {"#DEFEXRANK 150\n#RANK 0\n", 0},
+      {"#RANK 0\n#DEFEXRANK 150\n", 150},
+      {"#DEFEXRANK 150\n#RANK 5\n", 150},
+      {"#DEFEXRANK 150\n#DEFEXRANK 0\n", 150},
+      {"#DEFEXRANK 150\n#DEFEXRANK 2147483648\n", 150},
+      {"#DEFEXRANK 150\n#DEFEXRANK 25tail\n", 150}};
+  for (bool metaOnly : {false, true}) {
+    for (const auto &entry : cases) {
+      bms_parser::Chart *chart = nullptr;
+      std::atomic_bool cancel = false;
+      bms_parser::Parser parser;
+      parser.Parse(bytesFromString(entry.first), &chart, metaOnly, false, cancel);
+      ASSERT_EQ(entry.second, chart->Meta.Rank, "judge_rank_header: " + entry.first);
+      ASSERT_EQ((entry.second > 4),
+                (chart->Meta.RankType == bms_parser::JudgeRankType::DefExRank),
+                "judge_rank_header_type: " + entry.first);
+      delete chart;
+    }
+  }
+  return 0;
+}
+
 int runChartProvenanceTests() {
   const auto parse = [](const std::string &content) {
     bms_parser::Chart *chart = nullptr;
@@ -1439,6 +1468,7 @@ int runSpeedObjectTests() {
 }
 
 int main() {
+  if (const int result = runJudgeRankHeaderTests(); result != 0) return result;
   {
     bms_parser::ChartMeta meta;
     meta.KeyMode = 17;
