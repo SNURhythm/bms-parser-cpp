@@ -308,6 +308,63 @@ int runEncodingTests() {
   return 0;
 }
 
+// These cases catch sampled detection, changed precedence, lost DBCS pair
+// boundaries, and ASCII fast paths that alter the legacy mapping.
+int runEncodingPreservationTests() {
+  const std::string sjis = "\x83\x65\x83\x58\x83\x67";
+  const std::string japanese = "\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88";
+  const std::string korean = "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
+  const std::string eucKr = "\xc7\xd1\xb1\xb9\xbe\xee";
+  const std::string padding = "*" + std::string(131072, 'x') + "\n";
+  struct Case { const char *name; std::string input; std::string title; };
+  const std::vector<Case> cases = {
+      {"late_declaration", "#TITLE " + eucKr + "\n" + padding +
+           "#eNcOdInG\t'KS_X_1001'", korean},
+      {"late_non_ascii", padding + "#TITLE " + sjis, japanese},
+      {"whole_file_pair_counts", "#TITLE \xa1\xa1\n" + padding +
+           "*\x83\x65\x83\x58\x83\x67\n", "\xef\xbd\xa1\xef\xbd\xa1"},
+      {"pair_count_tie_uses_shiftjis", "#TITLE \xa1\xa1\n*\x83\x65\n",
+           "\xef\xbd\xa1\xef\xbd\xa1"},
+      {"independent_dbcs_pair_boundaries", "#TITLE \xa1\xa1\n*\x81\xa1\xa1\n",
+           "\xe3\x80\x80"},
+      {"first_declaration_wins", "#CHARSET SHIFT_JIS\r\n#CHARSET EUC-KR\n#TITLE " + sjis, japanese},
+      {"empty_first_declaration", "#CHARSET\r\n#ENCODING EUC-KR\n#TITLE " + sjis, japanese},
+      {"embedded_declaration_ignored", "*#CHARSET EUC-KR\n#TITLE " + sjis, japanese},
+      {"header_suffix_ignored", "#CHARSETX EUC-KR\n#TITLE " + sjis, japanese},
+      {"utf8_bom_overrides_declaration", "\xef\xbb\xbf#CHARSET SHIFT_JIS\n#TITLE " + korean, korean},
+      {"utf8_declaration_preserves_invalid_bytes", "#CHARSET UTF8\n#TITLE " + sjis, sjis},
+      {"utf8_validation_precedes_heuristics", "#TITLE " + korean, korean},
+      {"invalid_utf8_overlong_falls_back", "#TITLE \xc0\xaf", "\xec\x9c\xa0"},
+      {"shiftjis_ascii_exceptions_and_trail", "#CHARSET SHIFT_JIS\n#TITLE A\\~\x83\x5c-Z",
+           "A\xc2\xa5\xe2\x80\xbe\xe3\x82\xbd-Z"},
+      {"shiftjis_del_mapping", "#CHARSET SHIFT_JIS\n#TITLE A\x7f-Z", "A -Z"},
+      {"empty_input", "", ""},
+  };
+  for (const auto &entry : cases) {
+    for (bool metaOnly : {false, true}) {
+      bms_parser::Parser parser;
+      std::atomic_bool cancel = false;
+      bms_parser::Chart *raw = nullptr;
+      parser.Parse(bytesFromString(entry.input), &raw, false, metaOnly, cancel);
+      std::unique_ptr<bms_parser::Chart> chart(raw);
+      ASSERT_EQ(entry.title, chart->Meta.Title, entry.name);
+    }
+  }
+  // Move non-ASCII text and special ASCII mappings across word boundaries.
+  for (size_t prefix = 0; prefix < 32; ++prefix) {
+    const std::string ascii(prefix, 'a');
+    const std::string input = "#CHARSET SHIFT_JIS\n#TITLE " + ascii + sjis + "\\~";
+    bms_parser::Parser parser;
+    std::atomic_bool cancel = false;
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(input), &raw, false, false, cancel);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    const std::string expected = ascii + japanese + "\xc2\xa5\xe2\x80\xbe";
+    ASSERT_EQ(expected, chart->Meta.Title, "encoding_word_boundary");
+  }
+  return 0;
+}
+
 int runReferencedWavTests() {
   const std::string content =
       "#WAV01 bgm.wav\n"
@@ -1468,6 +1525,7 @@ int runSpeedObjectTests() {
 }
 
 int main() {
+  if (const int result = runEncodingPreservationTests(); result != 0) return result;
   if (const int result = runJudgeRankHeaderTests(); result != 0) return result;
   {
     bms_parser::ChartMeta meta;

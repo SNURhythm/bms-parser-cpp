@@ -1,6 +1,7 @@
 // https://stackoverflow.com/questions/33165171/c-shiftjis-to-utf8-conversion
 
 #include "ShiftJISConverter.h"
+#include "TextScan.h"
 #include <cstdint>
 #include <string>
 
@@ -12,6 +13,16 @@ void ShiftJISConverter::BytesToUTF8(const unsigned char *input, size_t size,
   size_t indexInput = 0, indexOutput = 0;
 
   while (indexInput < size) {
+    const size_t asciiLength = detail::asciiPrefixLength<true>(
+        input + indexInput, size - indexInput);
+    if (asciiLength != 0) {
+      std::memcpy(result.data() + indexOutput, input + indexInput, asciiLength);
+      indexInput += asciiLength;
+      indexOutput += asciiLength;
+      if (indexInput == size) {
+        break;
+      }
+    }
     char arraySection = (input[indexInput]) >> 4;
 
     size_t arrayOffset;

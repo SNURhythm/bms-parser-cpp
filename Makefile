@@ -34,9 +34,9 @@ else
         IGNORE_ERRORS = 2>/dev/null || true
         SLASH=/
 endif
--include $(DEP_FILES) # Include the dependency files
-
 all: $(OBJ_FILES)
+-include $(DEPS) # Keep all as the default target before including dependencies
+
 $(DEP_DIR):
 	@$(MKDIRP) $(DEP_DIR)
 $(OBJ_PATH):
@@ -61,4 +61,3 @@ test: all $(BUILD_PATH)
 	cd test && .$(SLASH)test$(EXE_EXT)
 clean:
 	$(RRM) $(OBJ_PATH) $(BUILD_PATH) $(DEP_DIR) test$(SLASH)test$(EXE_EXT) test$(SLASH)test_amalgamation$(EXE_EXT) $(IGNORE_ERRORS)
-
