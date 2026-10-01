@@ -1,5 +1,6 @@
 .DS_Store
 build/
+third_party/encoding_c/target/
 /obj
 bms.db*
 *.dSYM

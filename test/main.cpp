@@ -309,7 +309,7 @@ int runEncodingTests() {
 }
 
 // These cases catch sampled detection, changed precedence, lost DBCS pair
-// boundaries, and ASCII fast paths that alter the legacy mapping.
+// boundaries, and changes to the MS932 behavior used by beatoraja.
 int runEncodingPreservationTests() {
   const std::string sjis = "\x83\x65\x83\x58\x83\x67";
   const std::string japanese = "\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88";
@@ -334,10 +334,30 @@ int runEncodingPreservationTests() {
       {"utf8_bom_overrides_declaration", "\xef\xbb\xbf#CHARSET SHIFT_JIS\n#TITLE " + korean, korean},
       {"utf8_declaration_preserves_invalid_bytes", "#CHARSET UTF8\n#TITLE " + sjis, sjis},
       {"utf8_validation_precedes_heuristics", "#TITLE " + korean, korean},
+      {"utf8_four_byte_scalar", "#TITLE \xf0\x9f\x98\x80",
+           "\xf0\x9f\x98\x80"},
+      {"utf8_surrogate_rejected", "#TITLE \xed\xa0\x80",
+           "\xe6\x81\x9d\xef\xbf\xbd"},
+      {"utf8_above_unicode_limit_rejected", "#TITLE \xf4\x90\x80\x80",
+           "\xee\x8c\xbf\xef\xbf\xbd\xef\xbf\xbd"},
+      {"utf8_three_byte_overlong_rejected", "#TITLE \xe0\x80\x80",
+           "\xe7\x83\x99\xef\xbf\xbd"},
+      {"utf8_truncated_four_byte_rejected", "#TITLE \xf0\x9f\x98",
+           "\xee\x81\x9e\xef\xbf\xbd"},
       {"invalid_utf8_overlong_falls_back", "#TITLE \xc0\xaf", "\xec\x9c\xa0"},
-      {"shiftjis_ascii_exceptions_and_trail", "#CHARSET SHIFT_JIS\n#TITLE A\\~\x83\x5c-Z",
-           "A\xc2\xa5\xe2\x80\xbe\xe3\x82\xbd-Z"},
-      {"shiftjis_del_mapping", "#CHARSET SHIFT_JIS\n#TITLE A\x7f-Z", "A -Z"},
+      {"ms932_ascii_and_trail", "#CHARSET SHIFT_JIS\n#TITLE A\\~\x83\x5c-Z",
+           "A\\~\xe3\x82\xbd-Z"},
+      {"ms932_del_mapping", "#CHARSET SHIFT_JIS\n#TITLE A\x7f-Z", "A\x7f-Z"},
+      {"ms932_standalone_80", "#CHARSET MS932\n#TITLE A\x80-Z",
+           "A\xef\xbf\xbd-Z"},
+      {"ms932_unmapped_pair_reprocesses_kana", "#CHARSET MS932\n#TITLE \x81\xad",
+           "\xef\xbf\xbd\xef\xbd\xad"},
+      {"ms932_truncated_lead", "#CHARSET MS932\n#TITLE A\x81",
+           "A\xef\xbf\xbd"},
+      {"ms932_windows_extensions", "#CHARSET WINDOWS-31J\n#TITLE \xed\x40\xfa\x40",
+           "\xe7\xba\x8a\xe2\x85\xb0"},
+      {"ms932_private_use", "#CHARSET MS932\n#TITLE \xf0\x40",
+           "\xee\x80\x80"},
       {"empty_input", "", ""},
   };
   for (const auto &entry : cases) {
@@ -359,7 +379,7 @@ int runEncodingPreservationTests() {
     bms_parser::Chart *raw = nullptr;
     parser.Parse(bytesFromString(input), &raw, false, false, cancel);
     std::unique_ptr<bms_parser::Chart> chart(raw);
-    const std::string expected = ascii + japanese + "\xc2\xa5\xe2\x80\xbe";
+    const std::string expected = ascii + japanese + "\\~";
     ASSERT_EQ(expected, chart->Meta.Title, "encoding_word_boundary");
   }
   return 0;
