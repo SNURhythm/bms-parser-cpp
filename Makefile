@@ -1,5 +1,6 @@
 CC=g++
 CCFLAGS=-Wall -Werror -std=c++17 -O2 -DBMS_PARSER_VERBOSE=0 
+THREADFLAGS ?= -pthread
 SRC_FILES = $(wildcard src/*.cpp)
 OBJ_PATH=obj
 BUILD_PATH=build
@@ -54,10 +55,12 @@ amalgamate: $(BUILD_PATH)
 	python3 scripts/amalgamate.py $(BUILD_PATH)/bms_parser.hpp $(BUILD_PATH)/bms_parser.cpp $(SRC_FILES)
 test_amalgamation: amalgamate $(BUILD_PATH)
 	$(CP) $(BUILD_PATH)$(SLASH)bms_parser.hpp test
-	$(CC) $(CCFLAGS) -DWITH_AMALGAMATION=1 -o test/test_amalgamation test/main.cpp build/bms_parser.cpp
+	$(CC) $(CCFLAGS) $(THREADFLAGS) -DWITH_AMALGAMATION=1 -o test/test_amalgamation test/main.cpp build/bms_parser.cpp
 	cd test && .$(SLASH)test_amalgamation$(EXE_EXT)
 test: all $(BUILD_PATH)
-	$(CC) $(CCFLAGS) -o test/test test/main.cpp $(OBJ_FILES)
+	$(CC) $(CCFLAGS) $(THREADFLAGS) -o test/test test/main.cpp $(OBJ_FILES)
 	cd test && .$(SLASH)test$(EXE_EXT)
+benchmark: all $(BUILD_PATH)
+	$(CC) $(CCFLAGS) $(THREADFLAGS) -DBMS_BENCH_SCAN=1 -o $(BUILD_PATH)/parser_benchmark test/performance.cpp $(OBJ_FILES)
 clean:
 	$(RRM) $(OBJ_PATH) $(BUILD_PATH) $(DEP_DIR) test$(SLASH)test$(EXE_EXT) test$(SLASH)test_amalgamation$(EXE_EXT) $(IGNORE_ERRORS)

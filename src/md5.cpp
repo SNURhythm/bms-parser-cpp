@@ -323,8 +323,11 @@ std::string MD5::hexdigest() const {
     return "";
 
   char buf[33];
-  for (int i = 0; i < 16; i++)
-    snprintf(buf + i * 2, 3, "%02x", digest[i]);
+  constexpr char hex[] = "0123456789abcdef";
+  for (int i = 0; i < 16; i++) {
+    buf[i * 2] = hex[digest[i] >> 4];
+    buf[i * 2 + 1] = hex[digest[i] & 15];
+  }
   buf[32] = 0;
 
   return buf;

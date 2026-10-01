@@ -1,0 +1,17 @@
+# Validation record
+
+Baseline: parser 561dceb; consumer b5bae681. Spec and implementation plan are adjacent.
+
+- Characterization: immutable baseline amalgamation built before changes; full semantic snapshots cover all public metadata/resources/timelines/notes and links.
+- Parser/hash/scan suites: clean normal and amalgamation builds passed. Hash vectors came from independent Python hashlib, covering binary input, padding boundaries and chunked updates.
+- Equivalence: 831 real/fixture/generated cases x two seeds x full, metadata, ready, file and scan = 8,310 successful baseline comparisons. Scan comparisons use baseline full metadata and feature flags.
+- ASAN/UBSAN: no address-safety findings. Both baseline and candidate report the same four float-to-integer conversions for non-finite timing when fixtures omit BPM. Ruling: preserve these existing invalid-input semantics in this performance change; a separate correctness fix is required before claiming fully UBSAN-clean parsing.
+- Consumer: original scanner suite and new file/archive characterization passed before integration; scanner suite passed after switching to Scan. Stored-column assertions follow the actual database schema (TotalLength and guessed beat fields are not persisted).
+- Allocation counts (518 charts, 8 workers, separate instrumentation): baseline full 16,122,290 / 1,520,982,931 requested bytes; candidate full 11,305,140 / 1,306,077,595; candidate metadata 779,177 / 369,126,305; candidate scan 855,941 / 379,318,325. Bytes are cumulative, not live memory.
+- Ownership ruling: retain public vectors and heap-owned full-chart notes/timelines; scratch pooling is restricted to private temporary nodes and non-retained timelines. This avoids breaking client deletion/replacement behavior. Scan eliminates note allocation for the demonstrated library-scan use case.
+- Locale ruling: fast-path already-uppercase ASCII; keep towupper fallback for lowercase/non-ASCII, including Turkish i. No encoding detector changes.
+- Independent read-only review (gpt-6-astra): no Critical/Important/Minor findings; ready to merge. Reviewed both repositories and all untracked source/tests/tooling, verified generated consumer parity.
+- Review rulings: existing invalid-BPM conversions, full-Parse exceptional/cancellation cleanup gaps, and overlapping-note ownership issues predate this change and are not corrected here. Cost: those baseline edge cases remain, and callers still need valid inputs/appropriate ownership handling. Scan has automatic temporary cleanup.
+- Portability ruling: runtime evidence is macOS ARM64; Windows/Android execution and absolute throughput are not independently certified by review. Cost: platform-specific runtime regressions cannot be excluded solely from these local tests; implementation remains standard C++17 with unchanged production dependencies.
+- Parallel timing: complete at 1/2/4/8/16 workers, six timed samples each with alternating order. At 8 workers, median full parse time fell 17.4%, Scan time fell 43.3% versus baseline full; allocation calls fell 29.9% / 94.7%. See [measurement report](../../performance/2026-10-01-parser-throughput.md) for samples, ranges and limits.
+- Application main-target build verification: `cmake --build cmake-build-debug --target main -j 6` completed successfully (exit 0). Final normal and amalgamated parser suites also passed after the test-thread flags were finalized; generated files match the consumer byte-for-byte.

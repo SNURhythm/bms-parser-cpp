@@ -1,0 +1,9 @@
+# Parser throughput with unchanged results
+
+Implement the measured bottleneck findings for callers that run many independent parsers concurrently. Existing full and metadata Parse calls must preserve chart metadata, resources, timelines, note types/linkage, random choices, byte hashes and encoding detection. Keep C++17 and dependency-free builds, including amalgamation. Keep public vector types and delete-based ownership; do not introduce shared global pools or parser-created worker threads.
+
+Reduce duplicate timeline lookups and short-lived position-set allocations, remove metadata-only note allocations using explicit lane state, and optimize guarded cell/header comparisons without weakening detection or changing locale-sensitive fallback behavior. Improve the existing portable hash implementation and hex formatting. Changes to object storage must preserve public ownership/container contracts.
+
+Add an independent Scan API returning ChartMeta and HasBga/HasBpmStop/HasScrollChange. It follows full-parse event traversal and statistics, but suppresses note graph materialization. The flags match AsoBMaShow's current interpretation: declared valid BMP resources, positive resolved stop length, and effective scroll != 1. Scan is not an alias for legacy metaOnly, whose behavior is retained. File and byte entry points return no result when cancelled or unreadable. The scanner can then use Scan without discarding full charts.
+
+Validate with baseline snapshots on real charts and fixtures, targeted edge cases, hash vectors and independent digest checks, sanitizers, standard/amalgamated suites, parallel throughput and allocation counts. Performance numbers must use matching builds and alternating unsampled runs. Do not change consumer files unrelated to scanner integration or overwrite existing work.

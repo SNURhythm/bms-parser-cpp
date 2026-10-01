@@ -22,6 +22,7 @@
 #include <atomic>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,15 @@
  *
  */
 namespace bms_parser {
+// Full-parse metadata/features without retaining the note/timeline graph.
+// Feature flags describe declared BGA resources and effective timeline values.
+struct ChartScanResult {
+  ChartMeta Meta;
+  bool HasBga = false;
+  bool HasBpmStop = false;
+  bool HasScrollChange = false;
+};
+
 class Parser {
 public:
   static constexpr const char *RandomPrngId = "std::mt19937_64";
@@ -47,10 +57,17 @@ public:
   ~Parser();
   void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
+  [[nodiscard]] std::optional<ChartScanResult>
+  Scan(const std::vector<unsigned char> &bytes, std::atomic_bool &bCancelled);
+  [[nodiscard]] std::optional<ChartScanResult>
+  Scan(const std::filesystem::path &path, std::atomic_bool &bCancelled);
   static int NoWav;
   static int MetronomeWav;
 
 private:
+  void ParseInternal(const std::vector<unsigned char> &bytes, Chart **chart,
+                     bool addReadyMeasure, bool metaOnly,
+                     std::atomic_bool &bCancelled, ChartScanResult *scan);
   // bpmTable
   std::unordered_map<int, double> BpmTable;
   std::unordered_map<int, double> StopLengthTable;

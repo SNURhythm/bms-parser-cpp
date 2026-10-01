@@ -16,6 +16,9 @@
 #include "../src/LongNote.h"
 #include "../src/Modifier.h"
 #include "../src/Parser.h"
+#include "../src/ParserScratch.h"
+#include "../src/SHA256.h"
+#include "../src/md5.h"
 
 #endif
 
@@ -1524,7 +1527,14 @@ int runSpeedObjectTests() {
   return 0;
 }
 
+#include "HashTests.h"
+#include "ScratchTests.h"
+#include "ScanTests.h"
+
 int main() {
+  if (const int result = runScratchStorageTests(); result != 0) return result;
+  if (const int result = runScanTests(); result != 0) return result;
+  if (const int result = runHashBoundaryTests(); result != 0) return result;
   if (const int result = runEncodingPreservationTests(); result != 0) return result;
   if (const int result = runJudgeRankHeaderTests(); result != 0) return result;
   {

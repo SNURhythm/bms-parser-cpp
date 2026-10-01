@@ -55,8 +55,6 @@ const unsigned int SHA256::sha256_k[64] = // UL = uint32
 
 void SHA256::transform(const unsigned char *message, unsigned int block_nb) {
   uint32 w[64];
-  uint32 wv[8];
-  uint32 t1, t2;
   const unsigned char *sub_block;
   int i;
   int j;
@@ -68,25 +66,31 @@ void SHA256::transform(const unsigned char *message, unsigned int block_nb) {
     for (j = 16; j < 64; j++) {
       w[j] = SHA256_F4(w[j - 2]) + w[j - 7] + SHA256_F3(w[j - 15]) + w[j - 16];
     }
-    for (j = 0; j < 8; j++) {
-      wv[j] = m_h[j];
+    uint32 a = m_h[0], b = m_h[1], c = m_h[2], d = m_h[3];
+    uint32 e = m_h[4], f = m_h[5], g = m_h[6], h = m_h[7];
+    const auto round = [](uint32 a, uint32 b, uint32 c, uint32 &d,
+                          uint32 e, uint32 f, uint32 g, uint32 &h,
+                          uint32 word) {
+      const uint32 t1 = h + SHA256_F2(e) + SHA2_CH(e, f, g) + word;
+      const uint32 t2 = SHA256_F1(a) + SHA2_MAJ(a, b, c);
+      d += t1;
+      h = t1 + t2;
+    };
+    // Rotate the argument roles instead of shifting an eight-word array every
+    // round. After eight rounds the working variables are in their original
+    // roles again. All arithmetic remains modulo 2^32.
+    for (j = 0; j < 64; j += 8) {
+      round(a, b, c, d, e, f, g, h, sha256_k[j] + w[j]);
+      round(h, a, b, c, d, e, f, g, sha256_k[j + 1] + w[j + 1]);
+      round(g, h, a, b, c, d, e, f, sha256_k[j + 2] + w[j + 2]);
+      round(f, g, h, a, b, c, d, e, sha256_k[j + 3] + w[j + 3]);
+      round(e, f, g, h, a, b, c, d, sha256_k[j + 4] + w[j + 4]);
+      round(d, e, f, g, h, a, b, c, sha256_k[j + 5] + w[j + 5]);
+      round(c, d, e, f, g, h, a, b, sha256_k[j + 6] + w[j + 6]);
+      round(b, c, d, e, f, g, h, a, sha256_k[j + 7] + w[j + 7]);
     }
-    for (j = 0; j < 64; j++) {
-      t1 = wv[7] + SHA256_F2(wv[4]) + SHA2_CH(wv[4], wv[5], wv[6]) +
-           sha256_k[j] + w[j];
-      t2 = SHA256_F1(wv[0]) + SHA2_MAJ(wv[0], wv[1], wv[2]);
-      wv[7] = wv[6];
-      wv[6] = wv[5];
-      wv[5] = wv[4];
-      wv[4] = wv[3] + t1;
-      wv[3] = wv[2];
-      wv[2] = wv[1];
-      wv[1] = wv[0];
-      wv[0] = t1 + t2;
-    }
-    for (j = 0; j < 8; j++) {
-      m_h[j] += wv[j];
-    }
+    m_h[0] += a; m_h[1] += b; m_h[2] += c; m_h[3] += d;
+    m_h[4] += e; m_h[5] += f; m_h[6] += g; m_h[7] += h;
   }
 }
 
@@ -154,8 +158,10 @@ std::string sha256(const std::vector<unsigned char> &bytes) {
 
   char buf[2 * SHA256::DIGEST_SIZE + 1];
   buf[2 * SHA256::DIGEST_SIZE] = 0;
+  constexpr char hex[] = "0123456789abcdef";
   for (unsigned int i = 0; i < SHA256::DIGEST_SIZE; i++) {
-    snprintf(buf + i * 2, 3, "%02x", digest[i]);
+    buf[i * 2] = hex[digest[i] >> 4];
+    buf[i * 2 + 1] = hex[digest[i] & 15];
   }
   return buf;
 }
