@@ -85,11 +85,83 @@ std::string bytesToString(const std::vector<unsigned char> &bytes,
 }
 
 bool isValidUtf8(const std::vector<unsigned char> &bytes, size_t offset) {
-  if (offset >= bytes.size()) {
-    return true;
+  size_t i = offset;
+  while (i < bytes.size()) {
+    const unsigned char c = bytes[i];
+    if (c < 0x80) {
+      i += bms_parser::detail::asciiPrefixLength(bytes.data() + i,
+                                               bytes.size() - i);
+      continue;
+    }
+    if (c >= 0xc2 && c <= 0xdf) {
+      if (i + 1 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 2;
+      continue;
+    }
+    if (c == 0xe0) {
+      if (i + 2 >= bytes.size() || bytes[i + 1] < 0xa0 ||
+          bytes[i + 1] > 0xbf || (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c >= 0xe1 && c <= 0xec) {
+      if (i + 2 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80 ||
+          (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c == 0xed) {
+      if (i + 2 >= bytes.size() || bytes[i + 1] < 0x80 ||
+          bytes[i + 1] > 0x9f || (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c >= 0xee && c <= 0xef) {
+      if (i + 2 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80 ||
+          (bytes[i + 2] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 3;
+      continue;
+    }
+    if (c == 0xf0) {
+      if (i + 3 >= bytes.size() || bytes[i + 1] < 0x90 ||
+          bytes[i + 1] > 0xbf || (bytes[i + 2] & 0xc0) != 0x80 ||
+          (bytes[i + 3] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 4;
+      continue;
+    }
+    if (c >= 0xf1 && c <= 0xf3) {
+      if (i + 3 >= bytes.size() || (bytes[i + 1] & 0xc0) != 0x80 ||
+          (bytes[i + 2] & 0xc0) != 0x80 ||
+          (bytes[i + 3] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 4;
+      continue;
+    }
+    if (c == 0xf4) {
+      if (i + 3 >= bytes.size() || bytes[i + 1] < 0x80 ||
+          bytes[i + 1] > 0x8f || (bytes[i + 2] & 0xc0) != 0x80 ||
+          (bytes[i + 3] & 0xc0) != 0x80) {
+        return false;
+      }
+      i += 4;
+      continue;
+    }
+    return false;
   }
-  return simdutf::validate_utf8(
-      reinterpret_cast<const char *>(bytes.data() + offset), bytes.size() - offset);
+  return true;
 }
 
 void appendUtf8CodePoint(uint32_t codePoint, std::string &result) {

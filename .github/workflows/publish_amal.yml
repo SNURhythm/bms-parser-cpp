@@ -28,7 +28,6 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             You can find the amalgamated code in the file `bms_parser.hpp` and `bms_parser.cpp`.
-            Building it requires simdutf headers and linking simdutf plus the encoding_c static library. See the README's build instructions.
           draft: false
           prerelease: false
       # upload amalgamated code
@@ -51,3 +50,4 @@ jobs:
           asset_path: ./bms_parser.cpp
           asset_name: bms_parser.cpp
           asset_content_type: text/plain
+
