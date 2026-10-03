@@ -67,7 +67,8 @@ public:
 private:
   void ParseInternal(const std::vector<unsigned char> &bytes, Chart **chart,
                      bool addReadyMeasure, bool metaOnly,
-                     std::atomic_bool &bCancelled, ChartScanResult *scan);
+                     std::atomic_bool &bCancelled, ChartScanResult *scan,
+                     bool pms = false);
   // bpmTable
   std::unordered_map<int, double> BpmTable;
   std::unordered_map<int, double> StopLengthTable;
@@ -80,9 +81,9 @@ private:
   std::string RandomPrng = RandomPrngId;
   std::vector<int> RandomValues;
   static inline int ParseHex(std::string_view Str);
-  inline int ParseInt(std::string_view Str, bool forceBase32 = false) const;
+  inline int ParseInt(std::string_view Str, bool forceBase36 = false) const;
   void ParseHeader(Chart *Chart, std::string_view cmd, std::string_view Xx,
-                   const std::string &Value);
+                   const std::string &Value, bool shiftJis = false);
   static inline bool MatchHeader(const std::string_view &str,
                                  const std::string_view &headerUpper);
   static inline unsigned long long Gcd(unsigned long long A,

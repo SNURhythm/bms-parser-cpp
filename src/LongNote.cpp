@@ -36,7 +36,7 @@ LongNoteType ResolveLongNoteType(LongNoteType Type, int LnMode) {
   return LongNoteTypeFromLnMode(LnMode);
 }
 
-bool LongNote::IsTail() const { return Tail == nullptr; }
+bool LongNote::IsTail() const { return Head != nullptr; }
 
 LongNote::LongNote(int Wav, LongNoteType Type) : Note(Wav), Type(Type) {
   Tail = nullptr;
@@ -49,13 +49,13 @@ void LongNote::SetType(LongNoteType Type) { this->Type = Type; }
 void LongNote::Press(long long Time) {
   Play(Time);
   IsHolding = true;
-  Tail->IsHolding = true;
+  if (Tail) Tail->IsHolding = true;
 }
 
 void LongNote::Release(long long Time) {
   Play(Time);
   IsHolding = false;
-  Head->IsHolding = false;
+  if (Head) Head->IsHolding = false;
   ReleaseTime = Time;
 }
 

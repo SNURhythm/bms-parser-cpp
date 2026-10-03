@@ -15,6 +15,8 @@
  */
 
 #include "TimeLine.h"
+#include <cmath>
+#include <limits>
 namespace bms_parser {
 TimeLine::TimeLine(int lanes, bool metaOnly) {
   if (metaOnly) {
@@ -33,9 +35,12 @@ TimeLine *TimeLine::SetNote(int lane, Note *note) {
 }
 
 TimeLine *TimeLine::SetInvisibleNote(int lane, Note *note) {
+  if (InvisibleNotes[lane] != note) delete InvisibleNotes[lane];
   InvisibleNotes[lane] = note;
-  note->Lane = lane;
-  note->Timeline = this;
+  if (note) {
+    note->Lane = lane;
+    note->Timeline = this;
+  }
   return this;
 }
 
@@ -53,7 +58,15 @@ TimeLine *TimeLine::AddBackgroundNote(Note *note) {
 }
 
 double TimeLine::GetStopDuration() const {
-  return 1250000.0 * StopLength / Bpm; // 1250000 = 240 * 1000 * 1000 / 192
+  if (ParsedStopDuration) return static_cast<double>(*ParsedStopDuration);
+  // Section.java divides the definition by 192 before converting to long.
+  const double duration = 240000000.0 * (StopLength / 192.0) / Bpm;
+  if (std::isnan(duration)) return 0;
+  if (duration >= static_cast<double>(std::numeric_limits<long long>::max()))
+    return static_cast<double>(std::numeric_limits<long long>::max());
+  if (duration <= static_cast<double>(std::numeric_limits<long long>::min()))
+    return static_cast<double>(std::numeric_limits<long long>::min());
+  return std::trunc(duration);
 }
 
 TimeLine::~TimeLine() {

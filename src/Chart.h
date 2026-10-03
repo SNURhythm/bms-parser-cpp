@@ -19,11 +19,19 @@
 #include "Measure.h"
 #include <filesystem>
 #include <optional>
+#include <memory>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace bms_parser {
+// BMSModelUtils counts timelines in [0, Integer.MAX_VALUE) after Java's
+// narrowing conversion of microseconds / 1000 to an int.
+inline bool IsCountedNoteTime(long long microseconds) {
+  return static_cast<std::uint32_t>(microseconds / 1000) < 0x7fffffffU;
+}
+
 enum class JudgeRankType { BmsRank, DefExRank };
 
 class ChartMeta {
@@ -43,9 +51,8 @@ public:
   double Total = 100;
   bool HasTotal = false;
   long long PlayLength = 0; // Timing of the last playable note, in microseconds
+  // End of the final measure, including its trailing silence, in microseconds.
   long long TotalLength = 0;
-  // Timing of the last timeline(including background note, bga change note,
-  // invisible note, ...), in microseconds
   std::filesystem::path Banner;
   std::filesystem::path StageFile;
   std::filesystem::path BackBmp;
@@ -64,6 +71,7 @@ public:
   int Player = 1;
   int KeyMode = 5;
   bool IsDP = false;
+  // Scoring judgements: LN heads, both CN/HCN endpoints, excluding mines.
   int TotalNotes = 0;
   int TotalLongNotes = 0;
   int TotalScratchNotes = 0;
@@ -156,6 +164,8 @@ public:
   ~Chart();
   ChartMeta Meta;
   std::vector<Measure *> Measures;
+  // Own LN partners displaced from timeline slots by later source rows.
+  std::vector<std::unique_ptr<Note>> DetachedNotes;
   std::unordered_map<int, std::string> WavTable;
   std::unordered_map<int, std::string> ReferencedWavTable;
   std::unordered_map<int, std::string> BmpTable;

@@ -10,14 +10,14 @@ inline int runScanTests() {
       {"#BPM 120\n#STOP01 48\n#SCROLL01 -0.5\n#00009:01\n#000SC:01\n#00111:01\n", false, true, true},
       // Flags describe effective timelines, not merely declarations/events.
       {"#BPM 120\n#STOP01 48\n#STOP02 -48\n#SCROLL01 -0.5\n#SCROLL02 1\n"
-       "#00009:01\n#00009:02\n#000SC:01\n#000SC:02\n#00111:01\n", false, false, false},
+       "#00009:01\n#00009:02\n#000SC:01\n#000SC:02\n#00111:01\n", false, true, false},
       {"#BPM 120\n#STOP01 48\n#SCROLL01 0.5\n#00009:01\n#00009:ZZ\n"
-       "#000SC:01\n#000SC:ZZ\n#00111:01\n", false, false, false},
+       "#000SC:01\n#000SC:ZZ\n#00111:01\n", false, true, true},
       {"#BPM 120\n#STOP01 48\n#SCROLL01 0.5\n#00111:01\n", false, false, false},
       {"#BPM 120\n#RANDOM 1\n#IF 3\n#BMP01 hidden.png\n#ENDIF\n#ENDRANDOM\n"
        "#BMP01 \n#00111:01\n", false, false, false},
-      {"#BPM 120\n#BMP!1 odd.png\n#00111:01\n", true, false, false},
-      {"#bpm 120\n#bmp01 image.png\n#scroll01 nan\n#000sc:01\n#00111:01\n", true, false, true},
+      {"#BPM 120\n#BMP!1 odd.png\n#00111:01\n", false, false, false},
+      {"#bpm 120\n#bmp01 image.png\n#scroll01 nan\n#000sc:01\n#00111:01\n", true, false, false},
       // Legacy metaOnly stops reading BGM/invisible rows after the first event.
       // Scan must use full-mode positions and rounding for all statistics.
       {"#BPM 137\n#BPM01 173\n#WAV01 hit.wav\n#00102:0.75\n#00111:01\n"
@@ -27,7 +27,7 @@ inline int runScanTests() {
        "#00154:01\n#00354:01\n#004D9:01\n#00501:000001\n", false, false, false},
       {"#BPM 120\n#BASE 62\n#BMPzz image.png\n#WAVzz note.wav\n#00011:zz\n"
        "#00006:zz00zz\n#RANDOM 2\n#IF 1\n#SCROLL01 -1\n#000SC:01\n"
-       "#ELSE\n#STOP01 24\n#00009:01\n#ENDIF\n#ENDRANDOM\n", true, true, false},
+       "#ELSE\n#STOP01 24\n#00009:01\n#ENDIF\n#ENDRANDOM\n", true, false, false},
   };
   for (const auto &test : cases) {
     const auto bytes = bytesFromString(test.text);
@@ -39,6 +39,10 @@ inline int runScanTests() {
     fullParser.Parse(bytes, &raw, false, false, cancelled);
     const std::unique_ptr<bms_parser::Chart> full(raw);
     const auto scan = scanParser.Scan(bytes, cancelled);
+    if (bytes.empty()) {
+      ASSERT_EQ(true, full == nullptr && !scan, "empty input matches Java rejection");
+      continue;
+    }
     ASSERT_EQ(true, scan.has_value(), "scan returns metadata");
     ASSERT_EQ(true, (parser_test::metadataSnapshot(full->Meta) ==
                         parser_test::metadataSnapshot(scan->Meta)), "scan metadata matches full parsing");

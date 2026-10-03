@@ -102,16 +102,6 @@ std::vector<TimeLine *> GetAllTimeLines(Chart &chart) {
   return timelines;
 }
 
-bool IsLongTail(const Note *note) {
-  const auto *ln = dynamic_cast<const LongNote *>(note);
-  return ln != nullptr && ln->IsTail();
-}
-
-bool IsLongHead(const Note *note) {
-  const auto *ln = dynamic_cast<const LongNote *>(note);
-  return ln != nullptr && !ln->IsTail();
-}
-
 void AssignNote(TimeLine &timeline, int lane, Note *note) {
   timeline.Notes[lane] = note;
   if (note != nullptr) {
@@ -667,13 +657,21 @@ void BaseModifier::RecalculateNoteCounts(Chart &chart) {
   int totalLandmineNotes = 0;
 
   for (const auto *timeline : GetAllTimeLines(chart)) {
+    if (!IsCountedNoteTime(timeline->Timing)) continue;
     for (size_t lane = 0; lane < timeline->Notes.size(); ++lane) {
       const Note *note = timeline->Notes[lane];
-      if (note == nullptr || IsLongTail(note)) {
+      if (note == nullptr) continue;
+      if (dynamic_cast<const LandmineNote *>(note)) {
+        ++totalLandmineNotes;
         continue;
       }
+      const auto *ln = dynamic_cast<const LongNote *>(note);
+      if (ln && ln->IsTail() &&
+          ln->Type != LongNoteType::ChargeNote &&
+          ln->Type != LongNoteType::HellChargeNote)
+        continue;
       ++totalNotes;
-      if (IsLongHead(note)) {
+      if (ln) {
         if (IsScratchLane(chart.Meta, static_cast<int>(lane))) {
           ++totalBackSpinNotes;
         } else {

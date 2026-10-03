@@ -47,6 +47,7 @@ public:
   std::optional<BgaPoorSequence> BgaPoor;
 
   double StopLength = 0;
+  std::optional<long long> ParsedStopDuration;
   double Scroll = 1;
   double Speed = 1;
 

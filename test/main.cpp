@@ -44,19 +44,19 @@ void operator delete(void *memory) noexcept { std::free(memory); }
 void operator delete(void *memory, std::size_t) noexcept { std::free(memory); }
 
 #define ASSERT_EQ(a, b, desc)                                                  \
-  if (a != b) {                                                                \
+  if ((a) != (b)) {                                                                \
     std::cerr << desc << std::endl;                                            \
-    std::cerr << "\tExpected: " << a << std::endl;                             \
-    std::cerr << "\tActual: " << b << std::endl;                               \
+    std::cerr << "\tExpected: " << (a) << std::endl;                             \
+    std::cerr << "\tActual: " << (b) << std::endl;                               \
     return 1;                                                                  \
   } else {                                                                     \
     std::cout << "\t" << desc << " passed" << std::endl;                       \
   }
 #define ASSERT_EQW(a, b, desc)                                                 \
-  if (a != b) {                                                                \
+  if ((a) != (b)) {                                                                \
     std::cerr << desc;                                                         \
-    std::wcerr << "\tExpected: " << a << std::endl;                            \
-    std::wcerr << "\tActual: " << b << std::endl;                              \
+    std::wcerr << "\tExpected: " << (a) << std::endl;                            \
+    std::wcerr << "\tActual: " << (b) << std::endl;                              \
     return 1;                                                                  \
   } else {                                                                     \
     std::cout << "\t" << desc << " passed" << std::endl;                       \
@@ -182,7 +182,7 @@ int runEncodingTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(koreanTitle, chart->Meta.Title,
               "parser_encoding_utf8_korean_title: ");
@@ -196,7 +196,7 @@ int runEncodingTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(koreanTitle, chart->Meta.Title,
               "parser_encoding_declared_utf8_korean_title: ");
@@ -206,11 +206,11 @@ int runEncodingTests() {
     const std::string koreanTitle =
         "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
     const std::string content =
-        std::string("\xef\xbb\xbf#TITLE ") + koreanTitle + "\n";
+        std::string("\xef\xbb\xbf\n#TITLE ") + koreanTitle + "\n";
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(koreanTitle, chart->Meta.Title,
               "parser_encoding_utf8_bom_korean_title: ");
@@ -220,9 +220,10 @@ int runEncodingTests() {
     const std::string koreanTitle =
         "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
     const std::vector<unsigned char> content = {
-        0xff, 0xfe, 0x23, 0x00, 0x54, 0x00, 0x49, 0x00, 0x54,
+        0xff, 0xfe, 0x0a, 0x00, 0x23, 0x00, 0x54, 0x00, 0x49, 0x00, 0x54,
         0x00, 0x4c, 0x00, 0x45, 0x00, 0x20, 0x00, 0x5c, 0xd5,
         0x6d, 0xad, 0xb4, 0xc5, 0x0a, 0x00,
+        0x23, 0, 0x42, 0, 0x50, 0, 0x4d, 0, 0x20, 0, 0x31, 0, 0x32, 0, 0x30, 0, 0x0a, 0,
     };
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
@@ -237,9 +238,10 @@ int runEncodingTests() {
     const std::string koreanTitle =
         "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
     const std::vector<unsigned char> content = {
-        0xfe, 0xff, 0x00, 0x23, 0x00, 0x54, 0x00, 0x49, 0x00,
+        0xfe, 0xff, 0x00, 0x0a, 0x00, 0x23, 0x00, 0x54, 0x00, 0x49, 0x00,
         0x54, 0x00, 0x4c, 0x00, 0x45, 0x00, 0x20, 0xd5, 0x5c,
         0xad, 0x6d, 0xc5, 0xb4, 0x00, 0x0a,
+        0, 0x23, 0, 0x42, 0, 0x50, 0, 0x4d, 0, 0x20, 0, 0x31, 0, 0x32, 0, 0x30, 0, 0x0a,
     };
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
@@ -258,7 +260,7 @@ int runEncodingTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(koreanTitle, chart->Meta.Title,
               "parser_encoding_euckr_heuristic_korean_title: ");
@@ -273,7 +275,7 @@ int runEncodingTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(koreanTitle, chart->Meta.Title,
               "parser_encoding_declared_euckr_korean_title: ");
@@ -287,7 +289,7 @@ int runEncodingTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(utf8Title, chart->Meta.Title,
               "parser_encoding_shiftjis_heuristic_title: ");
@@ -302,7 +304,7 @@ int runEncodingTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString(content + "\n#BPM 120\n"), &chart, false, false, cancel);
 
     ASSERT_EQ(utf8Title, chart->Meta.Title,
               "parser_encoding_declared_shiftjis_title: ");
@@ -348,7 +350,7 @@ int runEncodingPreservationTests() {
       bms_parser::Parser parser;
       std::atomic_bool cancel = false;
       bms_parser::Chart *raw = nullptr;
-      parser.Parse(bytesFromString(entry.input), &raw, false, metaOnly, cancel);
+      parser.Parse(bytesFromString(entry.input + "\n#BPM 120\n"), &raw, false, metaOnly, cancel);
       std::unique_ptr<bms_parser::Chart> chart(raw);
       ASSERT_EQ(entry.title, chart->Meta.Title, entry.name);
     }
@@ -360,7 +362,7 @@ int runEncodingPreservationTests() {
     bms_parser::Parser parser;
     std::atomic_bool cancel = false;
     bms_parser::Chart *raw = nullptr;
-    parser.Parse(bytesFromString(input), &raw, false, false, cancel);
+    parser.Parse(bytesFromString(input + "\n#BPM 120\n"), &raw, false, false, cancel);
     std::unique_ptr<bms_parser::Chart> chart(raw);
     const std::string expected = ascii + japanese + "\xc2\xa5\xe2\x80\xbe";
     ASSERT_EQ(expected, chart->Meta.Title, "encoding_word_boundary");
@@ -370,6 +372,7 @@ int runEncodingPreservationTests() {
 
 int runReferencedWavTests() {
   const std::string content =
+      "#BPM 120\n"
       "#WAV01 bgm.wav\n"
       "#WAV02 key.wav\n"
       "#WAV03 invisible.wav\n"
@@ -463,7 +466,7 @@ int runBgaPoorSequenceTests() {
     delete chart;
   }
   {
-    const auto *chart = parse("#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n"
+    const auto *chart = parse("#BPM 120\n#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n"
                               "#00106:01000200\n");
     const auto *sequence = sequenceAt(chart, 1);
     ASSERT_EQ(true, (sequence != nullptr),
@@ -472,14 +475,14 @@ int runBgaPoorSequenceTests() {
       delete chart;
       return 1;
     }
-    const std::vector<int> expected = {1, bms_parser::BgaSequenceBlank, 2,
-                                       bms_parser::BgaSequenceBlank};
+    const std::vector<int> expected = {1, 0, 2,
+                                       0};
     ASSERT_EQ(true, (sequence->Frames == expected),
-              "bga_poor_sequence_with_bmp00_keeps_zero_blank: ");
+              "bga_poor_sequence_zero_uses_bmp00_like_java: ");
     delete chart;
   }
   {
-    const auto *chart = parse("#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n"
+    const auto *chart = parse("#BPM 120\n#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n"
                               "#BMP03 three.png\n#00106:01000100\n"
                               "#00106:02000300\n");
     const auto *sequence = sequenceAt(chart, 1);
@@ -489,14 +492,14 @@ int runBgaPoorSequenceTests() {
       delete chart;
       return 1;
     }
-    const std::vector<int> expected = {2, bms_parser::BgaSequenceBlank, 3,
-                                       bms_parser::BgaSequenceBlank};
+    const std::vector<int> expected = {2, 0, 3,
+                                       0};
     ASSERT_EQ(true, (sequence->Frames == expected),
               "bga_poor_sequence_last_active_row_wins: ");
     delete chart;
   }
   {
-    const auto *chart = parse("#BMP01 one.png\n#BMP02 two.png\n"
+    const auto *chart = parse("#BPM 120\n#BMP01 one.png\n#BMP02 two.png\n"
                               "#00106:01000100\n#00206:02000200\n");
     const auto *first = sequenceAt(chart, 1);
     const auto *second = sequenceAt(chart, 2);
@@ -506,17 +509,15 @@ int runBgaPoorSequenceTests() {
       delete chart;
       return 1;
     }
-    const std::vector<int> firstExpected = {
-        1, bms_parser::BgaSequenceBlank, 1, bms_parser::BgaSequenceBlank};
-    const std::vector<int> secondExpected = {
-        2, bms_parser::BgaSequenceBlank, 2, bms_parser::BgaSequenceBlank};
+    const std::vector<int> firstExpected = {1};
+    const std::vector<int> secondExpected = {2};
     ASSERT_EQ(true, (first->Frames == firstExpected &&
                      second->Frames == secondExpected),
               "bga_poor_sequence_successive_measures_stay_separate: ");
     delete chart;
   }
   {
-    const auto *chart = parse("#BMP01 one.png\n#00106:0102\n");
+    const auto *chart = parse("#BPM 120\n#BMP01 one.png\n#00106:0102\n");
     const auto *sequence = sequenceAt(chart, 1);
     ASSERT_EQ(true, (sequence != nullptr),
               "bga_poor_sequence_unresolved_cell_exists: ");
@@ -541,7 +542,7 @@ int runBgaPoorSequenceTests() {
       cells += "01";
     }
     const std::string content =
-        "#BMP01 one.png\n#00001:01\n#00106:" + cells + "\n";
+        "#BPM 120\n#BMP01 one.png\n#00001:01\n#00106:" + cells + "\n";
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
@@ -591,14 +592,14 @@ int runParserRandomTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.SetRandomValues({2, 3});
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.SetRandomValues({2, 1, 3});
+    parser.Parse(bytesFromString("#BPM 120\n" + content), &chart, false, false, cancel);
 
     ASSERT_EQ(std::string("two"), chart->Meta.Title,
               "parser_random_selected_title: ");
     ASSERT_EQ(std::string("nested-three"), chart->Meta.Artist,
               "parser_random_selected_nested_artist: ");
-    ASSERT_EQ(std::string("2,3"), joinLaneIndices(chart->Meta.RandomValues),
+    ASSERT_EQ(std::string("2,1,3"), joinLaneIndices(chart->Meta.RandomValues),
               "parser_random_selected_values: ");
     delete chart;
   }
@@ -620,13 +621,13 @@ int runParserRandomTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.SetRandomValues({2});
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.SetRandomValues({2, 1});
+    parser.Parse(bytesFromString("#BPM 120\n" + content), &chart, false, false, cancel);
 
     ASSERT_EQ(std::string("active"), chart->Meta.Title,
               "parser_random_inactive_nested_branch_not_parsed: ");
-    ASSERT_EQ(std::string("2"), joinLaneIndices(chart->Meta.RandomValues),
-              "parser_random_inactive_nested_values_not_consumed: ");
+    ASSERT_EQ(std::string("2,1"), joinLaneIndices(chart->Meta.RandomValues),
+              "parser_random_nested_values_consumed_like_java: ");
     delete chart;
   }
   {
@@ -645,10 +646,10 @@ int runParserRandomTests() {
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
     parser.SetRandomValues({3});
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString("#BPM 120\n" + content), &chart, false, false, cancel);
 
-    ASSERT_EQ(std::string("fallback"), chart->Meta.Title,
-              "parser_random_elseif_before_else: ");
+    ASSERT_EQ(std::string("base"), chart->Meta.Title,
+              "parser_random_java_ignores_else_directives: ");
     delete chart;
   }
   {
@@ -670,14 +671,14 @@ int runParserRandomTests() {
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
     parser.SetRandomValues({1, 2});
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString("#BPM 120\n" + content), &chart, false, false, cancel);
 
     ASSERT_EQ(std::string("first"), chart->Meta.Title,
               "parser_random_implicit_sibling_first: ");
     ASSERT_EQ(std::string("second"), chart->Meta.Artist,
               "parser_random_implicit_sibling_second: ");
-    ASSERT_EQ(std::string("after"), chart->Meta.Genre,
-              "parser_random_implicit_sibling_closes_parent: ");
+    ASSERT_EQ(std::string(""), chart->Meta.Genre,
+              "parser_random_java_keeps_parent: ");
     ASSERT_EQ(std::string("1,2"), joinLaneIndices(chart->Meta.RandomValues),
               "parser_random_implicit_sibling_values: ");
     delete chart;
@@ -697,7 +698,7 @@ int runParserRandomTests() {
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
     parser.SetRandomSeed(12345);
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString("#BPM 120\n" + content), &chart, false, false, cancel);
 
     const auto randomValues = joinLaneIndices(chart->Meta.RandomValues);
     const bool randomValueInRange = randomValues == "1" || randomValues == "2";
@@ -887,6 +888,7 @@ int runModifierTests() {
 int runLongNoteTypeTests() {
   {
     const std::string content =
+      "#BPM 120\n"
         "#TITLE undefined-ln\n"
         "#WAV01 a.wav\n"
         "#WAV02 b.wav\n"
@@ -908,6 +910,7 @@ int runLongNoteTypeTests() {
   }
   {
     const std::string content =
+      "#BPM 120\n"
         "#TITLE lnmode-hcn\n"
         "#LNMODE 3\n"
         "#WAV01 a.wav\n"
@@ -930,6 +933,7 @@ int runLongNoteTypeTests() {
   }
   {
     const std::string content =
+      "#BPM 120\n"
         "#TITLE lnobj\n"
         "#LNOBJ 02\n"
         "#WAV01 a.wav\n"
@@ -952,6 +956,7 @@ int runLongNoteTypeTests() {
   }
   {
     const std::string content =
+      "#BPM 120\n"
         "#TITLE lnmode-hcn-lnobj\n"
         "#LNMODE 3\n"
         "#LNOBJ 02\n"
@@ -994,7 +999,7 @@ int runJudgeRankHeaderTests() {
       bms_parser::Chart *chart = nullptr;
       std::atomic_bool cancel = false;
       bms_parser::Parser parser;
-      parser.Parse(bytesFromString(entry.first), &chart, metaOnly, false, cancel);
+      parser.Parse(bytesFromString("#BPM 120\n" + entry.first), &chart, false, metaOnly, cancel);
       ASSERT_EQ(entry.second, chart->Meta.Rank, "judge_rank_header: " + entry.first);
       ASSERT_EQ((entry.second > 4),
                 (chart->Meta.RankType == bms_parser::JudgeRankType::DefExRank),
@@ -1010,7 +1015,7 @@ int runChartProvenanceTests() {
     bms_parser::Chart *chart = nullptr;
     std::atomic_bool cancel = false;
     bms_parser::Parser parser;
-    parser.Parse(bytesFromString(content), &chart, false, false, cancel);
+    parser.Parse(bytesFromString("#BPM 120\n" + content), &chart, false, false, cancel);
     return std::unique_ptr<bms_parser::Chart>(chart);
   };
 
@@ -1530,8 +1535,11 @@ int runSpeedObjectTests() {
 #include "HashTests.h"
 #include "ScratchTests.h"
 #include "ScanTests.h"
+#include "ParserCorrectnessTests.h"
 
 int main() {
+  if (const int result = runParserCorrectnessTests(); result != 0) return result;
+  if (const int result = runParserCollisionStressTests(); result != 0) return result;
   if (const int result = runScratchStorageTests(); result != 0) return result;
   if (const int result = runScanTests(); result != 0) return result;
   if (const int result = runHashBoundaryTests(); result != 0) return result;
