@@ -28,6 +28,7 @@ public:
     Event *pair = nullptr;
     LongNoteType type = LongNoteType::Undefined;
     Note *note = nullptr;
+    std::unique_ptr<Note> owner;
   };
   static constexpr int Lanes = 16;
   std::array<std::map<Position, Event *>, Lanes> lanes;
@@ -59,7 +60,7 @@ public:
     auto *tail = create(Kind::Tail, pos, noWav, timeline);
     slots[pos] = tail;
     pair(head, tail);
-    completed[lane].push_back(head);
+    complete(lane, *head);
     last[lane] = pos;
   }
 
@@ -103,7 +104,7 @@ public:
     auto *tail = create(Kind::Tail, pos, head->wav == wav ? noWav : wav, timeline);
     slots[pos] = tail;
     pair(head, tail);
-    completed[lane].push_back(head);
+    complete(lane, *head);
     open[lane] = nullptr;
     last[lane] = pos;
   }
@@ -117,8 +118,53 @@ public:
   }
 
   template<class Timing>
-  void setTiming(Timing timing) {
-    for (auto &event : events) event.timing = timing(event.pos);
+  void setTiming(Position measureStart, Timing timing) {
+    // Previously visited positions are immutable, except a rounded cell at
+    // the current bar. LNOBJ copies an older candidate's cached time itself.
+    for (size_t i = untimedBegin; i < events.size(); ++i)
+      if (events[i].pos >= measureStart)
+        events[i].timing = timing(events[i].pos);
+    untimedBegin = events.size();
+    for (int lane = 0; lane < Lanes; ++lane) {
+      const auto boundary = lanes[lane].find(measureStart);
+      if (boundary != lanes[lane].end())
+        boundary->second->timing = timing(measureStart);
+      if (open[lane] && open[lane]->pos == measureStart)
+        open[lane]->timing = timing(measureStart);
+    }
+  }
+
+  void advance(Chart &chart, bool materialize, Position boundary) {
+    const auto scratchLanes = chart.Meta.GetScratchLaneIndices();
+    size_t possibleLive = 0;
+    for (int lane = 0; lane < Lanes; ++lane) {
+      auto &slots = lanes[lane];
+      Position keepFrom = boundary;
+      // A later close can still remove normal notes anywhere inside an open
+      // hold. Retain that unresolved range, including a detached open head.
+      if (open[lane]) keepFrom = std::min(keepFrom, open[lane]->pos);
+      if (last[lane]) {
+        const auto candidate = slots.find(*last[lane]);
+        if (candidate != slots.end() &&
+            (candidate->second->kind == Kind::Normal || !candidate->second->pair))
+          keepFrom = std::min(keepFrom, *last[lane]);
+      }
+      const bool scratch = std::find(scratchLanes.begin(), scratchLanes.end(), lane)
+                           != scratchLanes.end();
+      auto it = slots.begin();
+      while (it != slots.end() && it->first < keepFrom) {
+        publish(chart, *it->second, lane, scratch, materialize);
+        if (last[lane] == it->first) last[lane].reset();
+        it = slots.erase(it);
+      }
+      auto &intervals = completed[lane];
+      while (!intervals.empty() && intervals.begin()->second < boundary)
+        intervals.erase(intervals.begin());
+      possibleLive += 2 * (slots.size() + (open[lane] != nullptr));
+    }
+    // Collect only when enough events are retired. An unresolved chart-long
+    // hold therefore grows linearly instead of being copied every measure.
+    if (events.size() > 2 * possibleLive + 1024) collect(chart);
   }
 
   void finish(Chart &chart, bool materialize) {
@@ -129,49 +175,76 @@ public:
     for (int lane = 0; lane < Lanes; ++lane) {
       const bool scratch = std::find(scratchLanes.begin(), scratchLanes.end(), lane)
                            != scratchLanes.end();
-      for (auto &[pos, event] : lanes[lane]) {
-        chart.Meta.PlayLength = std::max(chart.Meta.PlayLength, event->timing);
-        if (event->kind == Kind::Mine) {
-          if (IsCountedNoteTime(event->timing)) ++chart.Meta.TotalLandmineNotes;
-        } else if (IsCountedNoteTime(event->timing) &&
-                   (event->kind != Kind::Tail || event->type == LongNoteType::ChargeNote ||
-                    event->type == LongNoteType::HellChargeNote)) {
-          ++chart.Meta.TotalNotes;
-          if (event->kind == Kind::Head || event->kind == Kind::Tail) {
-            if (scratch) ++chart.Meta.TotalBackSpinNotes;
-            else ++chart.Meta.TotalLongNotes;
-          } else if (scratch) ++chart.Meta.TotalScratchNotes;
-        }
-        if (materialize) materializeEvent(*event, lane);
-      }
-    }
-    if (!materialize) return;
-    for (int lane = 0; lane < Lanes; ++lane) {
       for (auto &[pos, event] : lanes[lane])
-        event->timeline->SetNote(lane, event->note);
+        publish(chart, *event, lane, scratch, materialize);
     }
     // Detached partners are observable through LN pointers, but not playable.
-    for (auto &event : events) {
-      if (!event.note) continue;
-      const auto &slots = lanes[event.note->Lane];
-      const auto active = slots.find(event.pos);
-      if (active == slots.end() || active->second != &event)
-        chart.DetachedNotes.emplace_back(event.note);
-    }
+    for (auto &event : events)
+      if (event.owner) chart.DetachedNotes.push_back(std::move(event.owner));
   }
 
 private:
   const int noWav;
   const LongNoteType lnType;
   std::deque<Event> events;
+  size_t untimedBegin = 0;
   std::array<std::optional<Position>, Lanes> last{};
   std::array<Event *, Lanes> open{};
   std::array<bool, Lanes> suppressed{};
-  std::array<std::vector<Event *>, Lanes> completed;
+  // Union of closed intervals: membership does not depend on the identities
+  // retained for LN pairing. Tree lookup avoids revisiting all earlier holds.
+  std::array<std::map<Position, Position>, Lanes> completed;
 
   Event *create(Kind kind, Position pos, int wav, TimeLine *timeline) {
-    events.push_back({kind, wav, 0, timeline, pos});
+    events.push_back({kind, wav, 0, timeline, pos, 0, nullptr,
+                      LongNoteType::Undefined, nullptr, nullptr});
     return &events.back();
+  }
+  void collect(Chart &chart) {
+    std::map<Event *, Event *> retained;
+    const auto retain = [&](Event *event) {
+      if (!event) return;
+      retained.emplace(event, nullptr);
+      if (event->pair) retained.emplace(event->pair, nullptr);
+    };
+    for (int lane = 0; lane < Lanes; ++lane) {
+      for (const auto &[pos, event] : lanes[lane]) retain(event);
+      retain(open[lane]);
+    }
+    std::deque<Event> remaining;
+    for (auto &[event, relocated] : retained) {
+      remaining.push_back(std::move(*event));
+      relocated = &remaining.back();
+    }
+    for (auto &event : remaining)
+      if (event.pair) event.pair = retained.at(event.pair);
+    for (int lane = 0; lane < Lanes; ++lane) {
+      for (auto &[pos, event] : lanes[lane]) event = retained.at(event);
+      if (open[lane]) open[lane] = retained.at(open[lane]);
+    }
+    for (auto &event : events)
+      if (event.owner) chart.DetachedNotes.push_back(std::move(event.owner));
+    events.swap(remaining);
+    untimedBegin = events.size();
+  }
+  static void publish(Chart &chart, Event &event, int lane, bool scratch,
+                      bool materialize) {
+    chart.Meta.PlayLength = std::max(chart.Meta.PlayLength, event.timing);
+    if (event.kind == Kind::Mine) {
+      if (IsCountedNoteTime(event.timing)) ++chart.Meta.TotalLandmineNotes;
+    } else if (IsCountedNoteTime(event.timing) &&
+               (event.kind != Kind::Tail || event.type == LongNoteType::ChargeNote ||
+                event.type == LongNoteType::HellChargeNote)) {
+      ++chart.Meta.TotalNotes;
+      if (event.kind == Kind::Head || event.kind == Kind::Tail) {
+        if (scratch) ++chart.Meta.TotalBackSpinNotes;
+        else ++chart.Meta.TotalLongNotes;
+      } else if (scratch) ++chart.Meta.TotalScratchNotes;
+    }
+    if (materialize) {
+      materializeEvent(event, lane);
+      event.timeline->SetNote(lane, event.owner.release());
+    }
   }
   static void pair(Event *start, Event *end) {
     start->pair = end;
@@ -184,9 +257,24 @@ private:
     if (event.timeline) event.timeline->AddBackgroundNote(new Note(event.wav));
   }
   bool inside(int lane, Position pos) const {
-    for (const auto *start : completed[lane])
-      if (start->pos <= pos && pos <= start->pair->pos) return true;
-    return false;
+    const auto &intervals = completed[lane];
+    const auto after = intervals.upper_bound(pos);
+    return after != intervals.begin() && pos <= std::prev(after)->second;
+  }
+  void complete(int lane, const Event &head) {
+    Position start = head.pos, end = head.pair->pos;
+    // The Java containment check never matches a backwards pair.
+    if (start > end) return;
+    auto &intervals = completed[lane];
+    auto it = intervals.lower_bound(start);
+    if (it != intervals.begin() && std::prev(it)->second >= start)
+      it = std::prev(it);
+    while (it != intervals.end() && it->first <= end) {
+      start = std::min(start, it->first);
+      end = std::max(end, it->second);
+      it = intervals.erase(it);
+    }
+    intervals.emplace_hint(it, start, end);
   }
   void erase(int lane, Position pos) {
     if (last[lane] == pos) last[lane].reset();
@@ -197,6 +285,7 @@ private:
     if (event.kind == Kind::Head || event.kind == Kind::Tail) {
       auto *ln = new LongNote(event.wav, event.type);
       event.note = ln;
+      event.owner.reset(ln);
       if (event.pair) {
         materializeEvent(*event.pair, lane);
         auto *partner = static_cast<LongNote *>(event.pair->note);
@@ -205,8 +294,12 @@ private:
       }
     } else if (event.kind == Kind::Mine) {
       event.note = new LandmineNote(event.damage);
+      event.owner.reset(event.note);
       event.note->Wav = event.wav;
-    } else event.note = new Note(event.wav);
+    } else {
+      event.note = new Note(event.wav);
+      event.owner.reset(event.note);
+    }
     event.note->Lane = lane;
     event.note->Timeline = event.timeline;
   }

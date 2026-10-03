@@ -1,5 +1,9 @@
 # jbms-parser behavior corrections
 
+This is the earlier behavior baseline. The subsequent
+[performance and parity follow-up](2026-10-04-parser-review-fixes.md) fixes
+additional reviewed gaps and records the current verification.
+
 This follow-up replaces the policies identified in the
 [failed fidelity audit](2026-10-04-reference-fidelity-validation.md) with behavior
 from the local Java source, revision
@@ -109,12 +113,10 @@ explicit C++ features without a counterpart in this Java revision remain:
 ready-measure insertion, metadata-only inspection, 4K/6K/8K headers, SPEED
 headers, declared-charset handling, and derived beat/BPM statistics. Those
 features are not presented as Java-equivalent. Full/Scan fidelity checks use
-BMS/PMS parsing without those extensions. Automatic encoding detection also
-retains the existing C++ heuristic, rather than Java's ordered charset
-round-trip heuristic:
-for example, BOM-less UTF-8 `#TITLE éé` can be detected as EUC-KR by Java
-but as UTF-8 by C++. Byte-for-byte text parity for ambiguous or malformed
-legacy encodings is not established.
+BMS/PMS parsing without those extensions. At the revision reviewed here,
+automatic encoding detection still used the C++ heuristic: BOM-less UTF-8
+`#TITLE éé` differed from Java. The linked follow-up replaces that heuristic
+and addresses malformed UTF-8, VOLWAV/custom metadata and authored `**` cells.
 
 `TotalLength` remains the C++ end-of-final-measure field, and `PlayLevelText` is
 the reference-backed authored value; the numeric PlayLevel projection is a

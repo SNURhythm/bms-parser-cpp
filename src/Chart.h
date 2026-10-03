@@ -50,6 +50,9 @@ public:
   JudgeRankType RankType = JudgeRankType::BmsRank;
   double Total = 100;
   bool HasTotal = false;
+  int VolWav = 0;
+  // Java BMSModel custom %/@ values: case-sensitive keys, untrimmed values.
+  std::unordered_map<std::string, std::string> Values;
   long long PlayLength = 0; // Timing of the last playable note, in microseconds
   // End of the final measure, including its trailing silence, in microseconds.
   long long TotalLength = 0;

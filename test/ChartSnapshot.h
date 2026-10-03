@@ -32,7 +32,7 @@ inline std::string metadataSnapshot(const bms_parser::ChartMeta &m) {
 #define META(field) out.add(m.field)
   META(SHA256); META(MD5); META(BmsPath); META(Folder);
   META(Artist); META(SubArtist); META(Bpm); META(Genre); META(Title); META(SubTitle);
-  META(Rank); META(RankType); META(Total); META(HasTotal);
+  META(Rank); META(RankType); META(Total); META(HasTotal); META(VolWav);
   META(PlayLength); META(TotalLength); META(Banner); META(StageFile);
   META(BackBmp); META(Preview); META(BgaPoorDefault); META(Difficulty);
   META(PlayLevel); META(PlayLevelText); META(MinBpm); META(MaxBpm);
@@ -41,6 +41,9 @@ inline std::string metadataSnapshot(const bms_parser::ChartMeta &m) {
   META(TotalScratchNotes); META(TotalBackSpinNotes); META(TotalLandmineNotes);
   META(LnMode); META(RandomSeed); META(RandomPrng);
 #undef META
+  const std::map<std::string, std::string> values(m.Values.begin(), m.Values.end());
+  out.add(values.size());
+  for (const auto &entry : values) { out.add(entry.first); out.add(entry.second); }
   out.add(m.RandomValues.size());
   for (const auto value : m.RandomValues) out.add(value);
   return std::move(out.bytes);

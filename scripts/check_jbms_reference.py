@@ -19,6 +19,14 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = "#TITLE audit\n#BPM 120\n#WAV01 head.wav\n#WAV02 tail.wav\n"
 CASES = {
+    "volwav_integer": "#VOLWAV -123\n#00011:01\n",
+    "volwav_invalid_preserves": "#VOLWAV 42\n#VOLWAV 1.5\n#VOLWAV 2147483648\n#VOLWAV junk\n",
+    "volwav_lexical": "#VOLWAVx+17\n",
+    "custom_values": "%key  value  \n@key overwritten\n%Key case-sensitive\n% empty-key\n%tab\tignored\n%empty \n%spaces   \n #TITLE ignored\n",
+    "custom_skipped_branch": "#RANDOM 3\n#IF 2\n%key retained\n@other retained too\n#VOLWAV 12\n#ENDIF\n#ENDRANDOM\n",
+    "random_multiple_branches": "#RANDOM 3\n#IF 1\n#TITLE branch1\n#00011:01\n#ENDIF\n#IF 2\n#TITLE branch2\n#00012:02\n#ENDIF\n#IF 3\n#TITLE branch3\n#00013:01\n#ENDIF\n#ENDRANDOM\n",
+    "random_nested_and_sequential": "#RANDOM 3\n#IF 1\n#RANDOM 3\n#IF 2\n#TITLE nested12\n#00011:01\n#ENDIF\n#IF 3\n#TITLE nested13\n#00012:02\n#ENDIF\n#ENDRANDOM\n#ENDIF\n#IF 2\n#00013:01\n#ENDIF\n#ENDRANDOM\n#RANDOM 3\n#IF 3\n#00014:02\n#ENDIF\n#ENDRANDOM\n",
+    "volwav_limits": "#VOLWAV -2147483648\n#VOLWAV -2147483649\n",
     "gcc_fma_rounding": "#00002:0.3\n#00102:0.3\n#00111:01010101010101010101\n",    "poor_single_image": "#BMP01 one.png\n#00006:01000100\n",
     "poor_multiple_images": "#BMP00 default.png\n#BMP01 one.png\n#BMP02 two.png\n#00006:01000200\n",
     "poor_zero_override": "#BMP00 default.png\n#BMP01 one.png\n#00006:0101\n#00006:0000\n",
@@ -123,8 +131,22 @@ BINARY_CASES = {
 }
 BINARY_CASES["bom-first-bpm"] = b"\xef\xbb\xbf#BPM 120\n#00011:01\n"
 
+BINARY_CASES["utf8-ambiguous-euc-first"] = "#BPM 120\n#TITLE éé\n#00011:01\n".encode("utf-8")
+for name, suffix in {
+    "invalid-lead": b"\xff", "overlong": b"\xc0\xaf", "truncated2": b"\xc2",
+    "truncated3": b"\xe2\x82", "truncated4": b"\xf0\x90\x80", "surrogate": b"\xed\xa0\x80",
+    "bad-third": b"\xe2\x82x", "bad-fourth": b"\xf0\x90\x80x", "out-of-range": b"\xf4\x90\x80\x80",
+}.items():
+    BINARY_CASES["malformed-utf8-" + name] = b"\xef\xbb\xbf\n#BPM 120\n#TITLE a" + suffix
+BINARY_CASES["charset-sampling"] = b"#TITLE \xa1\xa1\n*" + b"x" * 65536 + b"\n*\x83\x65\n#BPM 120\n"
+BINARY_CASES["ms932-extensions"] = b"#BPM 120\n#TITLE \xfa\x40\xf0\x40\x81\x60\n#00011:01\n"
+BINARY_CASES["euckr-unmapped-lead"] = b"#BPM 120\n#TITLE \xa1\xa1" + b"x" * 65536 + b"\xad\x80\xa2\xe9\n"
+for encoding in ["utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"]:
+    BINARY_CASES["nobom-" + encoding] = "#BPM 120\n#TITLE ƀ𝠀\n#00011:01\n".encode(encoding)
+
 # UTF-16 makes the intended characters independent of encoding detection.
 for name, text in {
+    "unicode-volwav": "#VOLWAV +１２３\n",
     "unicode-short-channel": "#001😀\n#00011:01\n",
     "unicode-header": "#TITLEéabc\n",
     "unicode-header-empty": "#TITLE old\n#TITLEé\n",
@@ -206,7 +228,7 @@ def parse_output(output):
     previous = None
     for line in output.splitlines():
         if line.startswith("FILE "):
-            chart = {"notes": [], "hidden": [], "background": [], "controls": [], "bga": [], "poor": [], "timelines": []}
+            chart = {"notes": [], "hidden": [], "background": [], "controls": [], "bga": [], "poor": [], "timelines": [], "values": {}}
             charts[line[5:]] = chart
             previous = None
         elif line == "NULL":
@@ -216,20 +238,22 @@ def parse_output(output):
             previous = (chart["meta"]["bpm"], 1)
         elif line.startswith("TEXT "):
             chart["text"] = fields(line)
+        elif line.startswith("VALUE "):
+            entry = fields(line)
+            chart["values"][entry["key"]] = entry["value"]
         elif line.startswith("TL "):
-            timeline = {key: int(value) if key == "time" else float(value) for key, value in fields(line).items()}
+            timeline = {key: int(value) if key in ("time", "stop") else float(value) for key, value in fields(line).items()}
             chart["timelines"].append(timeline)
             state = (timeline["bpm"], timeline["scroll"])
             if state != previous or timeline["stop"] != 0:
                 control = dict(timeline)
-                control["stop"] = math.trunc(control["stop"]) if math.isfinite(control["stop"]) else control["stop"]
                 chart["controls"].append(control)
             previous = state
         elif line.startswith(("NOTE ", "HIDDEN ", "BG ", "BGA ", "POOR ")):
             event = fields(line)
-            for key in ("lane", "pair", "type", "end", "damage", "frame"):
+            for key in ("lane", "pair", "type", "end", "damage", "frame", "pairtype", "pairend", "pairtime", "pairattached"):
                 if key in event:
-                    event[key] = float(event[key]) if event[key] != "null" else None
+                    event[key] = (int(event[key]) if key == "pairtime" else float(event[key])) if event[key] != "null" else None
             event.update({key: timeline[key] for key in ("pos", "time", "bpm", "scroll")})
             category = "notes" if line.startswith("NOTE ") else \
                        "hidden" if line.startswith("HIDDEN ") else \
@@ -250,11 +274,13 @@ def differences(actual, expected):
         return []
     errors = []
     for key, value in expected["meta"].items():
-        if not equal_number(actual["meta"][key], value):
-            errors.append(f"metadata {key}: C++={actual['meta'][key]} Java={value}")
+        if not equal_number(actual["meta"].get(key), value):
+            errors.append(f"metadata {key}: C++={actual['meta'].get(key)} Java={value}")
     for key, value in expected["text"].items():
         if actual["text"][key] != value:
             errors.append(f"text {key}: C++={actual['text'][key]!r} Java={value!r}")
+    if actual["values"] != expected["values"]:
+        errors.append(f"custom values: C++={actual['values']!r} Java={expected['values']!r}")
     for category in ("notes", "hidden", "background", "controls", "bga", "poor", "timelines"):
         a, b = actual[category], expected[category]
         if len(a) != len(b):
@@ -292,7 +318,13 @@ def main():
     parser.add_argument("--cases", type=int, default=200)
     parser.add_argument("--sanitize", action="store_true")
     parser.add_argument("--collision-cases", type=int, default=100)
+    parser.add_argument("--random-values", action="append",
+                        help="repeat a comma-separated explicit selection sequence; defaults: 1, 2, 3, 1,2,3 (does not compare PRNGs)")
     args = parser.parse_args()
+    selections = args.random_values or ["1", "2", "3", "1,2,3"]
+    for selection in selections:
+        if not selection or any(not value.isdecimal() for value in selection.split(",")):
+            parser.error("--random-values requires comma-separated nonnegative integers")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     fixtures = out / "fixtures"
@@ -341,30 +373,34 @@ def main():
     paths.extend(sorted((ROOT / "test/testcases/metadata").glob("*.bme")))
     paths.extend(sorted((ROOT / "test/testcases/beat-guess").glob("*.bm*")))
     paths.append(ROOT / "test/testcases/parser/popn.pms")
-    decoded = {}
-    for language, command in [
-        ("cpp", [str(binary)]),
-        ("java", ["java", "-cp", str(classes) + os.pathsep + str(jar), "DumpReference"]),
-    ]:
-        run = subprocess.run(command + list(map(str, paths)), capture_output=True, text=True)
-        (out / (language + ".txt")).write_text(run.stdout)
-        (out / (language + ".stderr.txt")).write_text(run.stderr)
-        if run.returncode:
-            raise SystemExit(f"{language} dumper failed ({run.returncode}); see {out}")
-        decoded[language] = parse_output(run.stdout)
     results = []
-    for path in paths:
-        cpp, java = decoded["cpp"].get(path.name), decoded["java"].get(path.name)
-        errors = differences(cpp, java) if cpp is not None and java is not None else ["missing output"]
-        results.append({"chart": str(path), "errors": errors})
+    for selection in selections:
+        decoded = {}
+        for language, command in [
+            ("cpp", [str(binary)]),
+            ("java", ["java", "-cp", str(classes) + os.pathsep + str(jar), "DumpReference"]),
+        ]:
+            env = dict(os.environ, BMS_REFERENCE_RANDOM_VALUES=selection)
+            run = subprocess.run(command + list(map(str, paths)), capture_output=True, text=True,
+                                 errors="backslashreplace", env=env)
+            label = language + "-random-" + selection.replace(",", "_")
+            (out / (label + ".txt")).write_text(run.stdout)
+            (out / (label + ".stderr.txt")).write_text(run.stderr)
+            if run.returncode:
+                raise SystemExit(f"{language} dumper failed ({run.returncode}); see {out}")
+            decoded[language] = parse_output(run.stdout)
+        for path in paths:
+            cpp, java = decoded["cpp"].get(path.name), decoded["java"].get(path.name)
+            errors = differences(cpp, java) if cpp is not None and java is not None else ["missing output"]
+            results.append({"chart": str(path), "random_values": selection, "errors": errors})
     failures = [item for item in results if item.get("errors")]
     report = {"seed": args.seed, "generated_cases": args.cases, "collision_cases": args.collision_cases,
               "reference_revision": subprocess.check_output(["git", "-C", str(reference), "rev-parse", "HEAD"], text=True).strip(),
-              "sanitized": args.sanitize, "failures": len(failures), "results": results}
+              "random_selections": selections, "sanitized": args.sanitize, "failures": len(failures), "results": results}
     (out / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Compared {len(paths)} charts: {len(failures)} unexpected differences; report: {out / 'results.json'}")
+    print(f"Compared {len(paths)} charts x {len(selections)} explicit random selections: {len(failures)} unexpected differences; report: {out / 'results.json'}")
     for result in failures[:12]:
-        print(Path(result["chart"]).name, "; ".join(result["errors"]))
+        print(Path(result["chart"]).name, "random=" + result["random_values"], "; ".join(result["errors"]))
     raise SystemExit(bool(failures))
 
 

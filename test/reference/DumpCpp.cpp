@@ -5,13 +5,22 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <cstdlib>
+#include <sstream>
+#include <unordered_set>
 
 using namespace bms_parser;
 
 int main(int argc, char **argv) {
   Parser parser;
   parser.SetRandomSeed(1);
-  parser.SetRandomValues(std::vector<int>(10000, 1));
+  std::vector<int> choices;
+  const char *selection = std::getenv("BMS_REFERENCE_RANDOM_VALUES");
+  std::istringstream selections(selection ? selection : "1");
+  for (std::string value; std::getline(selections, value, ',');) choices.push_back(std::stoi(value));
+  std::vector<int> randoms(10000);
+  for (size_t i = 0; i < randoms.size(); ++i) randoms[i] = choices[i % choices.size()];
+  parser.SetRandomValues(randoms);
   std::atomic_bool cancelled{false};
   std::cout << std::setprecision(17);
   for (int i = 1; i < argc; ++i) {
@@ -43,6 +52,8 @@ int main(int argc, char **argv) {
               << " min=" << meta.MinBpm << " max=" << meta.MaxBpm
               << " player=" << meta.Player << " lnmode=" << meta.LnMode
               << " total=" << meta.Total << " rank=" << meta.Rank
+              << " hastotal=" << meta.HasTotal
+              << " volwav=" << meta.VolWav
               << " ranktype=" << static_cast<int>(meta.RankType) << '\n';
     std::cout << "TEXT title=" << std::quoted(meta.Title)
               << " subtitle=" << std::quoted(meta.SubTitle)
@@ -54,6 +65,8 @@ int main(int argc, char **argv) {
               << " banner=" << std::quoted(meta.Banner.generic_string())
               << " back=" << std::quoted(meta.BackBmp.generic_string())
               << " preview=" << std::quoted(meta.Preview.generic_string()) << '\n';
+    for (const auto &entry : std::map<std::string, std::string>(meta.Values.begin(), meta.Values.end()))
+      std::cout << "VALUE key=" << std::quoted(entry.first) << " value=" << std::quoted(entry.second) << '\n';
     const auto wav = [&](int id) {
       const auto it = chart->WavTable.find(id);
       return it == chart->WavTable.end() ? std::string("-") : it->second;
@@ -62,11 +75,19 @@ int main(int argc, char **argv) {
       const auto it = chart->BmpTable.find(id);
       return it == chart->BmpTable.end() ? std::string("-") : it->second;
     };
+    std::unordered_set<const Note *> attached;
+    for (const auto *measure : chart->Measures)
+      for (const auto *timeline : measure->TimeLines)
+        for (const auto *note : timeline->Notes) if (note) attached.insert(note);
     for (const auto *measure : chart->Measures) {
       for (const auto *timeline : measure->TimeLines) {
+        if (!timeline->ParsedStopDuration) {
+          std::cerr << path << ": missing exact STOP duration\n";
+          return 6;
+        }
         std::cout << "TL pos=" << timeline->BeatPosition << " time=" << timeline->Timing
                   << " bpm=" << timeline->Bpm << " scroll=" << timeline->Scroll
-                  << " stop=" << timeline->GetStopDuration() << '\n';
+                  << " stop=" << *timeline->ParsedStopDuration << '\n';
         if (timeline->BgaBase != -1 || timeline->BgaLayer != -1)
           std::cout << "BGA base=" << std::quoted(bmp(timeline->BgaBase))
                     << " layer=" << std::quoted(bmp(timeline->BgaLayer)) << '\n';
@@ -95,6 +116,10 @@ int main(int argc, char **argv) {
             else std::cout << "null";
             std::cout << " type=" << static_cast<int>(ln->Type)
                       << " end=" << ln->IsTail();
+            if (pair)
+              std::cout << " pairwav=" << std::quoted(wav(pair->Wav))
+                        << " pairtype=" << static_cast<int>(pair->Type) << " pairend=" << pair->IsTail()
+                        << " pairtime=" << pair->Timeline->Timing << " pairattached=" << attached.count(pair);
           }
           std::cout << '\n';
         }

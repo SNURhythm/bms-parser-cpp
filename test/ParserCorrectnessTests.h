@@ -8,6 +8,33 @@
 inline int runParserCorrectnessTests() {
   using namespace bms_parser;
   const std::string header = "#TITLE audit\n#BPM 120\n#WAV01 head.wav\n#WAV02 tail.wav\n";
+  // New metadata is retained in both Parse and Scan, including Java's unusual
+  // custom-value behavior inside a skipped branch and across parser reuse.
+  {
+    Parser parser;
+    parser.SetRandomValues({1});
+    std::atomic_bool cancelled{false};
+    const std::string text = header + "#VOLWAV -123\n#VOLWAV 1.5\n#VOLWAV 2147483648\n"
+        "%key  padded  \n@Key separate\n% empty key\n%empty \n%tab\tignored\n"
+        "#RANDOM 2\n#IF 2\n%key overwritten even when skipped\n#VOLWAV 9\n#ENDIF\n#ENDRANDOM\n";
+    for (const auto &input : {text, header}) {
+      Chart *raw = nullptr;
+      parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+      std::unique_ptr<Chart> chart(raw);
+      ASSERT_EQ(true, chart != nullptr, "Java custom metadata parses");
+      const bool populated = input == text;
+      ASSERT_EQ(populated ? -123 : 0, chart->Meta.VolWav, "VOLWAV integer validation and default reset");
+      ASSERT_EQ(populated ? size_t{3} : size_t{0}, chart->Meta.Values.size(), "custom values lexical rules and reset");
+      if (populated) {
+        ASSERT_EQ(std::string("overwritten even when skipped"), chart->Meta.Values.at("key"), "custom values ignore IF skip");
+        ASSERT_EQ(std::string("separate"), chart->Meta.Values.at("Key"), "custom keys preserve case");
+        ASSERT_EQ(std::string("empty key"), chart->Meta.Values.at(""), "custom empty key is accepted");
+      }
+      const auto scan = parser.Scan(bytesFromString(input), cancelled);
+      ASSERT_EQ(true, scan.has_value(), "custom metadata Scan succeeds");
+      ASSERT_EQ(true, parser_test::metadataSnapshot(chart->Meta) == parser_test::metadataSnapshot(scan->Meta), "custom metadata Scan agrees");
+    }
+  }
   // Returning a parsed chart by value must transfer both timeline ownership and
   // overwritten LN partners, without invalidating pair pointers.
   {

@@ -60,6 +60,9 @@ test_amalgamation: amalgamate $(BUILD_PATH)
 test: all $(BUILD_PATH)
 	$(CC) $(CCFLAGS) $(THREADFLAGS) -o test/test test/main.cpp $(OBJ_FILES)
 	cd test && .$(SLASH)test$(EXE_EXT)
+	$(CC) $(CCFLAGS) $(THREADFLAGS) -o $(BUILD_PATH)/performance_limits test/performance_limits.cpp $(OBJ_FILES)
+	$(BUILD_PATH)/performance_limits$(EXE_EXT)
+	python3 -m unittest discover -s test/reference -p 'test_*.py'
 benchmark: all $(BUILD_PATH)
 	$(CC) $(CCFLAGS) $(THREADFLAGS) -DBMS_BENCH_SCAN=1 -o $(BUILD_PATH)/parser_benchmark test/performance.cpp $(OBJ_FILES)
 clean:

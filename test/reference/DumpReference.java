@@ -33,7 +33,8 @@ public class DumpReference {
         Logger.getLogger("").setLevel(Level.OFF);
         BMSDecoder decoder = new BMSDecoder();
         int[] randoms = new int[10000];
-        Arrays.fill(randoms, 1);
+        String[] choices = System.getenv().getOrDefault("BMS_REFERENCE_RANDOM_VALUES", "1").split(",");
+        for (int i = 0; i < randoms.length; i++) randoms[i] = Integer.parseInt(choices[i % choices.length]);
         for (String name : args) {
             Path path = Path.of(name);
             BMSModel model = decoder.decode(Files.readAllBytes(path), name,
@@ -48,6 +49,8 @@ public class DumpReference {
                     + " min=" + model.getMinBPM() + " max=" + model.getMaxBPM()
                     + " player=" + model.getPlayer() + " lnmode=" + model.getLnmode()
                     + " total=" + model.getTotal() + " rank=" + model.getJudgerank()
+                    + " hastotal=" + (model.getTotalType() == BMSModel.TotalType.BMS ? 1 : 0)
+                    + " volwav=" + model.getVolwav()
                     + " ranktype=" + model.getJudgerankType().ordinal());
             System.out.println("TEXT title=" + quote(model.getTitle())
                     + " subtitle=" + quote(model.getSubTitle())
@@ -59,6 +62,12 @@ public class DumpReference {
                     + " banner=" + quote(model.getBanner())
                     + " back=" + quote(model.getBackbmp())
                     + " preview=" + quote(model.getPreview()));
+            for (var entry : new TreeMap<>(model.getValues()).entrySet())
+                System.out.println("VALUE key=" + quote(entry.getKey()) + " value=" + quote(entry.getValue()));
+            Set<Note> attached = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (TimeLine tl : model.getAllTimeLines())
+                for (int key = 0; key < model.getMode().key; key++)
+                    if (tl.getNote(key) != null) attached.add(tl.getNote(key));
             for (TimeLine tl : model.getAllTimeLines()) {
                 System.out.println("TL pos=" + tl.getSection() + " time=" + tl.getMicroTime()
                         + " bpm=" + tl.getBPM() + " scroll=" + tl.getScroll()
@@ -84,6 +93,13 @@ public class DumpReference {
                             LongNote ln = (LongNote) note;
                             System.out.print(" pair=" + (ln.getPair() == null ? "null" : ln.getPair().getSection())
                                     + " type=" + ln.getType() + " end=" + (ln.isEnd() ? 1 : 0));
+                            LongNote pair = ln.getPair();
+                            if (pair != null) {
+                                if (pair.getPair() != ln) throw new AssertionError("invalid LN pair");
+                                System.out.print(" pairwav=" + wav(model, pair.getWav())
+                                        + " pairtype=" + pair.getType() + " pairend=" + (pair.isEnd() ? 1 : 0)
+                                        + " pairtime=" + pair.getMicroTime() + " pairattached=" + (attached.contains(pair) ? 1 : 0));
+                            }
                         }
                         System.out.println();
                     }

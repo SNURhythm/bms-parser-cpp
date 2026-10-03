@@ -47,6 +47,12 @@ overwrite a partner's playable slot; the chart owns detached partners so existin
 LN pointers remain valid. `Scan` uses the same event bookkeeping without
 allocating playable note objects. Undeclared difficulty remains zero.
 
+Default charset detection follows Java's ordered round-trip checks, including
+ambiguous BOM-less text and malformed-byte replacement. Explicit `#CHARSET`
+and `#ENCODING` remain C++ extensions. `ChartMeta::VolWav` preserves `#VOLWAV`
+(default zero), and `ChartMeta::Values` preserves Java's `%`/`@` custom metadata.
+The internal `**` click token is accepted only in a generated ready measure.
+
 ## Performance and equivalence checks
 
 `make benchmark` builds `build/parser_benchmark`. Supply a text file containing
@@ -77,7 +83,10 @@ compiler/optimization flags for both binaries and keep correctness checks and
 profiling separate from timing runs.
 
 See the [throughput validation report](docs/performance/2026-10-01-parser-throughput.md)
-for measured parallel results, allocation counts, and behavior checks.
+for the original optimization results and the
+[review follow-up](docs/audits/2026-10-04-parser-review-fixes.md) for measurements
+after the Java behavior corrections. `make test` also checks that scanning a
+256,000-note ordinary chart stays below 8 MiB of peak requested live C++ heap.
 
 For comparison against the local Java reference implementation:
 
@@ -88,8 +97,10 @@ python3 scripts/check_jbms_reference.py --reference "$HOME/workspace/jbms-parser
 
 The jar supplies only the unused BMSON dependency; BMS decoding compiles from
 the reference checkout. Results and raw dumps go to `build/jbms-review` by
-default. Comparisons include metadata, note graphs, exact timestamps, and BGA;
-no chart or difficulty differences are exempted. See the
+default. Comparisons include metadata/custom values, note graphs and detached
+partners, integer microsecond timestamps/STOP durations, and BGA. Four explicit
+RANDOM selection sequences are checked; this does not compare PRNG algorithms.
+No chart or difficulty differences are exempted. See the
 [behavior correction record](docs/audits/2026-10-04-jbms-behavior-parity.md)
 for validation results and the scope of existing C++ extensions.
 
