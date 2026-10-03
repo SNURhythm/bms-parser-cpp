@@ -35,7 +35,19 @@ hashing stay on the calling thread, and scratch memory belongs to each parse.
 Full charts retain their existing public vectors and `delete` ownership.
 
 File parsing/scanning selects the nine-key PMS layout for `.pms` files; byte
-input uses BMS channel mapping. Numeric grammar and event handling follow
+input defaults to BMS channel mapping for compatibility. Supply the original
+chart filename as the final argument when reading a buffer (for an archive,
+use the inner entry name, not the archive name):
+
+```cpp
+parser.Parse(bytes, &chart, false, false, cancelled, "charts/song.PMS");
+auto result = parser.Scan(bytes, cancelled, "charts/song.PMS");
+```
+
+The source-name overloads use a case-insensitive `.pms` extension, do not read
+that path, and leave `BmsPath`/`Folder` for the caller to assign. Other extensions
+and an empty source name use BMS mapping. The existing byte overloads remain
+available. Numeric grammar and event handling follow
 jbms-parser, including its accepted non-finite values and saturated timestamps.
 Full parsing and Scan reject empty input and charts without an initial BPM.
 Explicit `metaOnly` inspection can still read BPM-less header metadata.

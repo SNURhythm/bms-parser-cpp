@@ -57,8 +57,16 @@ public:
   ~Parser();
   void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
+  // A source name selects channel mapping only (.pms, case insensitive).
+  // It is not read from disk and does not assign BmsPath or Folder.
+  void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
+             bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled,
+             const std::filesystem::path &sourcePath);
   [[nodiscard]] std::optional<ChartScanResult>
   Scan(const std::vector<unsigned char> &bytes, std::atomic_bool &bCancelled);
+  [[nodiscard]] std::optional<ChartScanResult>
+  Scan(const std::vector<unsigned char> &bytes, std::atomic_bool &bCancelled,
+       const std::filesystem::path &sourcePath);
   [[nodiscard]] std::optional<ChartScanResult>
   Scan(const std::filesystem::path &path, std::atomic_bool &bCancelled);
   static int NoWav;

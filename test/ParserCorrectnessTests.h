@@ -274,6 +274,45 @@ inline int runParserCorrectnessTests() {
     ASSERT_EQ(true, chart != nullptr, "PMS file parses");
     ASSERT_EQ(9, chart->Meta.KeyMode, "PMS mode is 9K");
     ASSERT_EQ(false, chart->Meta.IsDP, "PMS is single player");
+    std::ifstream input(path, std::ios::binary);
+    const std::vector<unsigned char> bytes{std::istreambuf_iterator<char>(input),
+                                           std::istreambuf_iterator<char>()};
+    chart->Meta.BmsPath.clear();
+    chart->Meta.Folder.clear();
+    for (const auto *source : {"mapping.pms", "mapping.PMS", "mapping.PmS",
+                               "@androidtree@/tree/Library/mapping.PMS"}) {
+      Chart *bufferedRaw = nullptr;
+      parser.Parse(bytes, &bufferedRaw, false, false, cancelled, source);
+      const std::unique_ptr<Chart> buffered(bufferedRaw);
+      ASSERT_EQ(true, buffered != nullptr, "hinted PMS bytes parse");
+      ASSERT_EQ(9, buffered->Meta.KeyMode, "buffered PMS preserves format identity");
+      ASSERT_EQ(true, parser_test::chartSnapshot(*chart) ==
+                      parser_test::chartSnapshot(*buffered),
+                "PMS bytes preserve lanes, LN links, counts and timing");
+      const auto bufferedScan = parser.Scan(bytes, cancelled, source);
+      ASSERT_EQ(true, bufferedScan.has_value(), "hinted PMS Scan succeeds");
+      ASSERT_EQ(true, parser_test::metadataSnapshot(chart->Meta) ==
+                      parser_test::metadataSnapshot(bufferedScan->Meta),
+                "PMS bytes Scan metadata agrees with full path parsing");
+    }
+    Chart *legacyRaw = nullptr;
+    parser.Parse(bytes, &legacyRaw, false, false, cancelled);
+    const std::unique_ptr<Chart> legacy(legacyRaw);
+    ASSERT_EQ(10, legacy->Meta.KeyMode, "legacy bytes keep BMS mapping");
+    for (const auto *source : {"", "mapping.bms", "mapping.BMS", "outer.pms/chart.bms", "outer.zip"}) {
+      Chart *bufferedRaw = nullptr;
+      parser.Parse(bytes, &bufferedRaw, false, false, cancelled, source);
+      const std::unique_ptr<Chart> buffered(bufferedRaw);
+      ASSERT_EQ(true, buffered != nullptr, "BMS hint parses");
+      ASSERT_EQ(true, parser_test::chartSnapshot(*legacy) ==
+                      parser_test::chartSnapshot(*buffered), "BMS hint preserves default mapping");
+      const auto bufferedScan = parser.Scan(bytes, cancelled, source);
+      ASSERT_EQ(true, bufferedScan.has_value(), "BMS hint scans");
+      ASSERT_EQ(true, parser_test::metadataSnapshot(legacy->Meta) ==
+                      parser_test::metadataSnapshot(bufferedScan->Meta), "BMS hint Scan agrees");
+    }
+    chart->Meta.BmsPath = path;
+    chart->Meta.Folder = path.parent_path();
     ASSERT_EQ(std::string("0+5+8;1;1"), noteLanesByTimeline(chart.get()), "PMS channels use popn mapping");
     const auto scan = parser.Scan(path, cancelled);
     ASSERT_EQ(true, scan.has_value(), "PMS scan succeeds");

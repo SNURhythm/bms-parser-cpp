@@ -910,31 +910,52 @@ void Parser::Parse(const std::filesystem::path &fpath, Chart **chart,
   std::vector<unsigned char> bytes(static_cast<size_t>(size));
   file.seekg(0, std::ios::beg);
   if (!file.read(reinterpret_cast<char *>(bytes.data()), size)) return;
-  auto extension = fpath.extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(),
-                 [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; });
-  ParseInternal(bytes, chart, addReadyMeasure, metaOnly, bCancelled, nullptr,
-                extension == ".pms");
+  Parse(bytes, chart, addReadyMeasure, metaOnly, bCancelled, fpath);
   if (*chart) {
     (*chart)->Meta.BmsPath = fpath;
     (*chart)->Meta.Folder = fpath.parent_path();
   }
 }
 
+namespace {
+bool isPmsSource(const std::filesystem::path &sourcePath) {
+  auto extension = sourcePath.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; });
+  return extension == ".pms";
+}
+} // namespace
+
 void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
                    bool addReadyMeasure, bool metaOnly,
                    std::atomic_bool &bCancelled) {
-  ParseInternal(bytes, chart, addReadyMeasure, metaOnly, bCancelled, nullptr);
+  Parse(bytes, chart, addReadyMeasure, metaOnly, bCancelled, {});
+}
+
+void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
+                   bool addReadyMeasure, bool metaOnly,
+                   std::atomic_bool &bCancelled,
+                   const std::filesystem::path &sourcePath) {
+  ParseInternal(bytes, chart, addReadyMeasure, metaOnly, bCancelled, nullptr,
+                isPmsSource(sourcePath));
 }
 
 std::optional<ChartScanResult>
 Parser::Scan(const std::vector<unsigned char> &bytes,
              std::atomic_bool &bCancelled) {
+  return Scan(bytes, bCancelled, {});
+}
+
+std::optional<ChartScanResult>
+Parser::Scan(const std::vector<unsigned char> &bytes,
+             std::atomic_bool &bCancelled,
+             const std::filesystem::path &sourcePath) {
   if (bCancelled) return std::nullopt;
   ChartScanResult result;
   Chart *raw = nullptr;
   try {
-    ParseInternal(bytes, &raw, false, false, bCancelled, &result);
+    ParseInternal(bytes, &raw, false, false, bCancelled, &result,
+                  isPmsSource(sourcePath));
   } catch (...) {
     delete raw;
     throw;
@@ -957,18 +978,11 @@ Parser::Scan(const std::filesystem::path &path, std::atomic_bool &bCancelled) {
   file.seekg(0, std::ios::beg);
   if (!file.read(reinterpret_cast<char *>(bytes.data()), size))
     return std::nullopt;
-  auto extension = path.extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(),
-                 [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; });
-  ChartScanResult result;
-  Chart *raw = nullptr;
-  ParseInternal(bytes, &raw, false, false, bCancelled, &result, extension == ".pms");
-  const std::unique_ptr<Chart> chart(raw);
-  if (!chart || bCancelled) return std::nullopt;
-  result.Meta = std::move(chart->Meta);
-  result.Meta.BmsPath = path;
-  result.Meta.Folder = path.parent_path();
-  result.HasBga = !chart->BmpTable.empty();
+  auto result = Scan(bytes, bCancelled, path);
+  if (result) {
+    result->Meta.BmsPath = path;
+    result->Meta.Folder = path.parent_path();
+  }
   return result;
 }
 
