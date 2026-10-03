@@ -1536,8 +1536,10 @@ int runSpeedObjectTests() {
 #include "ScanTests.h"
 #include "ParserCorrectnessTests.h"
 #include "ParserStreamingTests.h"
+#include "BeatorajaLongNoteTests.h"
 
 int main() {
+  if (const int result = runBeatorajaLongNoteTests(); result != 0) return result;
   if (const int result = runParserStreamingTests(); result != 0) return result;
   if (const int result = runParserCorrectnessTests(); result != 0) return result;
   if (const int result = runParserCollisionStressTests(); result != 0) return result;

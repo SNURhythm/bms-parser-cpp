@@ -1,0 +1,84 @@
+--- a/src/Parser.cpp
++++ b/src/Parser.cpp
+@@ -74,9 +74,9 @@
+   return width;
+ }
+ 
+-size_t javaStringLength(std::string_view value) {
++size_t javaStringLength(std::string_view value, size_t limit) {
+   size_t length = 0;
+-  for (size_t i = 0; i < value.size();) {
++  for (size_t i = 0; i < value.size() && length < limit;) {
+     const size_t width = utf8CharacterBytes(value, i);
+     length += width == 4 ? 2 : 1;
+     i += width;
+@@ -1103,7 +1103,7 @@
+       return;
+     }
+ 
+-    const size_t lineUnits = javaStringLength(line);
++    const size_t lineUnits = javaStringLength(line, 16);
+     const auto directive = [&](std::string_view name) {
+       return MatchHeader(line, name);
+     };
+@@ -1332,7 +1332,8 @@
+   };
+   std::map<double, JavaTimelineState> javaTimelines;
+   javaTimelines.emplace(0, JavaTimelineState{0, 0, new_chart->Meta.Bpm});
+-  std::map<double, TimeLine *> globalTimelines;
++  std::optional<double> carriedPosition;
++  TimeLine *retainedTimeline = nullptr;
+   detail::ParserNotes parsedNotes(NoWav, new_chart->Meta.LnMode);
+   auto currentBpm = initialBpm;
+   auto minBpm = new_chart->Meta.Bpm;
+@@ -1402,8 +1403,8 @@
+       auto result = timelines.try_emplace(section);
+       if (result.second) {
+         auto &entry = result.first->second;
+-        const auto previous = globalTimelines.find(section);
+-        if (previous != globalTimelines.end()) entry.timeline = previous->second;
++        if (carriedPosition && *carriedPosition == section)
++          entry.timeline = retainedTimeline;
+         else {
+           if (materialize) {
+             entry.owned = std::make_unique<TimeLine>(TempKey, false);
+@@ -1412,7 +1413,6 @@
+             scratchTimelines.emplace_back(TempKey, true);
+             entry.timeline = &scratchTimelines.back();
+           }
+-          globalTimelines[section] = entry.timeline;
+         }
+       }
+       return result.first;
+@@ -1785,6 +1785,14 @@
+ 
+     if (bCancelled) return;
+ 
++    const auto nextBoundary = timelines.find(measureBeatPosition + measure->Scale);
++    if (nextBoundary != timelines.end()) {
++      carriedPosition = nextBoundary->first;
++      retainedTimeline = nextBoundary->second.timeline;
++    } else {
++      carriedPosition.reset();
++      retainedTimeline = nullptr;
++    }
+     if (!materialize) timelines.clear();
+     if (materialize && !measure->TimeLines.empty())
+       measure->TimeLines.front()->IsFirstInMeasure = true;
+@@ -1860,13 +1868,10 @@
+     }
+     if (futureState != javaTimelines.begin())
+       javaTimelines.erase(javaTimelines.begin(), std::prev(futureState));
+-    globalTimelines.erase(globalTimelines.begin(),
+-                          globalTimelines.lower_bound(measureBeatPosition));
+     if (!materialize) {
+-      if (!globalTimelines.empty()) {
+-        auto &timeline = globalTimelines.begin()->second;
+-        if (timeline != &carriedTimeline) carriedTimeline = *timeline;
+-        timeline = &carriedTimeline;
++      if (retainedTimeline) {
++        if (retainedTimeline != &carriedTimeline) carriedTimeline = *retainedTimeline;
++        retainedTimeline = &carriedTimeline;
+       }
+       scratchTimelines.clear();
+     }
