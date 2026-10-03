@@ -70,7 +70,8 @@ Validation on the corrected implementation passed:
   timeline timestamps are checked by the comparison harness.
 - `git diff --check` passed; the Java reference checkout remains unchanged.
 
-Two consecutive independent full reviews are clean on this implementation:
+Two consecutive independent full reviews were clean on the behavior-correction
+implementation, before the ownership integration follow-up below:
 
 | Review | Result | Additional verification |
 | --- | --- | --- |
@@ -81,7 +82,7 @@ Both reviewed all changed production code, relevant tests, reference harness,
 and documentation against the Java source. These results apply within the
 boundaries below. Earlier review findings were fixed before these two runs.
 
-Source/test/harness fingerprint:
+Behavior-correction source/test/harness fingerprint:
 `4f55a31e5217dcd06f4a9757cd970ddbc3357f3e90d63e959c267c2430adf9a8`.
 
 The durable harness is `scripts/check_jbms_reference.py`. It compiles the actual
@@ -121,3 +122,19 @@ C++ convenience field. Resource identifiers and ownership have language-specific
 representations, so the comparison checks resolved resources and observable
 note relationships. BMSON decoding and actual audio/image playback are outside
 this parser comparison.
+
+## AsoBMaShow ownership integration follow-up
+
+Adopting the amalgamation in AsoBMaShow exposed a compile failure in chart
+factories returning `Chart` by value. `DetachedNotes` owns unique pointers,
+while the user-defined Chart destructor suppresses implicit move operations.
+Explicit move construction and assignment now transfer all chart ownership;
+copying is explicitly disabled. This changes C++ ownership operations, not
+BMS decoding decisions.
+
+The regression first failed to compile, then passed with the fix. It verifies
+return-by-value construction, detached LN pair identity, destruction of the
+previous destination's active and detached notes, source ownership clearing,
+data preservation, and self-move. Fresh clean modular/amalgamated tests,
+ASan/UBSan/float-cast-overflow tests, and a 414-chart Java reference comparison
+passed. A separate focused ownership review found no actionable issues.

@@ -162,6 +162,10 @@ class Chart {
 public:
   Chart();
   ~Chart();
+  Chart(const Chart &) = delete;
+  Chart &operator=(const Chart &) = delete;
+  Chart(Chart &&other) noexcept;
+  Chart &operator=(Chart &&other) noexcept;
   ChartMeta Meta;
   std::vector<Measure *> Measures;
   // Own LN partners displaced from timeline slots by later source rows.
@@ -170,5 +174,8 @@ public:
   std::unordered_map<int, std::string> ReferencedWavTable;
   std::unordered_map<int, std::string> BmpTable;
   std::unordered_map<int, std::string> ReferencedBmpTable;
+
+private:
+  void Swap(Chart &other) noexcept;
 };
 } // namespace bms_parser

@@ -8,6 +8,49 @@
 inline int runParserCorrectnessTests() {
   using namespace bms_parser;
   const std::string header = "#TITLE audit\n#BPM 120\n#WAV01 head.wav\n#WAV02 tail.wav\n";
+  // Returning a parsed chart by value must transfer both timeline ownership and
+  // overwritten LN partners, without invalidating pair pointers.
+  {
+    const auto makeChart = [&]() -> Chart {
+      Parser parser;
+      std::atomic_bool cancelled{false};
+      Chart *raw = nullptr;
+      parser.Parse(bytesFromString(header + "#00051:0101\n#00011:02\n"),
+                   &raw, false, false, cancelled);
+      std::unique_ptr<Chart> parsed(raw);
+      if (!parsed) throw std::runtime_error("move fixture parse failed");
+      return std::move(*parsed);
+    };
+    Chart moved = makeChart();
+    ASSERT_EQ(size_t{1}, moved.DetachedNotes.size(), "move retains detached LN head");
+    auto *head = static_cast<LongNote *>(moved.DetachedNotes.front().get());
+    ASSERT_EQ(true, head->Tail != nullptr && head->Tail->Head == head,
+              "move preserves LN pair identity");
+    const auto snapshot = parser_test::chartSnapshot(moved);
+    int destroyed = 0;
+    struct CountedNote : Note {
+      int &destroyed;
+      explicit CountedNote(int &count) : Note(1), destroyed(count) {}
+      ~CountedNote() override { ++destroyed; }
+    };
+    Chart assigned;
+    auto *measure = new Measure();
+    auto *timeline = new TimeLine(16, false);
+    timeline->SetNote(0, new CountedNote(destroyed));
+    measure->TimeLines.push_back(timeline);
+    assigned.Measures.push_back(measure);
+    assigned.DetachedNotes.push_back(std::make_unique<CountedNote>(destroyed));
+    assigned = std::move(moved);
+    ASSERT_EQ(2, destroyed, "move assignment releases previous chart ownership");
+    ASSERT_EQ(true, moved.Measures.empty() && moved.DetachedNotes.empty(),
+              "moved-from chart no longer owns notes");
+    ASSERT_EQ(snapshot, parser_test::chartSnapshot(assigned), "move preserves chart data");
+    ASSERT_EQ(true, assigned.DetachedNotes.front().get() == head && head->Tail->Head == head,
+              "move assignment preserves detached LN identity");
+    Chart &self = assigned;
+    assigned = std::move(self);
+    ASSERT_EQ(snapshot, parser_test::chartSnapshot(assigned), "self move preserves chart");
+  }
   struct Case {
     const char *name;
     const char *body;

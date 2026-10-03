@@ -15,8 +15,30 @@
  */
 
 #include "Chart.h"
+#include <utility>
 namespace bms_parser {
 Chart::Chart() = default;
+
+Chart::Chart(Chart &&other) noexcept : Chart() { Swap(other); }
+
+Chart &Chart::operator=(Chart &&other) noexcept {
+  if (this != &other) {
+    Chart incoming(std::move(other));
+    Swap(incoming);
+  }
+  return *this;
+}
+
+void Chart::Swap(Chart &other) noexcept {
+  using std::swap;
+  swap(Meta, other.Meta);
+  Measures.swap(other.Measures);
+  DetachedNotes.swap(other.DetachedNotes);
+  WavTable.swap(other.WavTable);
+  ReferencedWavTable.swap(other.ReferencedWavTable);
+  BmpTable.swap(other.BmpTable);
+  ReferencedBmpTable.swap(other.ReferencedBmpTable);
+}
 
 Chart::~Chart() {
   for (const auto &measure : Measures) {
