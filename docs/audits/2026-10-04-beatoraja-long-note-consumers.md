@@ -11,7 +11,9 @@ The repository and jar were not modified.
 Beatoraja does not normalize away detached LN partners. Its renderer follows
 an active head's partner object even if that object no longer occupies a
 playable timeline slot. It does not draw an active tail independently.
-A null partner has no rendering fallback and causes a null dereference.
+A null partner causes a null dereference inside the lane renderer. Whether an
+exception is swallowed depends on the caller, as traced below; the isolated
+probe does not establish that the whole application exits.
 
 | Decoded graph | Renderer visibility | Other consumers |
 | --- | --- | --- |
@@ -57,6 +59,29 @@ Paths and lines refer to the pinned beatoraja revision:
 
 The renderer contains a commented-out historical missing-end warning, but
 that comment is not executable fallback logic.
+
+### Exception boundaries
+
+- `src/bms/player/beatoraja/song/SongInformationAccessor.java:135–145` catches
+  `SQLException | RuntimeException` around information construction and insertion.
+  A null-pair failure is logged and that derived-information update is skipped.
+  `SQLiteSongDatabaseAccessor.java:924–930` inserts the song record before calling
+  this updater, so library scanning can retain the chart and continue.
+- `src/bms/player/beatoraja/skin/Skin.java:333–359`,
+  `drawAllObjectsSafely`, catches `Throwable` separately for each object's
+  preparation and drawing, sets `obj.draw = false`, and continues with other
+  objects. This aborts the failing object's operation, not just a single note.
+  A later preparation can reset its draw flag (`SkinObject.java:598`).
+- The only call to that safe method in this checkout is
+  `src/bms/player/beatoraja/config/SkinPreview.java:90`.
+  Gameplay instead calls `drawAllObjects` from `MainController.java:408`.
+  Both branches of that ordinary method (`Skin.java:276–331`) invoke preparation
+  and drawing without a catch. `SkinNote.java:61` delegates directly to
+  `LaneRenderer.drawLane`.
+
+Thus "beatoraja always rejects/crashes" is too broad, and "gameplay swallows
+the bad note and proceeds" is also unsupported by this revision. The database
+and preview recovery paths do not repair the decoded LN graph.
 
 ## Executable probe
 
@@ -105,9 +130,9 @@ those cases. A simpler contract that deletes conflicting pairs would be an
 intentional departure from beatoraja, as discussed in the
 [performance investigation](../performance/2026-10-04-parity-cost-investigation.md).
 
-For null partners, copying beatoraja's exception into C++ would not provide a
-usable parser contract. The recommended parser boundary is to reject a chart
-whose final playable graph contains an unpaired LN; ordinary unclosed LNs that
-the decoder already removes remain accepted. Dropping only the unpaired LN is
-another possible product policy, but is not an observed beatoraja fallback.
-The user is choosing between those two behaviors before implementation.
+For null partners, there is no single catch-and-continue behavior to translate
+into a parser policy. The current parser preserves the decoded graph. Rejecting
+the chart or dropping only the unpaired LN would each be an explicit additional
+policy, not a reproduction of beatoraja's caller-specific exception handling.
+Neither policy has been implemented. The earlier recommendation to reject the
+chart should not be read as an observed beatoraja rule.

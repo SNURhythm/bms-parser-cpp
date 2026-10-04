@@ -27,7 +27,9 @@ the earlier baseline is `2b964abd62e0bd4b9abc9d450e369c72c095773f`.
 
 The subsequent [consumer investigation](../audits/2026-10-04-beatoraja-long-note-consumers.md)
 found that beatoraja actually uses detached partners for rendering and judgment;
-it does not discard them. Null partners instead trigger exceptions. Therefore
+it does not discard them. Null partners instead trigger exceptions; database
+information updates catch them and continue, while gameplay drawing uses an
+unguarded path (the safe drawing path is used by skin previews). Therefore
 the narrower LN contract proposed below is an explicit compatibility departure,
 not a way to reproduce beatoraja more simply. The user's newer request to mimic
 beatoraja takes precedence over that hypothetical simplification.
