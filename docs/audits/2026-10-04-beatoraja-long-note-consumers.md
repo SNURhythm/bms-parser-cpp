@@ -21,6 +21,8 @@ probe does not establish that the whole application exits.
 | Active head, detached tail | Head still uses detached tail's time and section | Judge state retains the partner reference |
 | Detached head, active tail | Tail is not drawn independently | Tail remains in lane processing/counts; CN/HCN missed-tail handling can still see it |
 | Ordinary unclosed channel LN | Decoder removes it | No surviving LN to render |
+| Ordinary-channel note with LNOBJ but no closing marker | Remains a normal note | Normal note rendering and judgment |
+| LNOBJ closing marker without preceding note | Decoder ignores the marker | No surviving note |
 | Sentinel-position head with null partner | Visibility predicate throws | Actual `SongInformation` construction also throws |
 
 A detached object is retained and valid; a null partner is absent. Treating
@@ -105,22 +107,87 @@ java -cp /tmp/beatoraja-ln-probe:../beatoraja/lib/jbms-parser.jar \
   ProbeBeatorajaLongNotes
 ```
 
-All eleven probe fixtures passed, including explicit CN/HCN counts:
+All fifteen probe fixtures passed, including unmatched LNOBJ cases, explicit CN/HCN counts and
+null-partner acceptance in all three LN modes:
 
 - Valid pair: one active head, one tail, one hold drawing candidate.
 - Detached tail: one active head, no active tail, one drawing candidate.
 - Detached head: no active head, one active tail, no drawing candidate.
 - Ordinary unclosed LN: no surviving active LN endpoints.
+- LNOBJ without an end marker: the ordinary note remains a `NormalNote`.
+  An LNOBJ marker without a preceding note produces no note. This is distinct
+  from a surviving `LongNote` with a null partner; the latter is not converted.
 - CN/HCN: paired endpoints both count; an active tail with a detached head
   still counts despite having no independent drawing.
 - Null sentinel head: `NullPointerException` from both the visibility predicate
   and `SongInformation`. The latter failure occurs at its line 119.
 
 C++ contract regressions in `test/BeatorajaLongNoteTests.h` cover valid pairs,
-both detached directions and ordinary unclosed LNs in all three LN modes.
+both detached directions, unmatched LNOBJ cases, ordinary unclosed LNs and retained null-partner
+heads in all three LN modes.
 They check active-slot counts, reciprocal retained partners, the head-driven
-rendering condition and matching Full/Scan metadata. Both `make test` and
+rendering condition and matching Full/Scan/metadata-only results. Both `make test` and
 `make test_amalgamation` passed with these regressions.
+
+### Caller and runtime follow-up
+
+[`ProbeBeatorajaAdmission.java`](../../test/reference/ProbeBeatorajaAdmission.java)
+executes the unmodified reference `SongData` class, extending the probe beyond
+the throwing helper. Valid pairs and both detached directions pass its
+lightweight constructor, full constructor and `setBMSModel`. For the exact
+null-partner fixture below, the lightweight constructor succeeds, but the full
+constructor and `setBMSModel` propagate `NullPointerException` in all three LN
+modes. Six caller fixtures passed.
+
+```text
+#BPM 120
+#00002:5e-324
+#00151:01
+```
+
+`PlayerResource.setBMSFile:172–175` calls either `songdata.setBMSModel(model)`
+or `new SongData(model, false)`. `MusicSelector.readChart:348` reaches it from
+`MusicSelector.render:256,264`. Those methods contain no enclosing exception
+handler. This source path differs from lightweight database scanning.
+
+The graphics runtime was also inspected from the actual bundled
+`lib/gdx-backend-lwjgl.jar`, SHA-256
+`234fc051622303972c0dbe49118692ac2ad5816a20d16be6063185f599bade25`.
+`LwjglApplication.mainLoop` invokes `ApplicationListener.render` without a
+handler covering that instruction. `LwjglApplication$1.run` catches
+`Throwable` around `mainLoop`, cleans up audio/cursor state, and rethrows the
+runtime exception (or wraps a non-runtime throwable). It does not continue the
+frame loop. `MainLoader:211–212` delegates the listener to `main.render()`;
+its constructor-side catch at line 284 does not wrap this separate thread.
+
+This establishes the source and bytecode propagation path, **not an observed
+whole-application crash**. A complete graphics application launch with the
+fixture was not performed. Neither "all malformed charts crash" nor "every
+exception is swallowed and playback continues" follows from these probes.
+
+Reproduce the caller probe with a JavaFX jar available for the reference's
+transitive compilation dependencies (the probe itself does not launch JavaFX):
+
+```sh
+BEATORAJA_JAVAFX_JAR=/path/to/jfxrt.jar
+javac -cp "../beatoraja/lib/*:$BEATORAJA_JAVAFX_JAR" \
+  -sourcepath ../beatoraja/src -d /tmp/beatoraja-ln-probe \
+  ../beatoraja/src/bms/player/beatoraja/song/SongData.java \
+  ../beatoraja/src/bms/player/beatoraja/song/SongInformationAccessor.java \
+  test/reference/ProbeBeatorajaAdmission.java
+java -cp '/tmp/beatoraja-ln-probe:../beatoraja/lib/*' ProbeBeatorajaAdmission
+javap -classpath ../beatoraja/lib/gdx-backend-lwjgl.jar -p -c \
+  'com.badlogic.gdx.backends.lwjgl.LwjglApplication$1'
+javap -classpath ../beatoraja/lib/gdx-backend-lwjgl.jar -p -c \
+  com.badlogic.gdx.backends.lwjgl.LwjglApplication
+```
+
+The caller probe also offers `--database` to exercise the actual information
+updater against SQLite. That optional path could not run on this host: the
+bundled JDBC driver reports no native library for `Mac/aarch64`. Its failure
+occurred before a transaction started, not at the chart exception handler.
+The database catch-and-continue behavior above is source-verified, not claimed
+as a passing database runtime test.
 
 ## Parser implications
 
@@ -136,3 +203,17 @@ the chart or dropping only the unpaired LN would each be an explicit additional
 policy, not a reproduction of beatoraja's caller-specific exception handling.
 Neither policy has been implemented. The earlier recommendation to reject the
 chart should not be read as an observed beatoraja rule.
+
+The user selected reference behavior without additional chart rejection or
+invented repair/fallback policies. Parser output therefore remains unchanged:
+do not delete detached objects, fabricate partners, or reject a decoded chart
+because a later consumer may fail. AsoBMaShow's parser adapters and consumers
+remove the extra admission checks. Operation-specific
+exceptions must be distinguished from parser rejection and documented using
+the actual reference caller boundary.
+
+The follow-up leaves parser production code unchanged; its generated pair
+matches the already-adopted AsoBMaShow artifacts byte-for-byte. The application
+adaptation passed its full desktop build and 420/420 CTest tests, a final
+corrected LN-mode coverage test, and visual/gameplay ASan/UBSan suites. No
+chart-repair policy or successful-playback claim was inferred from those tests.

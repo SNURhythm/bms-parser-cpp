@@ -25,7 +25,8 @@ public class ProbeBeatorajaLongNotes {
   }
   String infoResult="ok";
   try{new SongInformation(model);}catch(RuntimeException ex){infoResult=ex.getClass().getSimpleName();}
-  System.out.printf("%s activeHeads=%d activeTails=%d detachedReferences=%d nullPartners=%d drawCandidates=%d predicate=%s SongInformation=%s%n",name,heads,tails,detached,nulls,drawCandidates,renderResult,infoResult);
+  long normals=active.stream().filter(note -> note instanceof NormalNote).count();
+  System.out.printf("%s normalNotes=%d activeHeads=%d activeTails=%d detachedReferences=%d nullPartners=%d drawCandidates=%d predicate=%s SongInformation=%s%n",name,normals,heads,tails,detached,nulls,drawCandidates,renderResult,infoResult);
   return heads+","+tails+","+detached+","+nulls+","+drawCandidates+","+renderResult+","+infoResult+","+model.getTotalNotes();
  }
  static void expect(String name,String body,String expected) {
@@ -37,11 +38,14 @@ public class ProbeBeatorajaLongNotes {
   expect("detached_tail","#00151:0101\n#00111:0002\n","1,0,1,0,1,ok,ok,2");
   expect("detached_head","#00151:0101\n#00111:02\n","0,1,1,0,0,ok,ok,1");
   expect("unclosed_ordinary","#00151:01\n","0,0,0,0,0,ok,ok,0");
+  expect("lnobj_without_end","#LNOBJ 02\n#00111:01\n","0,0,0,0,0,ok,ok,1");
+  expect("lnobj_without_start","#LNOBJ 02\n#00111:02\n","0,0,0,0,0,ok,ok,0");
   for(int mode:new int[]{2,3}) {
    String prefix="#LNMODE "+mode+"\n";
    expect("mode"+mode+"_valid",prefix+"#00151:0101\n","1,1,0,0,1,ok,ok,2");
    expect("mode"+mode+"_detached_tail",prefix+"#00151:0101\n#00111:0002\n","1,0,1,0,1,ok,ok,2");
    expect("mode"+mode+"_detached_head",prefix+"#00151:0101\n#00111:02\n","0,1,1,0,0,ok,ok,2");
+   expect("mode"+mode+"_null_sentinel",prefix+"#00002:5e-324\n#00151:01\n","1,0,0,1,0,NullPointerException,NullPointerException,1");
   }
   expect("null_sentinel","#00002:5e-324\n#00151:01\n","1,0,0,1,0,NullPointerException,NullPointerException,1");
  }
