@@ -106,8 +106,12 @@ profiling separate from timing runs.
 See the [throughput validation report](docs/performance/2026-10-01-parser-throughput.md)
 for the original optimization results and the
 [review follow-up](docs/audits/2026-10-04-parser-review-fixes.md) for measurements
-after the Java behavior corrections. `make test` also checks that scanning a
-256,000-note ordinary chart stays below 8 MiB of peak requested live C++ heap.
+after the Java behavior corrections. The later
+[baseline review loop](docs/audits/2026-10-04-baseline-review-loop.md) records
+allocation and cancellation fixes without changing the decoding contract.
+`make test` checks that scanning a 256,000-note ordinary chart stays below
+8 MiB of peak requested live C++ heap and three allocations per note, and that
+cancellation interrupts dense timing, note publication and hold-closure work.
 
 For comparison against the local Java reference implementation:
 

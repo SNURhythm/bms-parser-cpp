@@ -107,6 +107,8 @@ CASES = {
 
 
 RAW_CASES = {
+    "review_header_length_thresholds": "#CHARSET UTF-8\n#BPM 120\n#DIFFICULTY 4\n#DIFFICULTY \n#SUBARTIST \U0001f600\n#TITLE A\n#TITLE \n#00011:01\n",
+    "review_long_unicode_header": "#CHARSET UTF-8\n#BPM 120\n#TITLE " + "\U0001f600" * 1024 + " end\n#00011:01\n",
     "long_numeric_header": "#BPM " + "1" * 100000 + "\n#00011:01\n",
     "review_lnobjunicode": "#BPM 120\n#WAV01 a.wav\n#LNOBJ \u00df\n#00011:01SS\n",
     "review_originunderflow": "#WAV01 a.wav\n#00002:5e-324\n#00003:0078\n#00011:01\n",

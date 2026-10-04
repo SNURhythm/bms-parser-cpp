@@ -1,0 +1,307 @@
+{
+  "baseline": "2b964abd62e0bd4b9abc9d450e369c72c095773f",
+  "reviewed_head": "fc7f84f0ecb94be7a7b17bf20e1dd52346029d58",
+  "fixed_source_sha256": {
+    "src/Parser.cpp": "ed09809a1d0e56216b14570d603d03fea0d664091bf7cb75009d2f6fb7449c62",
+    "src/ParserNotes.h": "ec1433306a24b50724563fc6895051b897f5a1f4e59934eda31715b6ef5177b2"
+  },
+  "compiler": "Apple Clang 21",
+  "flags": [
+    "-std=c++17",
+    "-O3",
+    "-DNDEBUG",
+    "-pthread",
+    "-DBMS_PARSER_VERBOSE=0",
+    "-DBMS_BENCH_SCAN=1"
+  ],
+  "corpus": {
+    "charts": 517,
+    "bytes": 73152865,
+    "manifest_sha256": "3c9dea0ff10b68607f25692c84bfa2723cc8cb521566fdedfbf0b88b76c1684e"
+  },
+  "method": "Preloaded inputs, one worker, ABBA process order per mode. Four rounds per process, round zero excluded; CPU milliseconds are the median of rounds one through three. Final measurements ran while other review builds/probes were paused.",
+  "command": "parser_benchmark MANIFEST MODE 1 4",
+  "baseline_comparison_caveat": "Some auxiliary compilation overlapped the earlier baseline/head measurements; process CPU excludes compiler CPU but cache/memory contention remains possible.",
+  "baseline_vs_reviewed_head": [
+    {
+      "label": "base",
+      "mode": "scan",
+      "cpu_ms": 932.526,
+      "wall_ms": 933.224,
+      "peak_rss_mb": 139.891,
+      "notes": 1369339.0
+    },
+    {
+      "label": "head",
+      "mode": "scan",
+      "cpu_ms": 1542.87,
+      "wall_ms": 1546.16,
+      "peak_rss_mb": 116.703,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "scan",
+      "cpu_ms": 1562.6,
+      "wall_ms": 1564.66,
+      "peak_rss_mb": 118.656,
+      "notes": 1354159.0
+    },
+    {
+      "label": "base",
+      "mode": "scan",
+      "cpu_ms": 931.049,
+      "wall_ms": 931.634,
+      "peak_rss_mb": 138.766,
+      "notes": 1369339.0
+    },
+    {
+      "label": "base",
+      "mode": "full",
+      "cpu_ms": 1294.51,
+      "wall_ms": 1294.97,
+      "peak_rss_mb": 191.188,
+      "notes": 1369339.0
+    },
+    {
+      "label": "head",
+      "mode": "full",
+      "cpu_ms": 1997.6,
+      "wall_ms": 2001.21,
+      "peak_rss_mb": 155.922,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "full",
+      "cpu_ms": 2081.34,
+      "wall_ms": 2082.61,
+      "peak_rss_mb": 156.766,
+      "notes": 1354159.0
+    },
+    {
+      "label": "base",
+      "mode": "full",
+      "cpu_ms": 1325.2,
+      "wall_ms": 1331.9,
+      "peak_rss_mb": 192.594,
+      "notes": 1369339.0
+    },
+    {
+      "label": "base",
+      "mode": "metadata",
+      "cpu_ms": 831.9,
+      "wall_ms": 832.303,
+      "peak_rss_mb": 137.875,
+      "notes": 1369339.0
+    },
+    {
+      "label": "head",
+      "mode": "metadata",
+      "cpu_ms": 1453.3,
+      "wall_ms": 1461.14,
+      "peak_rss_mb": 119.594,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "metadata",
+      "cpu_ms": 1371.02,
+      "wall_ms": 1372.74,
+      "peak_rss_mb": 115.266,
+      "notes": 1354159.0
+    },
+    {
+      "label": "base",
+      "mode": "metadata",
+      "cpu_ms": 841.085,
+      "wall_ms": 841.443,
+      "peak_rss_mb": 140.312,
+      "notes": 1369339.0
+    }
+  ],
+  "reviewed_head_vs_final_fix": [
+    {
+      "label": "head",
+      "mode": "scan",
+      "cpu_ms": 1525.92,
+      "wall_ms": 1527.33,
+      "peak_rss_mb": 115.516,
+      "notes": 1354159.0
+    },
+    {
+      "label": "fixed2",
+      "mode": "scan",
+      "cpu_ms": 1367.15,
+      "wall_ms": 1367.68,
+      "peak_rss_mb": 114.75,
+      "notes": 1354159.0
+    },
+    {
+      "label": "fixed2",
+      "mode": "scan",
+      "cpu_ms": 1375.91,
+      "wall_ms": 1376.68,
+      "peak_rss_mb": 119.5,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "scan",
+      "cpu_ms": 1518.52,
+      "wall_ms": 1519.07,
+      "peak_rss_mb": 115.203,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "full",
+      "cpu_ms": 1993.84,
+      "wall_ms": 1994.84,
+      "peak_rss_mb": 155.766,
+      "notes": 1354159.0
+    },
+    {
+      "label": "fixed2",
+      "mode": "full",
+      "cpu_ms": 1853.67,
+      "wall_ms": 1854.72,
+      "peak_rss_mb": 156.094,
+      "notes": 1354159.0
+    },
+    {
+      "label": "fixed2",
+      "mode": "full",
+      "cpu_ms": 1880.88,
+      "wall_ms": 1882.73,
+      "peak_rss_mb": 155.594,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "full",
+      "cpu_ms": 2008.67,
+      "wall_ms": 2009.25,
+      "peak_rss_mb": 155.828,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "metadata",
+      "cpu_ms": 1389.99,
+      "wall_ms": 1394.43,
+      "peak_rss_mb": 117.172,
+      "notes": 1354159.0
+    },
+    {
+      "label": "fixed2",
+      "mode": "metadata",
+      "cpu_ms": 1251.23,
+      "wall_ms": 1253.12,
+      "peak_rss_mb": 115.203,
+      "notes": 1354159.0
+    },
+    {
+      "label": "fixed2",
+      "mode": "metadata",
+      "cpu_ms": 1252.55,
+      "wall_ms": 1255.41,
+      "peak_rss_mb": 115.234,
+      "notes": 1354159.0
+    },
+    {
+      "label": "head",
+      "mode": "metadata",
+      "cpu_ms": 1382.18,
+      "wall_ms": 1382.93,
+      "peak_rss_mb": 116.375,
+      "notes": 1354159.0
+    }
+  ],
+  "final_round_logs": {
+    "final-full-fixed2-5.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=full workers=1 wall_ms=1892.44 cpu_ms=1890.37 charts_sec=273.193 notes=1354159 peak_rss_mb=154.328",
+      "round=1 mode=full workers=1 wall_ms=1859.41 cpu_ms=1855.86 charts_sec=278.046 notes=1354159 peak_rss_mb=155.609",
+      "round=2 mode=full workers=1 wall_ms=1854.72 cpu_ms=1853.67 charts_sec=278.748 notes=1354159 peak_rss_mb=156.094",
+      "round=3 mode=full workers=1 wall_ms=1841.38 cpu_ms=1840.99 charts_sec=280.768 notes=1354159 peak_rss_mb=156.109"
+    ],
+    "final-full-fixed2-6.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=full workers=1 wall_ms=1894.4 cpu_ms=1892.46 charts_sec=272.91 notes=1354159 peak_rss_mb=154.172",
+      "round=1 mode=full workers=1 wall_ms=1882.73 cpu_ms=1880.88 charts_sec=274.602 notes=1354159 peak_rss_mb=155.562",
+      "round=2 mode=full workers=1 wall_ms=1845.27 cpu_ms=1844.7 charts_sec=280.176 notes=1354159 peak_rss_mb=155.594",
+      "round=3 mode=full workers=1 wall_ms=1913.57 cpu_ms=1894.48 charts_sec=270.175 notes=1354159 peak_rss_mb=157.266"
+    ],
+    "final-full-head-4.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=full workers=1 wall_ms=2048.81 cpu_ms=2028.8 charts_sec=252.341 notes=1354159 peak_rss_mb=154.375",
+      "round=1 mode=full workers=1 wall_ms=1994.84 cpu_ms=1993.84 charts_sec=259.169 notes=1354159 peak_rss_mb=155.672",
+      "round=2 mode=full workers=1 wall_ms=1983.36 cpu_ms=1982.64 charts_sec=260.669 notes=1354159 peak_rss_mb=155.766",
+      "round=3 mode=full workers=1 wall_ms=2034.93 cpu_ms=2027.96 charts_sec=254.063 notes=1354159 peak_rss_mb=156.078"
+    ],
+    "final-full-head-7.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=full workers=1 wall_ms=2012.49 cpu_ms=1999.11 charts_sec=256.896 notes=1354159 peak_rss_mb=154.188",
+      "round=1 mode=full workers=1 wall_ms=2009.25 cpu_ms=2008.67 charts_sec=257.309 notes=1354159 peak_rss_mb=155.484",
+      "round=2 mode=full workers=1 wall_ms=2018.15 cpu_ms=2016.83 charts_sec=256.175 notes=1354159 peak_rss_mb=155.828",
+      "round=3 mode=full workers=1 wall_ms=1976.91 cpu_ms=1976.38 charts_sec=261.519 notes=1354159 peak_rss_mb=155.859"
+    ],
+    "final-metadata-fixed2-10.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=metadata workers=1 wall_ms=1309.35 cpu_ms=1294.27 charts_sec=394.854 notes=1354159 peak_rss_mb=115.047",
+      "round=1 mode=metadata workers=1 wall_ms=1255.41 cpu_ms=1252.55 charts_sec=411.817 notes=1354159 peak_rss_mb=115.141",
+      "round=2 mode=metadata workers=1 wall_ms=1251.24 cpu_ms=1250.7 charts_sec=413.19 notes=1354159 peak_rss_mb=115.234",
+      "round=3 mode=metadata workers=1 wall_ms=1277.4 cpu_ms=1275.44 charts_sec=404.729 notes=1354159 peak_rss_mb=115.234"
+    ],
+    "final-metadata-fixed2-9.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=metadata workers=1 wall_ms=1271.2 cpu_ms=1270.64 charts_sec=406.701 notes=1354159 peak_rss_mb=114.469",
+      "round=1 mode=metadata workers=1 wall_ms=1276.62 cpu_ms=1275.51 charts_sec=404.977 notes=1354159 peak_rss_mb=115.141",
+      "round=2 mode=metadata workers=1 wall_ms=1253.12 cpu_ms=1251.23 charts_sec=412.569 notes=1354159 peak_rss_mb=115.203",
+      "round=3 mode=metadata workers=1 wall_ms=1248.06 cpu_ms=1247.74 charts_sec=414.244 notes=1354159 peak_rss_mb=115.219"
+    ],
+    "final-metadata-head-11.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=metadata workers=1 wall_ms=1394.83 cpu_ms=1394.54 charts_sec=370.653 notes=1354159 peak_rss_mb=114.469",
+      "round=1 mode=metadata workers=1 wall_ms=1393.01 cpu_ms=1391.96 charts_sec=371.139 notes=1354159 peak_rss_mb=116.359",
+      "round=2 mode=metadata workers=1 wall_ms=1369.84 cpu_ms=1369.5 charts_sec=377.418 notes=1354159 peak_rss_mb=116.375",
+      "round=3 mode=metadata workers=1 wall_ms=1382.93 cpu_ms=1382.18 charts_sec=373.845 notes=1354159 peak_rss_mb=116.391"
+    ],
+    "final-metadata-head-8.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=metadata workers=1 wall_ms=1402.96 cpu_ms=1401.66 charts_sec=368.507 notes=1354159 peak_rss_mb=116.953",
+      "round=1 mode=metadata workers=1 wall_ms=1396.63 cpu_ms=1389.99 charts_sec=370.178 notes=1354159 peak_rss_mb=117.156",
+      "round=2 mode=metadata workers=1 wall_ms=1371.38 cpu_ms=1370.86 charts_sec=376.992 notes=1354159 peak_rss_mb=117.172",
+      "round=3 mode=metadata workers=1 wall_ms=1394.43 cpu_ms=1393.81 charts_sec=370.761 notes=1354159 peak_rss_mb=117.5"
+    ],
+    "final-scan-fixed2-1.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=scan workers=1 wall_ms=1366.78 cpu_ms=1366.49 charts_sec=378.261 notes=1354159 peak_rss_mb=114.594",
+      "round=1 mode=scan workers=1 wall_ms=1367.68 cpu_ms=1367.15 charts_sec=378.014 notes=1354159 peak_rss_mb=114.75",
+      "round=2 mode=scan workers=1 wall_ms=1364.67 cpu_ms=1364.37 charts_sec=378.846 notes=1354159 peak_rss_mb=114.75",
+      "round=3 mode=scan workers=1 wall_ms=1395.97 cpu_ms=1393.6 charts_sec=370.351 notes=1354159 peak_rss_mb=114.828"
+    ],
+    "final-scan-fixed2-2.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=scan workers=1 wall_ms=1409.01 cpu_ms=1407.24 charts_sec=366.924 notes=1354159 peak_rss_mb=118.078",
+      "round=1 mode=scan workers=1 wall_ms=1409.6 cpu_ms=1397.83 charts_sec=366.77 notes=1354159 peak_rss_mb=119.469",
+      "round=2 mode=scan workers=1 wall_ms=1362.65 cpu_ms=1362 charts_sec=379.407 notes=1354159 peak_rss_mb=119.5",
+      "round=3 mode=scan workers=1 wall_ms=1376.68 cpu_ms=1375.91 charts_sec=375.542 notes=1354159 peak_rss_mb=119.516"
+    ],
+    "final-scan-head-0.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=scan workers=1 wall_ms=1523.06 cpu_ms=1521.74 charts_sec=339.448 notes=1354159 peak_rss_mb=114.453",
+      "round=1 mode=scan workers=1 wall_ms=1527.33 cpu_ms=1525.92 charts_sec=338.499 notes=1354159 peak_rss_mb=115.25",
+      "round=2 mode=scan workers=1 wall_ms=1547.37 cpu_ms=1534.19 charts_sec=334.116 notes=1354159 peak_rss_mb=115.516",
+      "round=3 mode=scan workers=1 wall_ms=1516.37 cpu_ms=1510.4 charts_sec=340.947 notes=1354159 peak_rss_mb=115.562"
+    ],
+    "final-scan-head-3.log": [
+      "charts=517 bytes=73152865",
+      "round=0 mode=scan workers=1 wall_ms=1500.1 cpu_ms=1499.74 charts_sec=344.645 notes=1354159 peak_rss_mb=114.469",
+      "round=1 mode=scan workers=1 wall_ms=1513.84 cpu_ms=1511.94 charts_sec=341.516 notes=1354159 peak_rss_mb=115.156",
+      "round=2 mode=scan workers=1 wall_ms=1519.07 cpu_ms=1518.52 charts_sec=340.34 notes=1354159 peak_rss_mb=115.203",
+      "round=3 mode=scan workers=1 wall_ms=1527.02 cpu_ms=1525.4 charts_sec=338.567 notes=1354159 peak_rss_mb=115.328"
+    ]
+  }
+}

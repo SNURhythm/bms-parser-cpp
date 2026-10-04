@@ -74,14 +74,14 @@ size_t utf8CharacterBytes(std::string_view value, size_t index) {
   return width;
 }
 
-size_t javaStringLength(std::string_view value) {
+size_t javaStringLengthUpTo(std::string_view value, size_t limit) {
   size_t length = 0;
-  for (size_t i = 0; i < value.size();) {
+  for (size_t i = 0; i < value.size() && length < limit;) {
     const size_t width = utf8CharacterBytes(value, i);
     length += width == 4 ? 2 : 1;
     i += width;
   }
-  return length;
+  return std::min(length, limit);
 }
 
 std::string javaSubstring(std::string_view value, size_t first,
@@ -1093,6 +1093,18 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
   midStartTime = std::chrono::high_resolution_clock::now();
 #endif
   auto lastMeasure = -1;
+  static constexpr std::string_view commands[] = {
+    "PLAYER", "GENRE", "TITLE", "SUBTITLE", "ARTIST", "SUBARTIST",
+    "PLAYLEVEL", "RANK", "DEFEXRANK", "TOTAL", "VOLWAV", "STAGEFILE", "BACKBMP",
+    "PREVIEW", "LNOBJ", "LNMODE", "DIFFICULTY", "BANNER"};
+  // Special headers compare at most ten UTF-16 units. Generic headers require
+  // strictly more than name.size() + 2, so count through one additional unit.
+  // Deriving the bound from this list keeps longer future names covered.
+  static constexpr size_t headerLengthLimit = [] {
+    size_t limit = 10;
+    for (auto command : commands) limit = std::max(limit, command.size() + 3);
+    return limit;
+  }();
   while (lineStart < text.size()) {
     const size_t newline = text.find('\n', lineStart);
     const size_t lineEnd =
@@ -1117,7 +1129,7 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
       return;
     }
 
-    const size_t lineUnits = javaStringLength(line);
+    const size_t lineUnits = javaStringLengthUpTo(line, headerLengthLimit);
     const auto directive = [&](std::string_view name) {
       return MatchHeader(line, name);
     };
@@ -1245,10 +1257,6 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
         const auto value = javaSubstring(line, 9);
         ParseHeader(new_chart, "SPEED", xx, std::string(value));
       } else {
-        static constexpr std::string_view commands[] = {
-          "PLAYER", "GENRE", "TITLE", "SUBTITLE", "ARTIST", "SUBARTIST",
-          "PLAYLEVEL", "RANK", "DEFEXRANK", "TOTAL", "VOLWAV", "STAGEFILE", "BACKBMP",
-          "PREVIEW", "LNOBJ", "LNMODE", "DIFFICULTY", "BANNER"};
         for (auto command : commands) {
           if (lineUnits > command.size() + 2 &&
               MatchHeader(javaSubstring(line, 1), command)) {
@@ -1346,8 +1354,11 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
   };
   std::map<double, JavaTimelineState> javaTimelines;
   javaTimelines.emplace(0, JavaTimelineState{0, 0, new_chart->Meta.Bpm});
-  std::map<double, TimeLine *> globalTimelines;
-  detail::ParserNotes parsedNotes(NoWav, new_chart->Meta.LnMode);
+  // Cells cannot pass the next bar. Only a cell rounded onto that boundary
+  // can be addressed again by a later measure.
+  std::optional<double> carriedPosition;
+  TimeLine *retainedTimeline = nullptr;
+  detail::ParserNotes parsedNotes(NoWav, new_chart->Meta.LnMode, bCancelled);
   auto currentBpm = initialBpm;
   auto minBpm = new_chart->Meta.Bpm;
   auto maxBpm = new_chart->Meta.Bpm;
@@ -1416,8 +1427,8 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
       auto result = timelines.try_emplace(section);
       if (result.second) {
         auto &entry = result.first->second;
-        const auto previous = globalTimelines.find(section);
-        if (previous != globalTimelines.end()) entry.timeline = previous->second;
+        if (carriedPosition && *carriedPosition == section)
+          entry.timeline = retainedTimeline;
         else {
           if (materialize) {
             entry.owned = std::make_unique<TimeLine>(TempKey, false);
@@ -1426,7 +1437,6 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
             scratchTimelines.emplace_back(TempKey, true);
             entry.timeline = &scratchTimelines.back();
           }
-          globalTimelines[section] = entry.timeline;
         }
       }
       return result.first;
@@ -1732,6 +1742,7 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
     };
     insertJavaTimeline(measureBeatPosition);
     for (const auto &[position, control] : controls) {
+      if (bCancelled) return;
       const double section = measureBeatPosition + position * measure->Scale;
       auto &state = insertJavaTimeline(section);
       if (control.speed) state.speed = *control.speed;
@@ -1740,9 +1751,12 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
       if (control.stop)
         state.stop = javaLong(240000000.0 * (*control.stop / 192.0) / state.bpm);
     }
-    for (double position : insertionOrder)
+    for (double position : insertionOrder) {
+      if (bCancelled) return;
       insertJavaTimeline(measureBeatPosition + position * measure->Scale);
+    }
     for (const auto &[section, entry] : timelines) {
+      if (bCancelled) return;
       const auto &state = javaTimelines.at(section);
       auto *tl = entry.timeline;
       tl->Timing = javaLong(state.time);
@@ -1755,9 +1769,9 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
     if (measureIdx == 0 && currentBpm == 0)
       currentBpm = javaTimelines.begin()->second.bpm;
     if (measureIdx == 0 && javaTimelines.begin()->second.bpm == 0) return;
-    parsedNotes.setTiming(measureBeatPosition, [&](double section) {
+    if (!parsedNotes.setTiming(measureBeatPosition, [&](double section) {
       return javaLong(javaTimelines.at(section).time);
-    });
+    })) return;
     auto lastPosition = 0.0;
 
     measure->Timing = javaLong(timePassed);
@@ -1799,6 +1813,14 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
 
     if (bCancelled) return;
 
+    const auto nextBoundary = timelines.find(measureBeatPosition + measure->Scale);
+    if (nextBoundary != timelines.end()) {
+      carriedPosition = nextBoundary->first;
+      retainedTimeline = nextBoundary->second.timeline;
+    } else {
+      carriedPosition.reset();
+      retainedTimeline = nullptr;
+    }
     if (!materialize) timelines.clear();
     if (materialize && !measure->TimeLines.empty())
       measure->TimeLines.front()->IsFirstInMeasure = true;
@@ -1863,25 +1885,23 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
         measureHasPrepTimingContent,
         static_cast<int>(prepTimingPositions.size()));
     measureBeatPosition += measure->Scale;
-    parsedNotes.advance(*new_chart, materialize, measureBeatPosition);
+    if (!parsedNotes.advance(*new_chart, materialize, measureBeatPosition)) return;
 
     // Future rows cannot address an earlier measure. Keep a timing
     // predecessor and any timeline rounded onto the next bar, not the chart.
     auto futureState = javaTimelines.lower_bound(measureBeatPosition);
     for (auto it = javaTimelines.begin(); it != futureState; ++it) {
+      if (bCancelled) return;
       parsedNotes.observeTimeline(it->first, javaLong(it->second.time));
       minBpm = std::min(minBpm, it->second.bpm);
       maxBpm = std::max(maxBpm, it->second.bpm);
     }
     if (futureState != javaTimelines.begin())
       javaTimelines.erase(javaTimelines.begin(), std::prev(futureState));
-    globalTimelines.erase(globalTimelines.begin(),
-                          globalTimelines.lower_bound(measureBeatPosition));
     if (!materialize) {
-      if (!globalTimelines.empty()) {
-        auto &timeline = globalTimelines.begin()->second;
-        if (timeline != &carriedTimeline) carriedTimeline = *timeline;
-        timeline = &carriedTimeline;
+      if (retainedTimeline) {
+        if (retainedTimeline != &carriedTimeline) carriedTimeline = *retainedTimeline;
+        retainedTimeline = &carriedTimeline;
       }
       scratchTimelines.clear();
     }
@@ -1896,10 +1916,13 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
                    .count()
             << "\n";
 #endif
-  for (const auto &[section, state] : javaTimelines)
-    parsedNotes.observeTimeline(section, javaLong(state.time));
-  parsedNotes.finish(*new_chart, materialize);
   for (const auto &[section, state] : javaTimelines) {
+    if (bCancelled) return;
+    parsedNotes.observeTimeline(section, javaLong(state.time));
+  }
+  if (!parsedNotes.finish(*new_chart, materialize)) return;
+  for (const auto &[section, state] : javaTimelines) {
+    if (bCancelled) return;
     minBpm = std::min(minBpm, state.bpm);
     maxBpm = std::max(maxBpm, state.bpm);
   }
@@ -1907,10 +1930,13 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
     new_chart->ReferencedWavTable.clear();
     for (const auto *measure : new_chart->Measures) {
       for (const auto *timeline : measure->TimeLines) {
+        if (bCancelled) return;
         for (const auto *notes : {&timeline->Notes, &timeline->InvisibleNotes,
                                    &timeline->BackgroundNotes}) {
-          for (const auto *note : *notes)
+          for (const auto *note : *notes) {
+            if (bCancelled) return;
             if (note) RegisterReferencedWaveId(new_chart, note->Wav);
+          }
         }
       }
     }

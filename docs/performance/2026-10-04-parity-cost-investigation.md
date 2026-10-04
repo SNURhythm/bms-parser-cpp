@@ -1,5 +1,10 @@
 # Investigating parser complexity and parity cost
 
+The later [baseline review and fix loop](../audits/2026-10-04-baseline-review-loop.md)
+adopts the boundary/prefix optimizations with production verification and adds
+cancellation checks to the new parsing passes. The measurements and experimental
+status below describe the earlier investigation snapshot.
+
 ## Conclusion
 
 Under a deliberately relaxed compatibility contract, removing detached LN
