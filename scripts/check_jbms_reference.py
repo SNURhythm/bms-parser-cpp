@@ -133,6 +133,16 @@ BINARY_CASES = {
 }
 BINARY_CASES["bom-first-bpm"] = b"\xef\xbb\xbf#BPM 120\n#00011:01\n"
 
+for name, body in {
+    "supplementary-title": "#TITLE\U0001f600tail\n",
+    "supplementary-wav": "#WAV01\U0001f600tail.wav\n#00011:01\n",
+    "supplementary-bmp": "#BMP01\U0001f600tail.png\n#00004:01\n",
+    "trim-controls": "#TITLE\x00\x01\x1f text\U0001f600\x1f\x00\n#VOLWAV\x00 +１２３\x00\n",
+    "supplementary-controls": "#BPM01\U0001f600240\n#STOP01\U0001f60096\n#SCROLL01\U0001f6002\n#00008:01\n#00009:01\n#000SC:01\n",
+    "metadata-overwrite": "#TITLE " + "title\U0001f600 " * 1000 + "\n#TITLE final\n#ARTIST " + "artist한 " * 1000 + "\n#ARTIST last\n",
+}.items():
+    BINARY_CASES["string-suffix-" + name] = b"\xef\xbb\xbf\n" + ("#BPM 120\n" + body).encode("utf-8")
+
 BINARY_CASES["utf8-ambiguous-euc-first"] = "#BPM 120\n#TITLE éé\n#00011:01\n".encode("utf-8")
 for name, suffix in {
     "invalid-lead": b"\xff", "overlong": b"\xc0\xaf", "truncated2": b"\xc2",

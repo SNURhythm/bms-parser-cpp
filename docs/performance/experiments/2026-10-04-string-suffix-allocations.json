@@ -1,0 +1,346 @@
+[
+  {
+    "kind": "capacity",
+    "label": "base",
+    "stdout": "title_size=1 capacity=22\n",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "base",
+    "case": "corpus",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/base-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1820.13 cpu_ms=1818.55 charts_sec=284.046 notes=1354159 peak_rss_mb=152.609 allocations=13187837 requested_bytes=1539365808\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "base",
+    "case": "corpus",
+    "mode": "scan",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/base-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "scan",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=1257.95 cpu_ms=1257.48 charts_sec=410.986 notes=1354159 peak_rss_mb=114 allocations=2612559 requested_bytes=589997610\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "base",
+    "case": "corpus",
+    "mode": "metadata",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/base-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "metadata",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=1169.68 cpu_ms=1166.75 charts_sec=442.001 notes=1354159 peak_rss_mb=113.828 allocations=2501223 requested_bytes=557293862\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "base",
+    "case": "ascii-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/base-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/ascii-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=2494498\nround=0 mode=full workers=1 wall_ms=36.9161 cpu_ms=36.902 charts_sec=27.0885 notes=1 peak_rss_mb=11.375 allocations=89774 requested_bytes=13292232\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "base",
+    "case": "unicode-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/base-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/unicode-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=5640226\nround=0 mode=full workers=1 wall_ms=78.6071 cpu_ms=78.61 charts_sec=12.7215 notes=1 peak_rss_mb=21.9531 allocations=106158 requested_bytes=29518344\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "capacity",
+    "label": "bulk",
+    "stdout": "title_size=1 capacity=22\n",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "bulk",
+    "case": "corpus",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/bulk-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1804.62 cpu_ms=1803.86 charts_sec=286.486 notes=1354159 peak_rss_mb=152.141 allocations=13187812 requested_bytes=1539363664\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "bulk",
+    "case": "corpus",
+    "mode": "scan",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/bulk-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "scan",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=1279.65 cpu_ms=1275.52 charts_sec=404.017 notes=1354159 peak_rss_mb=114.062 allocations=2612546 requested_bytes=589996522\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "bulk",
+    "case": "corpus",
+    "mode": "metadata",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/bulk-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "metadata",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=1174.79 cpu_ms=1173.89 charts_sec=440.077 notes=1354159 peak_rss_mb=113.906 allocations=2501210 requested_bytes=557292774\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "bulk",
+    "case": "ascii-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/bulk-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/ascii-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=2494498\nround=0 mode=full workers=1 wall_ms=24.9948 cpu_ms=24.971 charts_sec=40.0083 notes=1 peak_rss_mb=11.2969 allocations=57006 requested_bytes=10080968\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "bulk",
+    "case": "unicode-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/bulk-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/unicode-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=5640226\nround=0 mode=full workers=1 wall_ms=65.4888 cpu_ms=65.369 charts_sec=15.2698 notes=1 peak_rss_mb=21.9219 allocations=57006 requested_bytes=23161352\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "capacity",
+    "label": "copies",
+    "stdout": "title_size=1 capacity=22\n",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "copies",
+    "case": "corpus",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/copies-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1782.24 cpu_ms=1781.69 charts_sec=290.084 notes=1354159 peak_rss_mb=152.266 allocations=13174044 requested_bytes=1538954847\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "copies",
+    "case": "corpus",
+    "mode": "scan",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/copies-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "scan",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=1310.9 cpu_ms=1308.86 charts_sec=394.386 notes=1354159 peak_rss_mb=118 allocations=2612546 requested_bytes=589996522\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "copies",
+    "case": "corpus",
+    "mode": "metadata",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/copies-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "metadata",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=1218.42 cpu_ms=1217.15 charts_sec=424.318 notes=1354159 peak_rss_mb=113.984 allocations=2501210 requested_bytes=557292774\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "copies",
+    "case": "ascii-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/copies-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/ascii-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=2494498\nround=0 mode=full workers=1 wall_ms=25.8151 cpu_ms=25.792 charts_sec=38.737 notes=1 peak_rss_mb=11.3281 allocations=48814 requested_bytes=8901320\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "copies",
+    "case": "unicode-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/copies-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/unicode-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=5640226\nround=0 mode=full workers=1 wall_ms=65.0403 cpu_ms=65.055 charts_sec=15.3751 notes=1 peak_rss_mb=21.8906 allocations=48814 requested_bytes=20408840\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "capacity",
+    "label": "views",
+    "stdout": "title_size=1 capacity=1048583\n",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "views",
+    "case": "corpus",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/views-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1844.06 cpu_ms=1841.55 charts_sec=280.36 notes=1354159 peak_rss_mb=151.859 allocations=13174044 requested_bytes=1538959298\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "views",
+    "case": "corpus",
+    "mode": "scan",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/views-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "scan",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=1304.34 cpu_ms=1299.65 charts_sec=396.368 notes=1354159 peak_rss_mb=115.922 allocations=2612546 requested_bytes=590000973\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "views",
+    "case": "corpus",
+    "mode": "metadata",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/views-performance",
+      "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+      "metadata",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=1194.45 cpu_ms=1193.81 charts_sec=432.834 notes=1354159 peak_rss_mb=116.281 allocations=2501210 requested_bytes=557297225\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "views",
+    "case": "ascii-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/views-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/ascii-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=2494498\nround=0 mode=full workers=1 wall_ms=24.7638 cpu_ms=24.72 charts_sec=40.3815 notes=1 peak_rss_mb=11.375 allocations=40624 requested_bytes=7787480\n",
+    "stderr": "",
+    "returncode": 0
+  },
+  {
+    "kind": "allocations",
+    "label": "views",
+    "case": "unicode-headers",
+    "mode": "full",
+    "command": [
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/views-performance",
+      "/tmp/parser-perf-review.h3Bx8e/java-strings-results/unicode-headers.txt",
+      "full",
+      "1",
+      "1"
+    ],
+    "stdout": "charts=1 bytes=5640226\nround=0 mode=full workers=1 wall_ms=64.4556 cpu_ms=64.273 charts_sec=15.5145 notes=1 peak_rss_mb=21.9531 allocations=40624 requested_bytes=17722520\n",
+    "stderr": "",
+    "returncode": 0
+  }
+]
