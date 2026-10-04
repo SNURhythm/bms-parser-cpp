@@ -55,9 +55,18 @@ Explicit `metaOnly` inspection can still read BPM-less header metadata.
 excluding mines); `TotalLength` includes the rest of the final measure.
 
 Lane collisions and long-note pairing follow Java source order. Later rows can
-overwrite a partner's playable slot; the chart owns detached partners so existing
-LN pointers remain valid. `Scan` uses the same event bookkeeping without
-allocating playable note objects. Undeclared difficulty remains zero.
+overwrite a partner's playable slot. Beatoraja's discards are preserved. Surviving
+LNs that cannot render/judge as healthy holds become normal notes with their
+existing timing, lane and sound. Healthy classic heads can retain detached tails;
+the chart owns those partners. Demotion is O(1) per endpoint, with no chart-wide
+repair scan. `Scan` uses the same rules without allocating playable note objects.
+Undeclared difficulty remains zero.
+
+If the player selects CN/HCN after parsing an undefined LN type, call
+`TimeLine::DemoteUnusableLongNote(lane, resolvedType)` during the existing
+pre-playback count pass. It returns the current slot and may delete the old LN;
+resolve the mode before caching note pointers, and reparse for a different mode.
+See the [malformed-LN policy](docs/audits/2026-10-04-malformed-long-note-policy.md).
 
 Default charset detection follows Java's ordered round-trip checks, including
 ambiguous BOM-less text and malformed-byte replacement. Explicit `#CHARSET`
@@ -112,7 +121,9 @@ the reference checkout. Results and raw dumps go to `build/jbms-review` by
 default. Comparisons include metadata/custom values, note graphs and detached
 partners, integer microsecond timestamps/STOP durations, and BGA. Four explicit
 RANDOM selection sequences are checked; this does not compare PRNG algorithms.
-No chart or difficulty differences are exempted. See the
+The explicit malformed-LN policy is applied structurally to raw Java expectations;
+the report counts changed endpoints and retains untouched raw dumps. No chart or
+difficulty names are exempted. See the
 [behavior correction record](docs/audits/2026-10-04-jbms-behavior-parity.md)
 for validation results and the scope of existing C++ extensions.
 

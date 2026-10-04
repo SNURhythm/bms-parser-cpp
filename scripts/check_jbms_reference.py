@@ -267,6 +267,42 @@ def parse_output(output):
     return charts
 
 
+def demote_malformed_long_notes(chart):
+    """Apply the explicit parser policy to raw Java output, never fixture names.
+
+    Preserve raw logs. Only unrenderable/unfinishable endpoints change, plus the total
+    count delta for formerly uncounted classic tails in Java's time window.
+    """
+    changed = 0
+    active_positions = {note["pos"] for note in chart.get("notes", [])}
+    shifts_start = False
+    for timeline in chart.get("timelines", []):
+        if timeline["time"] >= 1000000:
+            break
+        if timeline["pos"] in active_positions:
+            shifts_start = True
+            break
+    for note in chart.get("notes", []):
+        if note["kind"] != "LongNote":
+            continue
+        missing = note.get("pair") is None
+        unusable_detached = note.get("pairattached") == 0 and (
+            note["end"] or note["type"] in (2, 3) or shifts_start or
+            note["pair"] <= note["pos"] or note["pairtime"] <= note["time"])
+        if not missing and not unusable_detached:
+            continue
+        millis = abs(note["time"]) // 1000 * (-1 if note["time"] < 0 else 1)
+        counted_time = (millis & 0xffffffff) < 0x7fffffff
+        if counted_time and note["end"] and note["type"] not in (2, 3):
+            chart["meta"]["notes"] += 1
+        note["kind"] = "NormalNote"
+        for key in ("pair", "type", "end", "pairwav", "pairtype", "pairend",
+                    "pairtime", "pairattached"):
+            note.pop(key, None)
+        changed += 1
+    return changed
+
+
 def differences(actual, expected):
     if actual.get("null") != expected.get("null"):
         return ["parse acceptance differs"]
@@ -391,11 +427,13 @@ def main():
             decoded[language] = parse_output(run.stdout)
         for path in paths:
             cpp, java = decoded["cpp"].get(path.name), decoded["java"].get(path.name)
+            demoted = demote_malformed_long_notes(java) if java is not None else 0
             errors = differences(cpp, java) if cpp is not None and java is not None else ["missing output"]
-            results.append({"chart": str(path), "random_values": selection, "errors": errors})
+            results.append({"chart": str(path), "random_values": selection, "demoted_endpoints": demoted, "errors": errors})
     failures = [item for item in results if item.get("errors")]
     report = {"seed": args.seed, "generated_cases": args.cases, "collision_cases": args.collision_cases,
               "reference_revision": subprocess.check_output(["git", "-C", str(reference), "rev-parse", "HEAD"], text=True).strip(),
+              "demoted_endpoints": sum(item["demoted_endpoints"] for item in results),
               "random_selections": selections, "sanitized": args.sanitize, "failures": len(failures), "results": results}
     (out / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     print(f"Compared {len(paths)} charts x {len(selections)} explicit random selections: {len(failures)} unexpected differences; report: {out / 'results.json'}")

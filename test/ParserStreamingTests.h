@@ -9,10 +9,13 @@ inline int runParserStreamingTests() {
     long long playLength;
   };
   const Case cases[] = {
+    {"#00012:01\n#00151:0101\n#00111:0002\n", 3, 0, 0, 3000000},
     {"#00051:01\n#00111:0102\n#00211:01\n#00351:01\n", 1, 1, 3, 6000000},
     {"#00051:01\n#00111:0102\n#00211:01\n", 3, 0, 0, 4000000},
     {"#LNOBJ ZZ\n#00011:01\n#00311:ZZ\n", 1, 1, 0, 6000000},
-    {"#00051:01\n#00011:02\n#00251:01\n", 1, 0, 0, 4000000},
+    {"#00051:01\n#00011:02\n#00251:01\n", 2, 0, 0, 4000000},
+    // The last cell rounds to the next measure's start and is overwritten there.
+    {"#LNMODE 2\n#BPM 1e20\n#00002:1e16\n#00102:2\n#00051:01\n#00151:00000001\n#00211:02\n", 2, 0, 0, 24000},
   };
   for (const auto &test : cases) {
     Parser parser;
@@ -44,8 +47,8 @@ inline int runParserStreamingTests() {
               parser_test::metadataSnapshot(scan->Meta), "full and streamed Scan metadata");
   }
   {
-    // Retiring thousands of notes on another lane must not lose a detached
-    // open head, its old timeline or its eventual reciprocal pair.
+    // Collection must retain the overwritten open head long enough to decode
+    // its later close, whose surviving tail must then become a normal note.
     std::string body = header + "#00051:01\n#00011:02\n";
     for (const char *channel : {"#00012:", "#00112:"}) {
       body += channel;
@@ -59,15 +62,36 @@ inline int runParserStreamingTests() {
     const auto bytes = bytesFromString(body);
     parser.Parse(bytes, &raw, false, false, cancelled);
     const std::unique_ptr<Chart> chart(raw);
-    ASSERT_EQ(4097, chart->Meta.TotalNotes, "retired normal notes counted once");
-    ASSERT_EQ(size_t{1}, chart->DetachedNotes.size(), "detached head survives collection");
-    const auto *head = static_cast<const LongNote *>(chart->DetachedNotes.front().get());
-    ASSERT_EQ(true, head->Tail && head->Tail->Head == head, "collected head retains tail identity");
-    ASSERT_EQ(0LL, head->Timeline->Timing, "collected head keeps its old timeline");
-    ASSERT_EQ(6000000LL, head->Tail->Timeline->Timing, "collected head links later tail");
+    ASSERT_EQ(4098, chart->Meta.TotalNotes, "retired normal notes counted once");
+    ASSERT_EQ(size_t{0}, chart->DetachedNotes.size(), "malformed pairs need no detached ownership");
+    const auto *tail = chart->Measures.back()->TimeLines.front()->Notes[0];
+    ASSERT_EQ(true, tail && !dynamic_cast<const LongNote *>(tail), "surviving tail becomes normal");
+    ASSERT_EQ(Parser::NoWav, tail->Wav, "demotion preserves silent release sound");
     const auto scan = parser.Scan(bytes, cancelled);
     ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta),
               parser_test::metadataSnapshot(scan->Meta), "collected chart Scan metadata");
+  }
+  {
+    // Queued classic heads must survive collection without triggering a full
+    // chart scan. No active note precedes one second, so no start offset applies.
+    std::string body = header + "#00151:0101\n#00111:0002\n";
+    for (int measure = 2; measure < 8; ++measure) {
+      body += "#00" + std::to_string(measure) + "12:";
+      for (int i = 0; i < 1024; ++i) body += "01";
+      body += '\n';
+    }
+    Parser parser;
+    std::atomic_bool cancelled{false};
+    Chart *raw = nullptr;
+    const auto bytes = bytesFromString(body);
+    parser.Parse(bytes, &raw, false, false, cancelled);
+    const std::unique_ptr<Chart> chart(raw);
+    ASSERT_EQ(6146, chart->Meta.TotalNotes, "queued classic head counted once after collection");
+    ASSERT_EQ(1, chart->Meta.TotalLongNotes, "healthy classic hold retained after collection");
+    ASSERT_EQ(size_t{1}, chart->DetachedNotes.size(), "deferred classic tail ownership retained");
+    const auto scan = parser.Scan(bytes, cancelled);
+    ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta),
+              "queued classic candidate Full and Scan agree");
   }
   {
     std::string body = header + "#00051:01\n";

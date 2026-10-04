@@ -29,6 +29,8 @@ public:
     LongNoteType type = LongNoteType::Undefined;
     Note *note = nullptr;
     std::unique_ptr<Note> owner;
+    bool activeSlot = false;
+    bool published = false;
   };
   static constexpr int Lanes = 16;
   std::array<std::map<Position, Event *>, Lanes> lanes;
@@ -39,7 +41,7 @@ public:
   void normal(int lane, Position pos, int wav, bool endpoint, TimeLine *timeline) {
     auto &slots = lanes[lane];
     if (!endpoint) {
-      slots[pos] = create(Kind::Normal, pos, wav, timeline);
+      setSlot(lane, pos, create(Kind::Normal, pos, wav, timeline));
       last[lane] = pos;
       return;
     }
@@ -52,13 +54,13 @@ public:
       head = create(Kind::Head, head->pos, head->wav, head->timeline);
       head->timing = timing;
       head->type = lnType;
-      it->second = head;
+      setSlot(lane, head->pos, head);
     } else if ((head->kind == Kind::Head || head->kind == Kind::Tail) && !head->pair) {
       open[lane] = nullptr;
       suppressed[lane] = false;
     } else return;
     auto *tail = create(Kind::Tail, pos, noWav, timeline);
-    slots[pos] = tail;
+    setSlot(lane, pos, tail);
     pair(head, tail);
     complete(lane, *head);
     last[lane] = pos;
@@ -89,7 +91,8 @@ public:
       const auto old = slots.find(pos);
       if (old != slots.end() && old->second->kind == Kind::Normal &&
           old->second->wav != wav) background(*old->second);
-      slots[pos] = open[lane] = create(Kind::Head, pos, wav, timeline);
+      open[lane] = create(Kind::Head, pos, wav, timeline);
+      setSlot(lane, pos, open[lane]);
       last[lane] = pos;
       return;
     }
@@ -98,11 +101,12 @@ public:
     while (it != slots.end() && it->first < pos) {
       if (it->second->kind == Kind::Normal) background(*it->second);
       if (last[lane] == it->first) last[lane].reset();
+      it->second->activeSlot = false;
       it = slots.erase(it);
     }
     head->type = lnType;
     auto *tail = create(Kind::Tail, pos, head->wav == wav ? noWav : wav, timeline);
-    slots[pos] = tail;
+    setSlot(lane, pos, tail);
     pair(head, tail);
     complete(lane, *head);
     open[lane] = nullptr;
@@ -113,7 +117,7 @@ public:
     if (lanes[lane].count(pos) || inside(lane, pos)) return;
     auto *event = create(Kind::Mine, pos, wav, timeline);
     event->damage = damage;
-    lanes[lane][pos] = event;
+    setSlot(lane, pos, event);
     last[lane] = pos;
   }
 
@@ -134,9 +138,14 @@ public:
     }
   }
 
+  // Called only once the timeline position is immutable.
+  void observeTimeline(Position pos, long long timing) {
+    if (timing / 1000 >= 1000) firstLateTimeline = std::min(firstLateTimeline, pos);
+  }
+
   void advance(Chart &chart, bool materialize, Position boundary) {
     const auto scratchLanes = chart.Meta.GetScratchLaneIndices();
-    size_t possibleLive = 0;
+    size_t possibleLive = 2 * pendingClassic.size();
     for (int lane = 0; lane < Lanes; ++lane) {
       auto &slots = lanes[lane];
       Position keepFrom = boundary;
@@ -153,6 +162,14 @@ public:
                            != scratchLanes.end();
       auto it = slots.begin();
       while (it != slots.end() && it->first < keepFrom) {
+        // A partner at a rounded measure boundary can still be overwritten.
+        // Finalize both endpoints only once their slots are immutable.
+        const auto *partner = it->second->pair;
+        if (partner && partner->activeSlot && !partner->published &&
+            partner->pos >= keepFrom) {
+          ++it;
+          continue;
+        }
         publish(chart, *it->second, lane, scratch, materialize);
         if (last[lane] == it->first) last[lane].reset();
         it = slots.erase(it);
@@ -178,7 +195,18 @@ public:
       for (auto &[pos, event] : lanes[lane])
         publish(chart, *event, lane, scratch, materialize);
     }
-    // Detached partners are observable through LN pointers, but not playable.
+    // Beatoraja's standard start-time preparation shifts active notes only.
+    // A detached classic tail would keep its old time/section, distorting the
+    // hold. Defer only these candidates until the first surviving note is known.
+    const bool shiftsStart = firstActive && firstActive->first < firstLateTimeline &&
+                             firstActive->second / 1000 < 1000;
+    for (const auto &pending : pendingClassic) {
+      auto &event = *pending.event;
+      if (shiftsStart || event.pair->pos <= event.pos ||
+          event.pair->timing <= event.timing) demote(event);
+      commit(chart, event, pending.lane, pending.scratch, materialize);
+    }
+    // Healthy classic heads still own detached tail identities.
     for (auto &event : events)
       if (event.owner) chart.DetachedNotes.push_back(std::move(event.owner));
   }
@@ -188,6 +216,10 @@ private:
   const LongNoteType lnType;
   std::deque<Event> events;
   size_t untimedBegin = 0;
+  struct PendingClassic { Event *event; int lane; bool scratch; };
+  std::vector<PendingClassic> pendingClassic;
+  std::optional<std::pair<Position, long long>> firstActive;
+  Position firstLateTimeline = std::numeric_limits<Position>::infinity();
   std::array<std::optional<Position>, Lanes> last{};
   std::array<Event *, Lanes> open{};
   std::array<bool, Lanes> suppressed{};
@@ -211,6 +243,7 @@ private:
       for (const auto &[pos, event] : lanes[lane]) retain(event);
       retain(open[lane]);
     }
+    for (const auto &pending : pendingClassic) retain(pending.event);
     std::deque<Event> remaining;
     for (auto &[event, relocated] : retained) {
       remaining.push_back(std::move(*event));
@@ -224,11 +257,40 @@ private:
     }
     for (auto &event : events)
       if (event.owner) chart.DetachedNotes.push_back(std::move(event.owner));
+    for (auto &pending : pendingClassic) pending.event = retained.at(pending.event);
     events.swap(remaining);
     untimedBegin = events.size();
   }
-  static void publish(Chart &chart, Event &event, int lane, bool scratch,
-                      bool materialize) {
+  static void demote(Event &event) {
+    event.kind = Kind::Normal;
+    event.pair = nullptr;
+    event.type = LongNoteType::Undefined;
+  }
+  void publish(Chart &chart, Event &event, int lane, bool scratch,
+               bool materialize) {
+    if (!firstActive || event.pos < firstActive->first)
+      firstActive = std::make_pair(event.pos, event.timing);
+    // Constant-time demotion: slot replacement maintains activeSlot directly.
+    // Published partners stay active even after their parsing slots retire.
+    // A classic head still renders/finishes through a detached tail in
+    // beatoraja. An orphan tail cannot draw/start, and CN/HCN require their
+    // active tail for autoplay/miss completion (and HCN passing-state reset).
+    if ((event.kind == Kind::Head || event.kind == Kind::Tail) &&
+        (!event.pair || event.pair->pair != &event ||
+         (!event.pair->activeSlot &&
+          (event.kind == Kind::Tail || event.type == LongNoteType::ChargeNote ||
+           event.type == LongNoteType::HellChargeNote)))) {
+      demote(event);
+    }
+    event.published = true;
+    if (event.kind == Kind::Head && !event.pair->activeSlot) {
+      pendingClassic.push_back({&event, lane, scratch});
+      return;
+    }
+    commit(chart, event, lane, scratch, materialize);
+  }
+  static void commit(Chart &chart, Event &event, int lane, bool scratch,
+                     bool materialize) {
     chart.Meta.PlayLength = std::max(chart.Meta.PlayLength, event.timing);
     if (event.kind == Kind::Mine) {
       if (IsCountedNoteTime(event.timing)) ++chart.Meta.TotalLandmineNotes;
@@ -276,9 +338,19 @@ private:
     }
     intervals.emplace_hint(it, start, end);
   }
+  void setSlot(int lane, Position pos, Event *event) {
+    auto &slot = lanes[lane][pos];
+    if (slot) slot->activeSlot = false;
+    slot = event;
+    event->activeSlot = true;
+  }
   void erase(int lane, Position pos) {
     if (last[lane] == pos) last[lane].reset();
-    lanes[lane].erase(pos);
+    const auto it = lanes[lane].find(pos);
+    if (it != lanes[lane].end()) {
+      it->second->activeSlot = false;
+      lanes[lane].erase(it);
+    }
   }
   static void materializeEvent(Event &event, int lane) {
     if (event.note) return;

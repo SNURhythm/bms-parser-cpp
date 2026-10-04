@@ -42,10 +42,14 @@ inline int runParserCorrectnessTests() {
       Parser parser;
       std::atomic_bool cancelled{false};
       Chart *raw = nullptr;
-      parser.Parse(bytesFromString(header + "#00051:0101\n#00011:02\n"),
+      parser.Parse(bytesFromString(header + "#00051:0101\n"),
                    &raw, false, false, cancelled);
       std::unique_ptr<Chart> parsed(raw);
       if (!parsed) throw std::runtime_error("move fixture parse failed");
+      // Exercise the public ownership API independently of parser demotion.
+      auto *timeline = parsed->Measures.front()->TimeLines.front();
+      parsed->DetachedNotes.emplace_back(timeline->Notes[0]);
+      timeline->Notes[0] = nullptr;
       return std::move(*parsed);
     };
     Chart moved = makeChart();
@@ -111,8 +115,8 @@ inline int runParserCorrectnessTests() {
     {"invalid_cell", "#00011:??01\n", 1, 0, 5, 1000000},
     {"partial_cell", "#00011:1?01\n", 1, 0, 5, 1000000},
     {"same_position_endpoint", "#LNOBJ ZZ\n#00011:01\n#00011:ZZ\n", 1, 0, 5, 0},
-    {"lnobj_replaces_pending_head", "#LNOBJ ZZ\n#00051:0001\n#00011:01ZZ\n", 1, 1, 5, 0},
-    {"lnobj_replaced_head_followed_by_hold", "#LNOBJ ZZ\n#00051:0001\n#00011:01ZZ\n#00151:0101\n", 1, 1, 5, 2000000},
+    {"lnobj_replaces_pending_head", "#LNOBJ ZZ\n#00051:0001\n#00011:01ZZ\n", 1, 0, 5, 0},
+    {"lnobj_replaced_head_followed_by_hold", "#LNOBJ ZZ\n#00051:0001\n#00011:01ZZ\n#00151:0101\n", 2, 1, 5, 2000000},
     {"earlier_endpoint", "#LNOBJ ZZ\n#00011:0001\n#00011:ZZ00\n", 1, 0, 5, 1000000},
     {"invalid_numeric_headers", "#BPM nan\n#BPM01 180junk\n#SCROLL01 nan\n#STOP01 inf\n#00002:2junk\n#00008:01\n#00009:01\n#000SC:01\n#00111:01\n", 1, 0, 5, 2000000},
     {"invalid_hex_bpm", "#00003:??\n#00111:01\n", 1, 0, 5, 2000000},
@@ -401,12 +405,9 @@ inline int runParserCorrectnessTests() {
                  &raw, false, false, cancelled);
     const std::unique_ptr<Chart> chart(raw);
     const auto heads = longNoteHeads(chart.get());
-    ASSERT_EQ(size_t{1}, heads.size(), "Java sentinel-position head survives");
-    ASSERT_EQ(true, heads.front()->Tail == nullptr, "Java sentinel-position head is unpaired");
-    heads.front()->Press(100);
-    ASSERT_EQ(true, heads.front()->IsHolding, "unpaired head can be pressed safely");
-    heads.front()->Release(200);
-    ASSERT_EQ(false, heads.front()->IsHolding, "unpaired head can be released safely");
+    ASSERT_EQ(size_t{0}, heads.size(), "sentinel-position unpaired head becomes normal");
+    ASSERT_EQ(1, chart->Meta.TotalNotes, "demoted sentinel note is countable");
+
   }
   return 0;
 }
@@ -464,6 +465,9 @@ inline int runParserCollisionStressTests() {
         if (const auto *ln = dynamic_cast<const LongNote *>(note)) {
           const auto *pair = ln->Head ? ln->Head : ln->Tail;
           if (!owned.count(pair)) return fail("orphan LN endpoint");
+          if (!notes.count(pair) && (ln->IsTail() ||
+              ln->Type == LongNoteType::ChargeNote || ln->Type == LongNoteType::HellChargeNote))
+            return fail("unusable detached pair survived");
           if ((ln->Head ? pair->Tail : pair->Head) != ln) return fail("nonreciprocal LN pair");
           if (!(ln->Head ? pair->Timeline->BeatPosition <= ln->Timeline->BeatPosition
                         : ln->Timeline->BeatPosition <= pair->Timeline->BeatPosition))

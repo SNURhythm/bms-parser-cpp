@@ -15,6 +15,7 @@
  */
 
 #include "TimeLine.h"
+#include "LongNote.h"
 #include <cmath>
 #include <limits>
 namespace bms_parser {
@@ -32,6 +33,29 @@ TimeLine *TimeLine::SetNote(int lane, Note *note) {
   note->Lane = lane;
   note->Timeline = this;
   return this;
+}
+
+Note *TimeLine::DemoteUnusableLongNote(int lane, LongNoteType resolvedType) {
+  auto *ln = dynamic_cast<LongNote *>(Notes.at(lane));
+  if (!ln) return Notes[lane];
+  auto *partner = ln->IsTail() ? ln->Head : ln->Tail;
+  const bool reciprocal = partner &&
+      (ln->IsTail() ? partner->Tail == ln : partner->Head == ln);
+  const bool active = partner && partner->Timeline && partner->Lane >= 0 &&
+      static_cast<size_t>(partner->Lane) < partner->Timeline->Notes.size() &&
+      partner->Timeline->Notes[partner->Lane] == partner;
+  if (reciprocal && (active || (!ln->IsTail() &&
+      (resolvedType == LongNoteType::LongNote || resolvedType == LongNoteType::Undefined))))
+    return ln;
+  // Allocate before mutating ownership so allocation failure leaves the graph intact.
+  auto *normal = new Note(*ln);
+  if (partner) {
+    if (partner->Head == ln) partner->Head = nullptr;
+    if (partner->Tail == ln) partner->Tail = nullptr;
+  }
+  Notes[lane] = normal;
+  delete ln;
+  return normal;
 }
 
 TimeLine *TimeLine::SetInvisibleNote(int lane, Note *note) {

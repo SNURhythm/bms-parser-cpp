@@ -1869,6 +1869,7 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
     // predecessor and any timeline rounded onto the next bar, not the chart.
     auto futureState = javaTimelines.lower_bound(measureBeatPosition);
     for (auto it = javaTimelines.begin(); it != futureState; ++it) {
+      parsedNotes.observeTimeline(it->first, javaLong(it->second.time));
       minBpm = std::min(minBpm, it->second.bpm);
       maxBpm = std::max(maxBpm, it->second.bpm);
     }
@@ -1895,6 +1896,8 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
                    .count()
             << "\n";
 #endif
+  for (const auto &[section, state] : javaTimelines)
+    parsedNotes.observeTimeline(section, javaLong(state.time));
   parsedNotes.finish(*new_chart, materialize);
   for (const auto &[section, state] : javaTimelines) {
     minBpm = std::min(minBpm, state.bpm);

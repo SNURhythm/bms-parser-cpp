@@ -33,7 +33,23 @@ public class ProbeBeatorajaLongNotes {
   String actual=inspect(name,body);
   if(!expected.equals(actual))throw new AssertionError(name+": expected "+expected+", got "+actual);
  }
+ static void verifyPreparedClassicTail(boolean earlyNote) {
+  String body=(earlyNote?"#00012:01\n":"")+"#00151:0101\n#00111:0002\n";
+  var model=new BMSDecoder().decode(("#BPM 120\n"+body).getBytes(StandardCharsets.UTF_8),"prep.bms",false,new int[]{1});
+  LongNote head=null;
+  for(var tl:model.getAllTimeLines())for(int lane=0;lane<model.getMode().key;lane++)
+   if(tl.getNote(lane) instanceof LongNote ln && !ln.isEnd())head=ln;
+  if(head==null || head.getPair()==null)throw new AssertionError("missing prepared fixture pair");
+  long margin=BMSModelUtils.setStartNoteTime(model,1000);
+  boolean positiveHold=head.getMicroTime()<head.getPair().getMicroTime()
+      && head.getSection()<head.getPair().getSection();
+  if(margin!=(earlyNote?1000:0) || positiveHold==earlyNote)
+   throw new AssertionError("unexpected detached-tail start-time adjustment");
+  System.out.println("prepared_classic earlyNote="+earlyNote+" marginMs="+margin+" positiveHold="+positiveHold);
+ }
  public static void main(String[]args){Logger.getLogger("").setLevel(Level.OFF);
+  verifyPreparedClassicTail(false);
+  verifyPreparedClassicTail(true);
   expect("valid","#00151:0101\n","1,1,0,0,1,ok,ok,1");
   expect("detached_tail","#00151:0101\n#00111:0002\n","1,0,1,0,1,ok,ok,2");
   expect("detached_head","#00151:0101\n#00111:02\n","0,1,1,0,0,ok,ok,1");

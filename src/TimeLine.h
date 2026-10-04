@@ -25,6 +25,7 @@
  *
  */
 namespace bms_parser {
+enum class LongNoteType;
 inline constexpr int BgaSequenceBlank = -1;
 
 struct BgaPoorSequence {
@@ -61,6 +62,11 @@ public:
   explicit TimeLine(int lanes, bool metaOnly);
 
   TimeLine *SetNote(int lane, Note *note);
+
+  // O(1) finalization after resolving a player-selected LN mode. May replace
+  // and delete this slot's LN; call before caching note pointers or playback.
+  // Counts are the caller's responsibility. Detached ownership stays in Chart.
+  Note *DemoteUnusableLongNote(int lane, LongNoteType resolvedType);
 
   TimeLine *SetInvisibleNote(int lane, Note *note);
 

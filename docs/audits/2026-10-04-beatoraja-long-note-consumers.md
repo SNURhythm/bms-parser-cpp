@@ -6,6 +6,11 @@ Inspected local beatoraja revision
 `818809595b4bfae97fa507d31232a0114bc3401f47561e89069145f1f3734ae4`.
 The repository and jar were not modified.
 
+The observed reference behavior below is unchanged. The current C++ policy is
+[selective demotion](2026-10-04-malformed-long-note-policy.md), explicitly chosen
+by the user after this investigation; historical C++ parity-test results below
+predate that policy.
+
 ## Observed behavior
 
 Beatoraja does not normalize away detached LN partners. Its renderer follows
