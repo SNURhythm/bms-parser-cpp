@@ -109,9 +109,11 @@ for the original optimization results and the
 after the Java behavior corrections. The later
 [baseline review loop](docs/audits/2026-10-04-baseline-review-loop.md) records
 allocation and cancellation fixes without changing the decoding contract.
+The [timing consolidation](docs/performance/2026-10-04-timing-consolidation.md)
+removes the remaining duplicate timing index while retaining exact timestamps.
 `make test` checks that scanning a 256,000-note ordinary chart stays below
-8 MiB of peak requested live C++ heap and three allocations per note, and that
-cancellation interrupts dense timing, note publication and hold-closure work.
+8 MiB of peak requested live C++ heap and two allocations per note, and that
+cancellation interrupts dense chart construction, note publication and hold-closure work.
 
 For comparison against the local Java reference implementation:
 

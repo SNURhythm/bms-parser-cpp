@@ -78,46 +78,57 @@ int main() {
               << " allocations=" << allocationCount << '\n';
     // A redundant timeline index used to allocate another tree node for each
     // note. Bound allocation churn as well as retained heap on this workload.
+    // Allow for libc++/libstdc++ differences in deque block allocation.
     if (notes != 256000 || peakBytes > 8 * 1024 * 1024 || liveBytes != 0 ||
-        allocationCount > 3 * 256000) {
-      std::cerr << "Expected 256000 notes, <=8 MiB peak live heap, <=3 allocations per note and no retained allocations\n";
+        allocationCount > 2 * 256000) {
+      std::cerr << "Expected 256000 notes, <=8 MiB peak live heap, <=2 allocations per note and no retained allocations\n";
       return 1;
     }
   }
-  // Interrupt late in a dense measure. Allocation count provides a repeatable
-  // trigger without a wall-clock deadline or a production-only test hook.
+  // Interrupt a dense measure. Derive the allocation trigger from a completed
+  // parse so reducing allocation churn cannot silently bypass cancellation.
+  // This avoids wall-clock deadlines and production-only test hooks.
   std::string denseText = "#BPM 150\n#00111:";
   for (int note = 0; note < 256000; ++note) denseText += "01";
   denseText += '\n';
   const std::vector<unsigned char> denseBytes(denseText.begin(), denseText.end());
   for (bool metadataOnly : {false, true}) {
-    allocationCount = 0;
-    cancelAtAllocation = 400000;
-    cancelled = false;
-    cancelTarget = &cancelled;
-    measuring = true;
-    bool returnedChart = false;
-    {
-      bms_parser::Parser parser;
-      if (metadataOnly) {
-        bms_parser::Chart *raw = nullptr;
-        parser.Parse(denseBytes, &raw, false, true, cancelled);
-        const std::unique_ptr<bms_parser::Chart> chart(raw);
-        returnedChart = chart != nullptr;
-      } else {
-        returnedChart = parser.Scan(denseBytes, cancelled).has_value();
+    std::size_t completeAllocations = 0;
+    for (bool interrupt : {false, true}) {
+      allocationCount = 0;
+      cancelAtAllocation = interrupt ? completeAllocations * 3 / 4 : 0;
+      cancelled = false;
+      cancelTarget = interrupt ? &cancelled : nullptr;
+      measuring = true;
+      int notes = -1;
+      {
+        bms_parser::Parser parser;
+        if (metadataOnly) {
+          bms_parser::Chart *raw = nullptr;
+          parser.Parse(denseBytes, &raw, false, true, cancelled);
+          const std::unique_ptr<bms_parser::Chart> chart(raw);
+          if (chart) notes = chart->Meta.TotalNotes;
+        } else {
+          const auto chart = parser.Scan(denseBytes, cancelled);
+          if (chart) notes = chart->Meta.TotalNotes;
+        }
       }
-    }
-    measuring = false;
-    cancelTarget = nullptr;
-    std::cout << (metadataOnly ? "Metadata" : "Scan")
-              << ": cancelled=" << cancelled << " allocations_after_cancel="
-              << (allocationCount > cancelAtAllocation ? allocationCount - cancelAtAllocation : 0)
-              << '\n';
-    if (!cancelled || returnedChart || liveBytes != 0 ||
-        allocationCount > cancelAtAllocation + 1024) {
-      std::cerr << "Cancellation must stop allocation-heavy work without publishing a partial chart\n";
-      return 1;
+      measuring = false;
+      cancelTarget = nullptr;
+      if (!interrupt) {
+        completeAllocations = allocationCount;
+        if (notes != 256000 || liveBytes != 0 || completeAllocations < 4) return 1;
+        continue;
+      }
+      std::cout << (metadataOnly ? "Metadata" : "Scan")
+                << ": cancelled=" << cancelled << " allocations_after_cancel="
+                << (allocationCount > cancelAtAllocation ? allocationCount - cancelAtAllocation : 0)
+                << '\n';
+      if (!cancelled || notes != -1 || liveBytes != 0 ||
+          allocationCount > cancelAtAllocation + 1024) {
+        std::cerr << "Cancellation must stop allocation-heavy work without publishing a partial chart\n";
+        return 1;
+      }
     }
   }
   const auto checkFullCancellation = [&](const std::vector<unsigned char> &input,

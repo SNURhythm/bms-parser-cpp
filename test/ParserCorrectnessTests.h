@@ -8,6 +8,63 @@
 inline int runParserCorrectnessTests() {
   using namespace bms_parser;
   const std::string header = "#TITLE audit\n#BPM 120\n#WAV01 head.wav\n#WAV02 tail.wav\n";
+  // Even ordinary source rows can change the last truncated microsecond:
+  // the later note's cached predecessor depends on which row was inserted first.
+  for (bool laterFirst : {false, true}) {
+    const std::string early = "#00011:0001000000\n";
+    const std::string late = "#00012:" + std::string(34, '0') + "010000\n";
+    const auto bytes = bytesFromString(header + (laterFirst ? late + early : early + late));
+    Parser parser;
+    std::atomic_bool cancelled{false};
+    Chart *raw = nullptr;
+    parser.Parse(bytes, &raw, false, false, cancelled);
+    const std::unique_ptr<Chart> chart(raw);
+    ASSERT_EQ(true, chart != nullptr, "source-order timing chart parses");
+    ASSERT_EQ(laterFirst ? 1700000LL : 1699999LL,
+              chart->Measures.front()->TimeLines.back()->Timing,
+              "cached predecessor preserves exact ordinary-note microsecond");
+    const auto scan = parser.Scan(bytes, cancelled);
+    ASSERT_EQ(true, scan.has_value(), "source-order timing Scan parses");
+    ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta),
+              parser_test::metadataSnapshot(scan->Meta), "source-order timing Scan agrees");
+  }
+  {
+    // Different local control positions may round to the same global section.
+    // The STOP keeps the BPM in effect when its own action was applied.
+    const auto bytes = bytesFromString(header +
+        "#BPM01 240\n#STOP01 192\n#00002:5e-324\n"
+        "#00009:0100\n#00008:0001\n#00011:01\n");
+    Parser parser;
+    std::atomic_bool cancelled{false};
+    Chart *raw = nullptr;
+    parser.Parse(bytes, &raw, false, false, cancelled);
+    const std::unique_ptr<Chart> chart(raw);
+    ASSERT_EQ(true, chart != nullptr, "rounded control chart parses");
+    const auto *timeline = chart->Measures.front()->TimeLines.front();
+    ASSERT_EQ(240.0, timeline->Bpm, "rounded control retains final BPM");
+    ASSERT_EQ(2000000LL, timeline->ParsedStopDuration.value_or(-1),
+              "rounded STOP uses BPM at its own insertion");
+  }
+  {
+    // Small intervals after a huge finite STOP can disappear or accumulate
+    // differently in a chronological pass; the cached direct time must survive.
+    std::string body = header + "#STOP01 96000000000000\n#00009:01\n#00011:" +
+                       std::string(34, '0') + "010000\n#00012:";
+    for (int i = 0; i < 1024; ++i) body += "01";
+    body += '\n';
+    Parser parser;
+    std::atomic_bool cancelled{false};
+    Chart *raw = nullptr;
+    parser.Parse(bytesFromString(body), &raw, false, false, cancelled);
+    const std::unique_ptr<Chart> chart(raw);
+    ASSERT_EQ(true, chart != nullptr, "large finite STOP chart parses");
+    const TimeLine *later = nullptr;
+    for (const auto *timeline : chart->Measures.front()->TimeLines)
+      if (timeline->Notes[0]) later = timeline;
+    ASSERT_EQ(true, later != nullptr, "directly inserted note survives huge STOP");
+    ASSERT_EQ(1000000000001699968LL, later->Timing,
+              "large finite time preserves the source-order cached predecessor");
+  }
   // New metadata is retained in both Parse and Scan, including Java's unusual
   // custom-value behavior inside a skipped branch and across parser reuse.
   {
