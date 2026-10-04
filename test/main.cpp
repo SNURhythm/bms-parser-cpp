@@ -1546,6 +1546,7 @@ int main() {
   if (const int result = runScratchStorageTests(); result != 0) return result;
   if (const int result = runScanTests(); result != 0) return result;
   if (const int result = runHashBoundaryTests(); result != 0) return result;
+  if (const int result = runParserHashBoundaryTests(); result != 0) return result;
   if (const int result = runEncodingPreservationTests(); result != 0) return result;
   if (const int result = runJudgeRankHeaderTests(); result != 0) return result;
   {

@@ -70,3 +70,51 @@ inline int runHashBoundaryTests() {
   }
   return 0;
 }
+
+// Exercise the parser's selected hash backend, including original NUL/high bytes
+// in an ignored trailing line. Expected digests were generated with hashlib.
+inline int runParserHashBoundaryTests() {
+  struct Vector { size_t size; const char *md5; const char *sha256; };
+  const Vector vectors[] = {
+    {55, "aa0bddab8a5f1667e4c9c28ec063b63e", "9a670e4bbe23167a7e3da974453d0aad7e8d469bbd63d8c04f703ce940a96b4a"},
+    {56, "36290d513f2190eb6abf5ba2fa9e3467", "c5a9ac9a03501c1dda85d9b3db869ead90e315b8109992abe0e6db0541086f85"},
+    {57, "1eed32e06e42cb0066bf5e1b1d992318", "33d96e77b0d6c8104ccdf7b3d944eb3e20dbbb39f32a7e8930e435466e2672b7"},
+    {63, "2ca02cbd3c8c6320588e1bf6fc9806ba", "ae3fdb204a76eb0ee4db4a0a756f345702534160893cdd1be05c97b1679b3f46"},
+    {64, "e7e578d73b184c3f86e2e689fb332414", "9f732ae724fb4d315bf9a962ed82f117d3d0e03cbdd14ed7f47bebaea35ad8c6"},
+    {65, "59f93494d2d8fa6c5334f5a1494ef7e9", "a14d62c43ebd73c86bb3448a800459bbffde88fc4ca676a8f4e5d82b65451307"},
+    {119, "b2e79527816fa1829e5e58067348eab4", "142f530768c62062be5ec873c039313e39bd2f4fed239a50dc2426d024cc73ab"},
+    {120, "33e75664d1c75638821b92e38e6a4c68", "e6cfd80139667e2512ac46f27001fec6b3ca7f1e46b930310e1d852b5adcf7ca"},
+    {127, "5ad2ae8875965f7b4525e6267425d11e", "781423db0473250042d65567c1556df792912426e14a9ee70abfab8de543e6f7"},
+    {128, "674f3894b8983654952a2e1617bc3152", "fa12a1ab16256b23064ec81eafebce9997eda95ec304512683ed7b4e952e5bd1"},
+    {129, "c3b1661b076c9d7eb8973a012843ac91", "0d30d5c853239a360f545c47058fbcd112895a08e6f1bdb9b41c42d22ade6ab9"},
+    {255, "82d8c078a43986813c3145f6636e8053", "ac02f473baae7a45d9e4c2706768b3571179a299fdeff359380457714ff6cf2f"},
+    {256, "4f5dd3be69e5fffdf6d182c11ca18082", "86790c92aac46fce7a2af65071292705ddeb1d25f1b9d118c95ffb40b7cbe1ec"},
+    {257, "4b6ed6ed2a07ff96405b09625f87b23c", "a2aae0ce8d80aa51f21c28b09efafc54aaabe894dfabae7b62bbd5a4f0208e76"},
+    {1024, "ea68f70bf1d888051d8cce02419fdd39", "f3cb55b8f9b10b3a1328cd95c4719ae197a2ae0c438bf9a14e39b321fc06ba49"},
+    {65537, "fbe7c4f16aefc7cabc138cbad1a36a6c", "d877f14067db1ad854f7316fd6515228420d49fb1e731eaefede5dc90861e266"},
+  };
+  for (const auto &test : vectors) {
+    const std::string prefix = "#BPM 120\n#00111:01\n*";
+    std::vector<unsigned char> bytes(prefix.begin(), prefix.end());
+    for (size_t i = bytes.size(); i < test.size; ++i) {
+      const auto byte = static_cast<unsigned char>((i * 37 + (i >> 3) * 11 + 17) & 255);
+      bytes.push_back(byte == '\n' || byte == '\r' ? 0 : byte);
+    }
+    std::atomic_bool cancelled{false};
+    for (const bool metadataOnly : {false, true}) {
+      bms_parser::Parser parser;
+      bms_parser::Chart *raw = nullptr;
+      parser.Parse(bytes, &raw, false, metadataOnly, cancelled);
+      const std::unique_ptr<bms_parser::Chart> chart(raw);
+      ASSERT_EQ(true, chart != nullptr, "binary hash fixture parses");
+      ASSERT_EQ(std::string(test.md5), chart->Meta.MD5, "parser original-byte MD5");
+      ASSERT_EQ(std::string(test.sha256), chart->Meta.SHA256, "parser original-byte SHA-256");
+    }
+    bms_parser::Parser parser;
+    const auto scan = parser.Scan(bytes, cancelled);
+    ASSERT_EQ(true, scan.has_value(), "binary hash fixture scans");
+    ASSERT_EQ(std::string(test.md5), scan->Meta.MD5, "scan original-byte MD5");
+    ASSERT_EQ(std::string(test.sha256), scan->Meta.SHA256, "scan original-byte SHA-256");
+  }
+  return 0;
+}

@@ -1,0 +1,1451 @@
+{
+  "format_version": 1,
+  "title": "Apple CommonCrypto MD5 fingerprint prototype",
+  "decision": "Promote exact scratch candidate for production validation; measured corpus improvement with explicit tiny-input slowdown",
+  "baseline_commit": "10ad6470e0204db4d982059db603f8c82a860b33",
+  "production_delta_files": [
+    "src/Parser.cpp"
+  ],
+  "candidate_patch": "--- a/src/Parser.cpp\n+++ b/src/Parser.cpp\n@@ -32,6 +32,9 @@\n \n #include \"SHA256.h\"\n #include \"md5.h\"\n+#if defined(__APPLE__)\n+#include <CommonCrypto/CommonDigest.h>\n+#endif\n #include <algorithm>\n #include <array>\n #include <cctype>\n@@ -60,6 +63,31 @@\n #endif\n \n namespace {\n+\n+std::string md5Fingerprint(const unsigned char *bytes, bms_parser::MD5::size_type length) {\n+#if defined(__APPLE__)\n+  static_assert(sizeof(CC_LONG) == sizeof(bms_parser::MD5::size_type));\n+  unsigned char digest[CC_MD5_DIGEST_LENGTH];\n+  // BMS identifies existing charts by their required legacy MD5 fingerprint.\n+#pragma GCC diagnostic push\n+#pragma GCC diagnostic ignored \"-Wdeprecated-declarations\"\n+  CC_MD5(bytes, static_cast<CC_LONG>(length), digest);\n+#pragma GCC diagnostic pop\n+  char result[CC_MD5_DIGEST_LENGTH * 2 + 1];\n+  constexpr char hex[] = \"0123456789abcdef\";\n+  for (unsigned int i = 0; i < CC_MD5_DIGEST_LENGTH; ++i) {\n+    result[i * 2] = hex[digest[i] >> 4];\n+    result[i * 2 + 1] = hex[digest[i] & 15];\n+  }\n+  result[CC_MD5_DIGEST_LENGTH * 2] = 0;\n+  return result;\n+#else\n+  bms_parser::MD5 hash;\n+  hash.update(bytes, length);\n+  hash.finalize();\n+  return hash.hexdigest();\n+#endif\n+}\n \n // Header offsets in BMSDecoder are Java UTF-16 code-unit offsets. Preserve\n // whole UTF-8 characters; a sliced surrogate has Java's UTF-8 replacement '?'.\n@@ -1031,10 +1059,8 @@\n #if BMS_PARSER_VERBOSE == 1\n   auto md5StartTime = std::chrono::high_resolution_clock::now();\n #endif\n-  MD5 md5;\n-  md5.update(bytes.data(), bytes.size());\n-  md5.finalize();\n-  new_chart->Meta.MD5 = md5.hexdigest();\n+  new_chart->Meta.MD5 = md5Fingerprint(\n+      bytes.data(), static_cast<MD5::size_type>(bytes.size()));\n #if BMS_PARSER_VERBOSE == 1\n   std::cout << \"Hashing MD5 took \"\n             << std::chrono::duration_cast<std::chrono::microseconds>(\n",
+  "measurement_context": {
+    "baseline_commit": "10ad6470e0204db4d982059db603f8c82a860b33",
+    "flags": "Apple Clang 21 -std=c++17 -O3 -DNDEBUG -DBMS_PARSER_VERBOSE=0 -DBMS_BENCH_SCAN=1 -pthread (candidate also -Wall -Werror)",
+    "micro_flags": "Apple Clang 21 -std=c++17 -O3 -DNDEBUG with variant src include path (candidate also -Wall -Werror)",
+    "binary_sha256": {
+      "base-bench": "744465e93721f13eefd775f5b06039d7a3ea860c5a2824fca4ae5fb0a737b00f",
+      "commoncrypto-bench": "de8fb5807f7058ccdc197950cd6aa45fcdddd82568ae4f1bb696a30a714e4641",
+      "base-micro": "c1679eb39d9a2cdce2f7007fc8c7d370999716ebefda23f7905f533fa26407ad",
+      "commoncrypto-micro": "80f2405b862c898e5cda7d483c1b8d2a7225dc680dbc524cba52cd0eefd0d3af"
+    },
+    "source_sha256": {
+      "base": "5309adf7ec55b1aea3b419c3dd79197744bf2f19023e287e386d3efc435cdbef",
+      "commoncrypto": "f40cc9148f7d95dff41d4b86054868d60b54ddfd85a4af8580d7f6790249b343"
+    },
+    "manifest": "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+    "manifest_sha256": "3c9dea0ff10b68607f25692c84bfa2723cc8cb521566fdedfbf0b88b76c1684e",
+    "measured_rounds": [
+      1,
+      2,
+      3
+    ],
+    "warmup_round": 0,
+    "seed": 12345,
+    "quiet_context": "root authorized quiet window; CI37182476286 already completed; no builds/tests/pushes; all binaries compiled and profiling finished before timings; idle Runner.Listener and no Runner.Worker"
+  },
+  "profile": {
+    "context": {
+      "command": [
+        "/tmp/bms-md5-optimization/profile-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "100"
+      ],
+      "start_utc": "2026-10-04T06:29:39.054408+00:00",
+      "end_utc": "2026-10-04T06:29:47.257083+00:00",
+      "warmup_output": [
+        "charts=517 bytes=73152865\n",
+        "round=0 mode=scan workers=1 wall_ms=946.59 cpu_ms=946.398 charts_sec=546.171 notes=1354159 peak_rss_mb=114.203\n"
+      ],
+      "sample_tool_returncode": 0,
+      "sample_duration_seconds": 8,
+      "interval_ms": 1,
+      "binary_sha256": "51f50b476b06c9aee370eb8ff22d279ea8d5563505cb59d91437ff10383dced6",
+      "flags": "Apple Clang 21 -O3 -g -DNDEBUG -DBMS_PARSER_VERBOSE=0 -DBMS_BENCH_SCAN=1 -pthread",
+      "context": "10ad647 baseline after ARM SHA optimization; root reserved quiet window; compile/equivalence complete, no benchmark/build/test overlap; first corpus round completed before sampling; sampled throughput excluded"
+    },
+    "summary": {
+      "inclusive_samples": {
+        "scan": 6120,
+        "sha256": 211,
+        "md5": 1014,
+        "ensureTimeline": 602,
+        "setTiming": 166
+      },
+      "percent_of_scan_samples": {
+        "scan": 100.0,
+        "sha256": 3.45,
+        "md5": 16.57,
+        "ensureTimeline": 9.84,
+        "setTiming": 2.71
+      },
+      "method": "Matching inclusive frames in sample call graph only; Scan(vector, atomic) denominator; main-thread preload/join and duplicate summary frames excluded."
+    },
+    "raw_sample_sha256": "88430e0f4f8936f73c3b4e922de7cf0cb9877f25d99ad400a733fbb6af5103b9"
+  },
+  "throughput_raw": [
+    {
+      "mode": "micro",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-micro"
+      ],
+      "start_utc": "2026-10-04T06:30:36.468198+00:00",
+      "end_utc": "2026-10-04T06:30:38.602117+00:00",
+      "returncode": 0,
+      "stdout": "size=0 iterations=262144 round=0 wall_ms=79.401 cpu_ms=69.301 checksum=18112512\nsize=0 iterations=262144 round=1 wall_ms=49.2017 cpu_ms=49.128 checksum=36225024\nsize=0 iterations=262144 round=2 wall_ms=48.3554 cpu_ms=48.313 checksum=54337536\nsize=0 iterations=262144 round=3 wall_ms=48.9637 cpu_ms=48.923 checksum=72450048\nsize=64 iterations=262144 round=0 wall_ms=80.0745 cpu_ms=79.881 checksum=93151232\nsize=64 iterations=262144 round=1 wall_ms=79.0334 cpu_ms=79.015 checksum=113852416\nsize=64 iterations=262144 round=2 wall_ms=79.377 cpu_ms=79.325 checksum=134553600\nsize=64 iterations=262144 round=3 wall_ms=79.5752 cpu_ms=79.557 checksum=155254784\nsize=4096 iterations=16384 round=0 wall_ms=144.293 cpu_ms=144.235 checksum=156426240\nsize=4096 iterations=16384 round=1 wall_ms=144.461 cpu_ms=144.354 checksum=157597696\nsize=4096 iterations=16384 round=2 wall_ms=142.294 cpu_ms=142.222 checksum=158769152\nsize=4096 iterations=16384 round=3 wall_ms=141.741 cpu_ms=141.718 checksum=159940608\nsize=1048576 iterations=64 round=0 wall_ms=138.908 cpu_ms=138.893 checksum=159945312\nsize=1048576 iterations=64 round=1 wall_ms=139.058 cpu_ms=139.008 checksum=159950016\nsize=1048576 iterations=64 round=2 wall_ms=144.377 cpu_ms=141.795 checksum=159954720\nsize=1048576 iterations=64 round=3 wall_ms=144.479 cpu_ms=143.335 checksum=159959424\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 1,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-micro"
+      ],
+      "start_utc": "2026-10-04T06:30:38.602353+00:00",
+      "end_utc": "2026-10-04T06:30:40.471105+00:00",
+      "returncode": 0,
+      "stdout": "size=0 iterations=262144 round=0 wall_ms=114.085 cpu_ms=113.492 checksum=18112512\nsize=0 iterations=262144 round=1 wall_ms=72.1365 cpu_ms=72.123 checksum=36225024\nsize=0 iterations=262144 round=2 wall_ms=71.8637 cpu_ms=71.851 checksum=54337536\nsize=0 iterations=262144 round=3 wall_ms=72.1148 cpu_ms=72.099 checksum=72450048\nsize=64 iterations=262144 round=0 wall_ms=92.0925 cpu_ms=92.079 checksum=93151232\nsize=64 iterations=262144 round=1 wall_ms=91.9932 cpu_ms=91.987 checksum=113852416\nsize=64 iterations=262144 round=2 wall_ms=92.9942 cpu_ms=92.99 checksum=134553600\nsize=64 iterations=262144 round=3 wall_ms=94.6824 cpu_ms=94.539 checksum=155254784\nsize=4096 iterations=16384 round=0 wall_ms=105.559 cpu_ms=105.533 checksum=156426240\nsize=4096 iterations=16384 round=1 wall_ms=105.233 cpu_ms=105.221 checksum=157597696\nsize=4096 iterations=16384 round=2 wall_ms=105.217 cpu_ms=105.19 checksum=158769152\nsize=4096 iterations=16384 round=3 wall_ms=105.232 cpu_ms=105.215 checksum=159940608\nsize=1048576 iterations=64 round=0 wall_ms=100.785 cpu_ms=100.778 checksum=159945312\nsize=1048576 iterations=64 round=1 wall_ms=100.866 cpu_ms=100.826 checksum=159950016\nsize=1048576 iterations=64 round=2 wall_ms=100.819 cpu_ms=100.788 checksum=159954720\nsize=1048576 iterations=64 round=3 wall_ms=101.313 cpu_ms=101.208 checksum=159959424\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 2,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-micro"
+      ],
+      "start_utc": "2026-10-04T06:30:40.471321+00:00",
+      "end_utc": "2026-10-04T06:30:41.984696+00:00",
+      "returncode": 0,
+      "stdout": "size=0 iterations=262144 round=0 wall_ms=74.2515 cpu_ms=74.089 checksum=18112512\nsize=0 iterations=262144 round=1 wall_ms=74.3183 cpu_ms=74.016 checksum=36225024\nsize=0 iterations=262144 round=2 wall_ms=74.2697 cpu_ms=73.986 checksum=54337536\nsize=0 iterations=262144 round=3 wall_ms=74.4836 cpu_ms=74.255 checksum=72450048\nsize=64 iterations=262144 round=0 wall_ms=94.42 cpu_ms=94.248 checksum=93151232\nsize=64 iterations=262144 round=1 wall_ms=95.2935 cpu_ms=95.034 checksum=113852416\nsize=64 iterations=262144 round=2 wall_ms=92.123 cpu_ms=92.12 checksum=134553600\nsize=64 iterations=262144 round=3 wall_ms=92.4952 cpu_ms=92.483 checksum=155254784\nsize=4096 iterations=16384 round=0 wall_ms=106.126 cpu_ms=106.118 checksum=156426240\nsize=4096 iterations=16384 round=1 wall_ms=105.3 cpu_ms=105.269 checksum=157597696\nsize=4096 iterations=16384 round=2 wall_ms=106.544 cpu_ms=106.535 checksum=158769152\nsize=4096 iterations=16384 round=3 wall_ms=105.225 cpu_ms=105.214 checksum=159940608\nsize=1048576 iterations=64 round=0 wall_ms=105.178 cpu_ms=102.517 checksum=159945312\nsize=1048576 iterations=64 round=1 wall_ms=105.765 cpu_ms=105.067 checksum=159950016\nsize=1048576 iterations=64 round=2 wall_ms=101.73 cpu_ms=101.633 checksum=159954720\nsize=1048576 iterations=64 round=3 wall_ms=101.129 cpu_ms=101.092 checksum=159959424\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-micro"
+      ],
+      "start_utc": "2026-10-04T06:30:41.984965+00:00",
+      "end_utc": "2026-10-04T06:30:43.660182+00:00",
+      "returncode": 0,
+      "stdout": "size=0 iterations=262144 round=0 wall_ms=47.579 cpu_ms=47.447 checksum=18112512\nsize=0 iterations=262144 round=1 wall_ms=47.0168 cpu_ms=46.918 checksum=36225024\nsize=0 iterations=262144 round=2 wall_ms=47.132 cpu_ms=46.957 checksum=54337536\nsize=0 iterations=262144 round=3 wall_ms=47.6735 cpu_ms=47.593 checksum=72450048\nsize=64 iterations=262144 round=0 wall_ms=83.284 cpu_ms=82.878 checksum=93151232\nsize=64 iterations=262144 round=1 wall_ms=82.9745 cpu_ms=82.56 checksum=113852416\nsize=64 iterations=262144 round=2 wall_ms=83.989 cpu_ms=82.915 checksum=134553600\nsize=64 iterations=262144 round=3 wall_ms=82.9849 cpu_ms=82.775 checksum=155254784\nsize=4096 iterations=16384 round=0 wall_ms=146.788 cpu_ms=146.636 checksum=156426240\nsize=4096 iterations=16384 round=1 wall_ms=145.269 cpu_ms=145.234 checksum=157597696\nsize=4096 iterations=16384 round=2 wall_ms=144.998 cpu_ms=144.94 checksum=158769152\nsize=4096 iterations=16384 round=3 wall_ms=144.007 cpu_ms=143.941 checksum=159940608\nsize=1048576 iterations=64 round=0 wall_ms=140.422 cpu_ms=140.363 checksum=159945312\nsize=1048576 iterations=64 round=1 wall_ms=141.737 cpu_ms=141.711 checksum=159950016\nsize=1048576 iterations=64 round=2 wall_ms=143.402 cpu_ms=141.855 checksum=159954720\nsize=1048576 iterations=64 round=3 wall_ms=141.02 cpu_ms=140.919 checksum=159959424\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:30:43.660457+00:00",
+      "end_utc": "2026-10-04T06:30:50.258379+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1430.79 cpu_ms=1430.24 charts_sec=361.339 notes=1354159 peak_rss_mb=155.047\nround=1 mode=full workers=1 wall_ms=1414.25 cpu_ms=1413.5 charts_sec=365.564 notes=1354159 peak_rss_mb=157.281\nround=2 mode=full workers=1 wall_ms=1402.09 cpu_ms=1401.46 charts_sec=368.736 notes=1354159 peak_rss_mb=157.344\nround=3 mode=full workers=1 wall_ms=1452.11 cpu_ms=1436.41 charts_sec=356.034 notes=1354159 peak_rss_mb=157.375\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 1,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:30:50.258673+00:00",
+      "end_utc": "2026-10-04T06:30:56.434434+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1382.97 cpu_ms=1382.06 charts_sec=373.832 notes=1354159 peak_rss_mb=154.828\nround=1 mode=full workers=1 wall_ms=1409.82 cpu_ms=1406.39 charts_sec=366.715 notes=1354159 peak_rss_mb=157.141\nround=2 mode=full workers=1 wall_ms=1386 cpu_ms=1385.2 charts_sec=373.015 notes=1354159 peak_rss_mb=157.172\nround=3 mode=full workers=1 wall_ms=1376.46 cpu_ms=1375.82 charts_sec=375.602 notes=1354159 peak_rss_mb=157.234\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 2,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:30:56.434775+00:00",
+      "end_utc": "2026-10-04T06:31:02.156890+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1399.62 cpu_ms=1398.45 charts_sec=369.386 notes=1354159 peak_rss_mb=154.828\nround=1 mode=full workers=1 wall_ms=1373.09 cpu_ms=1372.64 charts_sec=376.523 notes=1354159 peak_rss_mb=156.203\nround=2 mode=full workers=1 wall_ms=1376.31 cpu_ms=1374.74 charts_sec=375.642 notes=1354159 peak_rss_mb=156.266\nround=3 mode=full workers=1 wall_ms=1375.91 cpu_ms=1375.38 charts_sec=375.752 notes=1354159 peak_rss_mb=156.266\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:02.157147+00:00",
+      "end_utc": "2026-10-04T06:31:08.092215+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1458.23 cpu_ms=1455.66 charts_sec=354.538 notes=1354159 peak_rss_mb=152.797\nround=1 mode=full workers=1 wall_ms=1450.41 cpu_ms=1444.86 charts_sec=356.451 notes=1354159 peak_rss_mb=154.281\nround=2 mode=full workers=1 wall_ms=1402.35 cpu_ms=1401.88 charts_sec=368.667 notes=1354159 peak_rss_mb=154.562\nround=3 mode=full workers=1 wall_ms=1415.77 cpu_ms=1413.7 charts_sec=365.171 notes=1354159 peak_rss_mb=154.781\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:08.092532+00:00",
+      "end_utc": "2026-10-04T06:31:12.112182+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=948.273 cpu_ms=948.096 charts_sec=545.202 notes=1354159 peak_rss_mb=114.469\nround=1 mode=scan workers=1 wall_ms=941.513 cpu_ms=941.285 charts_sec=549.116 notes=1354159 peak_rss_mb=114.516\nround=2 mode=scan workers=1 wall_ms=989.044 cpu_ms=973.854 charts_sec=522.727 notes=1354159 peak_rss_mb=115.156\nround=3 mode=scan workers=1 wall_ms=941.085 cpu_ms=940.941 charts_sec=549.366 notes=1354159 peak_rss_mb=115.188\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 1,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:12.112487+00:00",
+      "end_utc": "2026-10-04T06:31:16.001773+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=935.573 cpu_ms=935.312 charts_sec=552.603 notes=1354159 peak_rss_mb=114.75\nround=1 mode=scan workers=1 wall_ms=917.305 cpu_ms=915.234 charts_sec=563.608 notes=1354159 peak_rss_mb=115.125\nround=2 mode=scan workers=1 wall_ms=928.824 cpu_ms=925.296 charts_sec=556.618 notes=1354159 peak_rss_mb=115.125\nround=3 mode=scan workers=1 wall_ms=900.844 cpu_ms=900.639 charts_sec=573.907 notes=1354159 peak_rss_mb=115.125\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 2,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:16.002032+00:00",
+      "end_utc": "2026-10-04T06:31:19.846146+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=916.981 cpu_ms=916.737 charts_sec=563.807 notes=1354159 peak_rss_mb=114.469\nround=1 mode=scan workers=1 wall_ms=915.479 cpu_ms=914.82 charts_sec=564.731 notes=1354159 peak_rss_mb=114.938\nround=2 mode=scan workers=1 wall_ms=905.408 cpu_ms=905.153 charts_sec=571.013 notes=1354159 peak_rss_mb=115.031\nround=3 mode=scan workers=1 wall_ms=910.261 cpu_ms=907.76 charts_sec=567.969 notes=1354159 peak_rss_mb=115.281\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:19.846595+00:00",
+      "end_utc": "2026-10-04T06:31:23.868290+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=950.279 cpu_ms=949.901 charts_sec=544.051 notes=1354159 peak_rss_mb=114.766\nround=1 mode=scan workers=1 wall_ms=944.017 cpu_ms=943.383 charts_sec=547.659 notes=1354159 peak_rss_mb=116.531\nround=2 mode=scan workers=1 wall_ms=962.181 cpu_ms=961.64 charts_sec=537.321 notes=1354159 peak_rss_mb=116.547\nround=3 mode=scan workers=1 wall_ms=963.881 cpu_ms=963.627 charts_sec=536.373 notes=1354159 peak_rss_mb=116.562\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:23.868695+00:00",
+      "end_utc": "2026-10-04T06:31:27.522950+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=866.551 cpu_ms=866.281 charts_sec=596.618 notes=1354159 peak_rss_mb=115.375\nround=1 mode=metadata workers=1 wall_ms=862.661 cpu_ms=862.01 charts_sec=599.309 notes=1354159 peak_rss_mb=115.766\nround=2 mode=metadata workers=1 wall_ms=864.985 cpu_ms=861.76 charts_sec=597.698 notes=1354159 peak_rss_mb=115.922\nround=3 mode=metadata workers=1 wall_ms=856.17 cpu_ms=855.357 charts_sec=603.852 notes=1354159 peak_rss_mb=115.922\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 1,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:27.523360+00:00",
+      "end_utc": "2026-10-04T06:31:30.994024+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=834.512 cpu_ms=831.814 charts_sec=619.524 notes=1354159 peak_rss_mb=114.891\nround=1 mode=metadata workers=1 wall_ms=813.491 cpu_ms=813.218 charts_sec=635.533 notes=1354159 peak_rss_mb=115.031\nround=2 mode=metadata workers=1 wall_ms=812.181 cpu_ms=811.93 charts_sec=636.558 notes=1354159 peak_rss_mb=115.031\nround=3 mode=metadata workers=1 wall_ms=811.393 cpu_ms=811.148 charts_sec=637.176 notes=1354159 peak_rss_mb=115.094\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 2,
+      "variant": "commoncrypto",
+      "command": [
+        "/tmp/bms-md5-optimization/commoncrypto-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:30.994435+00:00",
+      "end_utc": "2026-10-04T06:31:34.543701+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=826.116 cpu_ms=824.828 charts_sec=625.82 notes=1354159 peak_rss_mb=117.719\nround=1 mode=metadata workers=1 wall_ms=870.199 cpu_ms=854.438 charts_sec=594.117 notes=1354159 peak_rss_mb=118.344\nround=2 mode=metadata workers=1 wall_ms=832.125 cpu_ms=831.821 charts_sec=621.301 notes=1354159 peak_rss_mb=118.375\nround=3 mode=metadata workers=1 wall_ms=819.98 cpu_ms=819.84 charts_sec=630.503 notes=1354159 peak_rss_mb=118.391\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-md5-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:31:34.544198+00:00",
+      "end_utc": "2026-10-04T06:31:38.208963+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=879.313 cpu_ms=878.308 charts_sec=587.959 notes=1354159 peak_rss_mb=114.828\nround=1 mode=metadata workers=1 wall_ms=854.842 cpu_ms=854.612 charts_sec=604.79 notes=1354159 peak_rss_mb=114.922\nround=2 mode=metadata workers=1 wall_ms=869.007 cpu_ms=860.954 charts_sec=594.932 notes=1354159 peak_rss_mb=114.984\nround=3 mode=metadata workers=1 wall_ms=852.583 cpu_ms=852.108 charts_sec=606.392 notes=1354159 peak_rss_mb=114.984\n",
+      "stderr": ""
+    }
+  ],
+  "pooled_corpus_medians": {
+    "full": {
+      "base": {
+        "median_wall_ms": 1415.01,
+        "median_cpu_ms": 1413.6,
+        "rounds": [
+          [
+            1414.25,
+            1413.5
+          ],
+          [
+            1402.09,
+            1401.46
+          ],
+          [
+            1452.11,
+            1436.41
+          ],
+          [
+            1450.41,
+            1444.86
+          ],
+          [
+            1402.35,
+            1401.88
+          ],
+          [
+            1415.77,
+            1413.7
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 1376.385,
+        "median_cpu_ms": 1375.6,
+        "rounds": [
+          [
+            1409.82,
+            1406.39
+          ],
+          [
+            1386.0,
+            1385.2
+          ],
+          [
+            1376.46,
+            1375.82
+          ],
+          [
+            1373.09,
+            1372.64
+          ],
+          [
+            1376.31,
+            1374.74
+          ],
+          [
+            1375.91,
+            1375.38
+          ]
+        ]
+      },
+      "wall_change_percent": -2.729662687896195,
+      "cpu_change_percent": -2.6881720430107503,
+      "cpu_speedup": 1.0276243093922652
+    },
+    "scan": {
+      "base": {
+        "median_wall_ms": 953.099,
+        "median_cpu_ms": 952.5115000000001,
+        "rounds": [
+          [
+            941.513,
+            941.285
+          ],
+          [
+            989.044,
+            973.854
+          ],
+          [
+            941.085,
+            940.941
+          ],
+          [
+            944.017,
+            943.383
+          ],
+          [
+            962.181,
+            961.64
+          ],
+          [
+            963.881,
+            963.627
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 912.87,
+        "median_cpu_ms": 911.29,
+        "rounds": [
+          [
+            917.305,
+            915.234
+          ],
+          [
+            928.824,
+            925.296
+          ],
+          [
+            900.844,
+            900.639
+          ],
+          [
+            915.479,
+            914.82
+          ],
+          [
+            905.408,
+            905.153
+          ],
+          [
+            910.261,
+            907.76
+          ]
+        ]
+      },
+      "wall_change_percent": -4.220862680581982,
+      "cpu_change_percent": -4.327664285418087,
+      "cpu_speedup": 1.0452342284014968
+    },
+    "metadata": {
+      "base": {
+        "median_wall_ms": 859.4155,
+        "median_cpu_ms": 858.1555,
+        "rounds": [
+          [
+            862.661,
+            862.01
+          ],
+          [
+            864.985,
+            861.76
+          ],
+          [
+            856.17,
+            855.357
+          ],
+          [
+            854.842,
+            854.612
+          ],
+          [
+            869.007,
+            860.954
+          ],
+          [
+            852.583,
+            852.108
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 816.7355,
+        "median_cpu_ms": 816.529,
+        "rounds": [
+          [
+            813.491,
+            813.218
+          ],
+          [
+            812.181,
+            811.93
+          ],
+          [
+            811.393,
+            811.148
+          ],
+          [
+            870.199,
+            854.438
+          ],
+          [
+            832.125,
+            831.821
+          ],
+          [
+            819.98,
+            819.84
+          ]
+        ]
+      },
+      "wall_change_percent": -4.966165958142477,
+      "cpu_change_percent": -4.850694308898563,
+      "cpu_speedup": 1.0509798182305834
+    }
+  },
+  "micro_results": {
+    "micro-0": {
+      "base": {
+        "median_wall_ms": 48.01445,
+        "median_cpu_ms": 47.953,
+        "rounds": [
+          [
+            49.2017,
+            49.128
+          ],
+          [
+            48.3554,
+            48.313
+          ],
+          [
+            48.9637,
+            48.923
+          ],
+          [
+            47.0168,
+            46.918
+          ],
+          [
+            47.132,
+            46.957
+          ],
+          [
+            47.6735,
+            47.593
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 73.2031,
+        "median_cpu_ms": 73.0545,
+        "rounds": [
+          [
+            72.1365,
+            72.123
+          ],
+          [
+            71.8637,
+            71.851
+          ],
+          [
+            72.1148,
+            72.099
+          ],
+          [
+            74.3183,
+            74.016
+          ],
+          [
+            74.2697,
+            73.986
+          ],
+          [
+            74.4836,
+            74.255
+          ]
+        ]
+      },
+      "wall_change_percent": 52.46056135184307,
+      "cpu_change_percent": 52.346047171188445,
+      "cpu_speedup": 0.6564003586363605
+    },
+    "micro-64": {
+      "base": {
+        "median_wall_ms": 81.27485,
+        "median_cpu_ms": 81.05850000000001,
+        "rounds": [
+          [
+            79.0334,
+            79.015
+          ],
+          [
+            79.377,
+            79.325
+          ],
+          [
+            79.5752,
+            79.557
+          ],
+          [
+            82.9745,
+            82.56
+          ],
+          [
+            83.989,
+            82.915
+          ],
+          [
+            82.9849,
+            82.775
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 92.7447,
+        "median_cpu_ms": 92.7365,
+        "rounds": [
+          [
+            91.9932,
+            91.987
+          ],
+          [
+            92.9942,
+            92.99
+          ],
+          [
+            94.6824,
+            94.539
+          ],
+          [
+            95.2935,
+            95.034
+          ],
+          [
+            92.123,
+            92.12
+          ],
+          [
+            92.4952,
+            92.483
+          ]
+        ]
+      },
+      "wall_change_percent": 14.112422231477506,
+      "cpu_change_percent": 14.406878982463267,
+      "cpu_speedup": 0.8740733152534331
+    },
+    "micro-4096": {
+      "base": {
+        "median_wall_ms": 144.234,
+        "median_cpu_ms": 144.1475,
+        "rounds": [
+          [
+            144.461,
+            144.354
+          ],
+          [
+            142.294,
+            142.222
+          ],
+          [
+            141.741,
+            141.718
+          ],
+          [
+            145.269,
+            145.234
+          ],
+          [
+            144.998,
+            144.94
+          ],
+          [
+            144.007,
+            143.941
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 105.2325,
+        "median_cpu_ms": 105.218,
+        "rounds": [
+          [
+            105.233,
+            105.221
+          ],
+          [
+            105.217,
+            105.19
+          ],
+          [
+            105.232,
+            105.215
+          ],
+          [
+            105.3,
+            105.269
+          ],
+          [
+            106.544,
+            106.535
+          ],
+          [
+            105.225,
+            105.214
+          ]
+        ]
+      },
+      "wall_change_percent": -27.040434294271808,
+      "cpu_change_percent": -27.006711874989165,
+      "cpu_speedup": 1.369988975270391
+    },
+    "micro-1048576": {
+      "base": {
+        "median_wall_ms": 142.5695,
+        "median_cpu_ms": 141.753,
+        "rounds": [
+          [
+            139.058,
+            139.008
+          ],
+          [
+            144.377,
+            141.795
+          ],
+          [
+            144.479,
+            143.335
+          ],
+          [
+            141.737,
+            141.711
+          ],
+          [
+            143.402,
+            141.855
+          ],
+          [
+            141.02,
+            140.919
+          ]
+        ]
+      },
+      "commoncrypto": {
+        "median_wall_ms": 101.221,
+        "median_cpu_ms": 101.15,
+        "rounds": [
+          [
+            100.866,
+            100.826
+          ],
+          [
+            100.819,
+            100.788
+          ],
+          [
+            101.313,
+            101.208
+          ],
+          [
+            105.765,
+            105.067
+          ],
+          [
+            101.73,
+            101.633
+          ],
+          [
+            101.129,
+            101.092
+          ]
+        ]
+      },
+      "wall_change_percent": -29.002346224122267,
+      "cpu_change_percent": -28.643485499425047,
+      "cpu_speedup": 1.401413741967375
+    }
+  },
+  "micro_checksum_equivalence": true,
+  "tradeoffs": [
+    "0-byte fingerprint calls have +52.35% CPU time and 64-byte calls +14.41%; 4 KiB and 1 MiB calls improve 27.01% and 28.64%.",
+    "No size threshold introduced; real-chart Full, Scan, and Metadata modes improve.",
+    "Apple system backend only; non-Apple behavior retains portable MD5.",
+    "Public MD5 class/string API unchanged; Parser size narrowing remains 32-bit before the native call."
+  ],
+  "correctness": {
+    "exact_helper_equivalence": {
+      "checks_passed": 9813,
+      "checks_failed": 0,
+      "known_vectors": 7,
+      "random_seed": 12345,
+      "compiler_flags": "-std=c++17 -O2 -g -Wall -Werror -fsanitize=address,undefined -fno-omit-frame-pointer",
+      "extraction": "Literal md5Fingerprint function copied from final scratch Parser.cpp into exact-helper.h, then original comparison harness changed to call that helper.",
+      "exact_extracted_helper_source": "#pragma once\n#include \"commoncrypto/src/md5.h\"\n#if defined(__APPLE__)\n#include <CommonCrypto/CommonDigest.h>\n#endif\nnamespace {\nstd::string md5Fingerprint(const unsigned char *bytes, bms_parser::MD5::size_type length) {\n#if defined(__APPLE__)\n  static_assert(sizeof(CC_LONG) == sizeof(bms_parser::MD5::size_type));\n  unsigned char digest[CC_MD5_DIGEST_LENGTH];\n  // BMS identifies existing charts by their required legacy MD5 fingerprint.\n#pragma GCC diagnostic push\n#pragma GCC diagnostic ignored \"-Wdeprecated-declarations\"\n  CC_MD5(bytes, static_cast<CC_LONG>(length), digest);\n#pragma GCC diagnostic pop\n  char result[CC_MD5_DIGEST_LENGTH * 2 + 1];\n  constexpr char hex[] = \"0123456789abcdef\";\n  for (unsigned int i = 0; i < CC_MD5_DIGEST_LENGTH; ++i) {\n    result[i * 2] = hex[digest[i] >> 4];\n    result[i * 2 + 1] = hex[digest[i] & 15];\n  }\n  result[CC_MD5_DIGEST_LENGTH * 2] = 0;\n  return result;\n#else\n  bms_parser::MD5 hash;\n  hash.update(bytes, length);\n  hash.finalize();\n  return hash.hexdigest();\n#endif\n}\n\n}\n",
+      "harness_source": "#include \"exact-helper.h\"\n#include <algorithm>\n#include <array>\n#include <iostream>\n#include <random>\n#include <stdexcept>\n#include <vector>\nstd::string portable(const unsigned char *p,size_t size,size_t chunk){bms_parser::MD5 h;for(size_t i=0;i<size;i+=chunk)h.update(p+i,static_cast<unsigned>(std::min(chunk,size-i)));h.finalize();return h.hexdigest();}\nvoid check(bool ok,const char *what){if(!ok)throw std::runtime_error(what);}\nint main(){size_t checks=0;const std::pair<std::string,std::string> vectors[]={\n{\"\",\"d41d8cd98f00b204e9800998ecf8427e\"},{\"a\",\"0cc175b9c0f1b6a831c399e269772661\"},{\"abc\",\"900150983cd24fb0d6963f7d28e17f72\"},{\"message digest\",\"f96b697d7cb7938d525a2f31aaf161d0\"},{\"abcdefghijklmnopqrstuvwxyz\",\"c3fcd3d76192e4007dfb496cca67e13b\"},{\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\",\"d174ab98d277d9f5a5611c2c9f419d9f\"},{\"12345678901234567890123456789012345678901234567890123456789012345678901234567890\",\"57edf4a22be3c955ac49da2e2107b67a\"}};\nfor(auto &v:vectors){check(md5Fingerprint(reinterpret_cast<const unsigned char*>(v.first.data()),v.first.size())==v.second,\"RFC vector\");++checks;}\ncheck(md5Fingerprint(nullptr,0)==vectors[0].second,\"null empty\");++checks;\nstd::mt19937 rng(12345);\nfor(size_t n=0;n<1400;++n){size_t size=n<1025?n:rng()%262145;size_t offset=n%32;std::vector<unsigned char> bytes(size+offset);for(auto &x:bytes)x=static_cast<unsigned char>(rng());const auto *p=bytes.empty()?nullptr:bytes.data()+offset;auto actual=md5Fingerprint(p,static_cast<bms_parser::MD5::size_type>(size));for(size_t chunk:{size_t(1),size_t(7),size_t(55),size_t(64),size_t(129),size_t(4096),std::max(size_t(1),size)}){check(actual==portable(p,size,chunk),\"random binary/chunk/alignment equivalence\");++checks;}}\nstd::array<unsigned char,130> bytes{};for(auto &x:bytes)x=static_cast<unsigned char>(rng());for(size_t low:{size_t(0),size_t(1),size_t(55),size_t(64),size_t(129)}){size_t wide=(size_t{1}<<32)+low;check(md5Fingerprint(bytes.data(),static_cast<bms_parser::MD5::size_type>(wide))==portable(bytes.data(),low,130),\"parser length narrowing\");++checks;}\nstd::cout<<\"equivalence_checks=\"<<checks<<\" known_vectors=7 random_seed=12345 offsets=0..31 narrowed_lengths=2^32+[0,1,55,64,129]\\n\";}\n",
+      "stdout": "equivalence_checks=9813 known_vectors=7 random_seed=12345 offsets=0..31 narrowed_lengths=2^32+[0,1,55,64,129]\n",
+      "evidence_hashes": {
+        "source_sha256": "f40cc9148f7d95dff41d4b86054868d60b54ddfd85a4af8580d7f6790249b343",
+        "extracted_helper_sha256": "ee0fdeb779f350d695c4295f4966c7d8952b92d5f24ee8c891c5f83d05ca56ad",
+        "harness_sha256": "b56a3e3f6987fbb69c12de6eb14fb73863a91c4a2fd6f1140c6b6d50af8d8a07",
+        "binary_sha256": "027f1a1787ed23134a4e27cd2a5f0a439e1ac51947904aa7901f034ca971bfcd",
+        "result": "equivalence_checks=9813 known_vectors=7 random_seed=12345 offsets=0..31 narrowed_lengths=2^32+[0,1,55,64,129]\n",
+        "flags": "-std=c++17 -O2 -g -Wall -Werror -fsanitize=address,undefined -fno-omit-frame-pointer"
+      }
+    },
+    "parser_snapshots": {
+      "total_identical": 5170,
+      "expected_total": 5170,
+      "all_identical": true,
+      "mode_seed_comparisons": [
+        {
+          "comparison": true,
+          "mode": "full",
+          "seed": "12345",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "ready",
+          "seed": "12345",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "metadata",
+          "seed": "12345",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "scan",
+          "seed": "12345",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "scan-reference",
+          "seed": "12345",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "full",
+          "seed": "987654321",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "ready",
+          "seed": "987654321",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "metadata",
+          "seed": "987654321",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "scan",
+          "seed": "987654321",
+          "identical": true,
+          "rows": 517
+        },
+        {
+          "comparison": true,
+          "mode": "scan-reference",
+          "seed": "987654321",
+          "identical": true,
+          "rows": 517
+        }
+      ],
+      "commands": [
+        {
+          "variant": "base",
+          "mode": "full",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "full",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/full-12345-base.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/full-12345-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "full",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "full",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/full-12345-commoncrypto.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/full-12345-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "ready",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "ready",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/ready-12345-base.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/ready-12345-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "ready",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "ready",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/ready-12345-commoncrypto.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/ready-12345-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "metadata",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "metadata",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/metadata-12345-base.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/metadata-12345-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "metadata",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "metadata",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/metadata-12345-commoncrypto.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/metadata-12345-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "scan",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-12345-base.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-12345-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "scan",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-12345-commoncrypto.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-12345-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "scan-reference",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan-reference",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-reference-12345-base.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-reference-12345-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "scan-reference",
+          "seed": "12345",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan-reference",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-reference-12345-commoncrypto.txt",
+            "12345"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-reference-12345-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "full",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "full",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/full-987654321-base.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/full-987654321-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "full",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "full",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/full-987654321-commoncrypto.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/full-987654321-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "ready",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "ready",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/ready-987654321-base.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/ready-987654321-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "ready",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "ready",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/ready-987654321-commoncrypto.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/ready-987654321-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "metadata",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "metadata",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/metadata-987654321-base.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/metadata-987654321-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "metadata",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "metadata",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/metadata-987654321-commoncrypto.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/metadata-987654321-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "scan",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-987654321-base.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-987654321-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "scan",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-987654321-commoncrypto.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-987654321-commoncrypto.txt"
+        },
+        {
+          "variant": "base",
+          "mode": "scan-reference",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/base-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan-reference",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-reference-987654321-base.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-reference-987654321-base.txt"
+        },
+        {
+          "variant": "commoncrypto",
+          "mode": "scan-reference",
+          "seed": "987654321",
+          "command": [
+            "/tmp/bms-md5-optimization/commoncrypto-bench",
+            "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+            "scan-reference",
+            "1",
+            "1",
+            "/tmp/bms-md5-optimization/results/snapshots/scan-reference-987654321-commoncrypto.txt",
+            "987654321"
+          ],
+          "returncode": 0,
+          "snapshot_file": "/tmp/bms-md5-optimization/results/snapshots/scan-reference-987654321-commoncrypto.txt"
+        }
+      ],
+      "includes_metadata_fields": [
+        "MD5",
+        "SHA256"
+      ],
+      "timings_excluded": true
+    }
+  },
+  "process_inventories": {
+    "profile-processes-before.txt": {
+      "timestamp_utc": "2026-10-04T06:29:36.689914+00:00",
+      "relevant_processes": [
+        "8318  8233   0.0 /Users/xf/actions-runner/bin/Runner.Listener run --startuptype service"
+      ],
+      "raw_inventory_sha256": "603542a2eb1d6409492d1a698cc07e0cf8d46a0b9e50554732c9b12e35117d34",
+      "note": "Only CI/build/test process matches are included. Complete local process inventory remains scratch-only; unrelated process details are excluded from this shareable artifact."
+    },
+    "profile-processes-after.txt": {
+      "timestamp_utc": "2026-10-04T06:29:47.262058+00:00",
+      "relevant_processes": [
+        "8318  8233   0.0 /Users/xf/actions-runner/bin/Runner.Listener run --startuptype service"
+      ],
+      "raw_inventory_sha256": "223d7383a98806bcac72c9a2eb06d60ec1221da55481643b8b3d84e6192e4cbe",
+      "note": "Only CI/build/test process matches are included. Complete local process inventory remains scratch-only; unrelated process details are excluded from this shareable artifact."
+    },
+    "processes-before.txt": {
+      "timestamp_utc": "2026-10-04T06:30:36.422724+00:00",
+      "relevant_processes": [
+        "8318  8233   0.0 /Users/xf/actions-runner/bin/Runner.Listener run --startuptype service"
+      ],
+      "raw_inventory_sha256": "ae346d248b7447afdc3019b6c385c53a46189f3592381bfe27c956b675c66e2b",
+      "note": "Only CI/build/test process matches are included. Complete local process inventory remains scratch-only; unrelated process details are excluded from this shareable artifact."
+    },
+    "processes-after.txt": {
+      "timestamp_utc": "2026-10-04T06:31:38.209283+00:00",
+      "relevant_processes": [
+        "8318  8233   0.0 /Users/xf/actions-runner/bin/Runner.Listener run --startuptype service"
+      ],
+      "raw_inventory_sha256": "ddef323a5ff1fcd859dcc0fe36afbbeca0022569da03ec73df3c42c020971040",
+      "note": "Only CI/build/test process matches are included. Complete local process inventory remains scratch-only; unrelated process details are excluded from this shareable artifact."
+    }
+  },
+  "sources": [
+    {
+      "title": "Apple CC_MD5 API reference",
+      "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/CC_MD5.3cc.html"
+    }
+  ],
+  "report_markdown": "# Apple MD5 backend investigation \u2014 2026-10-04\n\nRecommendation: promote the exact CommonCrypto candidate for production validation. On this Apple arm64 workload, the parser improves by roughly 3\u20135% while preserving chart fingerprints. Tiny standalone inputs get slower; this tradeoff is explicit below. This investigation changed scratch files only.\n\n## Candidate\n\nBaseline commit: `10ad6470e0204db4d982059db603f8c82a860b33`, which already contains ARM SHA-256 acceleration.\n\nThe production delta is confined to `src/Parser.cpp`: a local anonymous-namespace `md5Fingerprint` helper uses Apple `CC_MD5` under `__APPLE__`, converts its 16 digest bytes into lowercase hexadecimal, and retains the original portable MD5 update/final/hexdigest sequence elsewhere. The public MD5 class and string API are unchanged. There is no new production header, runtime dispatch, target flag, or link dependency. CommonCrypto is supplied through Apple's system library, as documented in the local SDK and [Apple's MD5 API reference](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/CC_MD5.3cc.html).\n\nThe helper receives `MD5::size_type`, preserving the existing 32-bit input-length narrowing. It hashes the specified original bytes, including NUL bytes; it does not decode text or chunk a wider input to change existing length semantics. Deprecation suppression is scoped to the single legacy-fingerprint API call. The new code does not replace MD5 with another algorithm.\n\n`commoncrypto/src/ParserHashes.h` exists only for research harnesses. It is not a proposed production file. The final helper was extracted literally from `Parser.cpp` and tested again separately, so acceptance evidence covers the exact candidate.\n\n## Correctness completed in this investigation\n\n- **9,813 ASan+UBSan equivalence checks passed against the exact extracted Parser.cpp helper**, compiled with `-Wall -Werror`.\n- Seven RFC known-answer vectors, empty `nullptr + 0`, raw binary inputs including NUL, every length 0\u20131024 plus randomized larger lengths, exact-size buffers with offsets 0\u201331, and seven portable streaming chunk sizes.\n- Explicit narrowing cases for lengths `2^32 + {0, 1, 55, 64, 129}`, tested through the same `MD5::size_type` conversion with actual small byte buffers. These test the conversion contract without fabricating a huge vector.\n- **5,170/5,170 parser snapshots identical**: 517 charts \u00d7 Full/Ready/Metadata/Scan/Scan-reference \u00d7 seeds 12345 and 987654321. Metadata serialization includes MD5 and SHA256. These separate correctness runs were excluded from performance claims.\n- Every microbenchmark checksum matches across all variants, sizes, and rounds.\n\nExact helper evidence: `../exact-helper.h`, `../equivalence-exact.cpp`, `../equivalence-exact-results.txt`. Parser comparisons: `snapshots/results.json` and adjacent fingerprint files. Root owns subsequent production/platform/application validation.\n\n## Current baseline profile\n\nAfter the SHA optimization, a fresh warmed Scan profile measured **MD5 at 16.57%** and SHA256 at 3.45% of 6,120 inclusive Scan samples. Timeline insertion was 9.84%; event timing was 2.71%. `/usr/bin/sample` ran for 8 seconds at 1 ms intervals, after one corpus round, in the reserved quiet window. Main-thread preload/join stacks and duplicate summary frames were excluded. The profile's throughput was discarded.\n\n## Quiet corpus benchmark\n\n517 real charts; 73,152,865 original bytes; seed 12345; one worker. Each mode used separate baseline/candidate/candidate/baseline processes with four rounds per process. Round 0 was warmup; medians use six measured rounds per version. Apple Clang 21, C++17, `-O3 -DNDEBUG -DBMS_PARSER_VERBOSE=0 -DBMS_BENCH_SCAN=1 -pthread`. Candidate additionally compiled cleanly with `-Wall -Werror`.\n\nMeasured window: 2026-10-04T06:30:36.468198+00:00\u20132026-10-04T06:31:38.208963+00:00. CI37182476286 was already complete. All builds, equivalence checks, and profiling finished before throughput began; root reserved the machine and ran no builds/tests/pushes during timings. Process inventories before/after show idle Runner.Listener at 0% and no Runner.Worker/compiler/test jobs.\n\n| Mode | Baseline CPU ms | CommonCrypto CPU ms | CPU change | Wall change |\n|---|---:|---:|---:|---:|\n| Full | 1413.60 | 1375.60 | -2.69% | -2.73% |\n| Scan | 952.51 | 911.29 | -4.33% | -4.22% |\n| Metadata | 858.16 | 816.53 | -4.85% | -4.97% |\n\n## MD5 microbenchmark and tiny-input tradeoff\n\nDeterministic original byte arrays and the same hex-returning helper behavior. Separate ABBA processes, warmup excluded, six measured rounds per version. Each row includes the full fingerprint call, not only compression. Negative change is faster.\n\n| Input size | Calls per round | Portable CPU ms | CommonCrypto CPU ms | CPU change |\n|---|---:|---:|---:|---:|\n| 0 bytes | 262,144 | 47.953 | 73.055 | **+52.35%** |\n| 64 bytes | 262,144 | 81.059 | 92.737 | **+14.41%** |\n| 4 KiB | 16,384 | 144.148 | 105.218 | -27.01% |\n| 1 MiB | 64 | 141.753 | 101.150 | -28.64% |\n\nCommonCrypto is slower for the two tiny standalone inputs and approximately 1.37\u20131.40x faster for the larger inputs. The measured real-chart corpus still improves in every mode. No size threshold was introduced; the candidate keeps one simple backend choice. Non-Apple platforms retain the portable implementation and do not receive this system-backend acceleration.\n\n## Artifacts\n\n- `commoncrypto.patch`: exact production candidate delta, Parser.cpp only.\n- `throughput.json`: commands, timestamps, raw output, exit codes.\n- `summary.json`: all measured rounds plus CPU/wall medians.\n- `context.json`: flags and source/binary/manifest SHA256 hashes.\n- `sample-scan.txt`, `profile-context.json`, `profile-summary.json`: fresh profile evidence.\n- Process inventories for both profiling and throughput.\n- `snapshots/`: 5,170 baseline/candidate parser comparisons.\n",
+  "production_validation": {
+    "commands": [
+      "make clean && make test && make test_amalgamation",
+      "python3 /tmp/bms-md5-final/verify-matrix.py"
+    ],
+    "clean_suites": "PASS",
+    "matrix": [
+      {
+        "label": "native-sanitized-build",
+        "command": [
+          "c++",
+          "-std=c++17",
+          "-Wall",
+          "-Werror",
+          "-O1",
+          "-g",
+          "-fsanitize=address,undefined,float-cast-overflow",
+          "-fno-sanitize-recover=all",
+          "/tmp/bms-md5-final/hash-tests.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Chart.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/EucKrConverter.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/JavaCharset.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/LandmineNote.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/LongNote.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Measure.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Modifier.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Note.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Parser.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/SHA256.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/ShiftJISConverter.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/TimeLine.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/md5.cpp",
+          "-o",
+          "/tmp/bms-md5-final/native-sanitized"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "native-sanitized",
+        "command": [
+          "/tmp/bms-md5-final/native-sanitized"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "portable-gcc-build",
+        "command": [
+          "/opt/homebrew/bin/g++-15",
+          "-std=c++17",
+          "-Wall",
+          "-Werror",
+          "-O2",
+          "/tmp/bms-md5-final/hash-tests.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Chart.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/EucKrConverter.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/JavaCharset.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/LandmineNote.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/LongNote.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Measure.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Modifier.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Note.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Parser.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/SHA256.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/ShiftJISConverter.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/TimeLine.cpp",
+          "/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/md5.cpp",
+          "-o",
+          "/tmp/bms-md5-final/portable-gcc"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "portable-gcc",
+        "command": [
+          "/tmp/bms-md5-final/portable-gcc"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "macos-x86-fallback",
+        "command": [
+          "c++",
+          "-std=c++17",
+          "-Wall",
+          "-Werror",
+          "-O2",
+          "-target",
+          "x86_64-apple-macos11",
+          "-isysroot",
+          "/Applications/Xcode-26.6.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+          "-c",
+          "build/bms_parser.cpp",
+          "-o",
+          "/tmp/bms-md5-final/macos-x86-fallback.o"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "ios-arm64",
+        "command": [
+          "c++",
+          "-std=c++17",
+          "-Wall",
+          "-Werror",
+          "-O2",
+          "-target",
+          "arm64-apple-ios15.0",
+          "-isysroot",
+          "/Applications/Xcode-26.6.0.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk",
+          "-c",
+          "build/bms_parser.cpp",
+          "-o",
+          "/tmp/bms-md5-final/ios-arm64.o"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "android-arm64-fallback",
+        "command": [
+          "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang++",
+          "-std=c++17",
+          "-Wall",
+          "-Werror",
+          "-O2",
+          "-c",
+          "build/bms_parser.cpp",
+          "-o",
+          "/tmp/bms-md5-final/android-arm64-fallback.o"
+        ],
+        "returncode": 0
+      },
+      {
+        "label": "android-arm64-sha2",
+        "command": [
+          "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang++",
+          "-std=c++17",
+          "-Wall",
+          "-Werror",
+          "-O2",
+          "-march=armv8-a+crypto",
+          "-c",
+          "build/bms_parser.cpp",
+          "-o",
+          "/tmp/bms-md5-final/android-arm64-sha2.o"
+        ],
+        "returncode": 0
+      }
+    ],
+    "matrix_script": "from pathlib import Path\nimport json, subprocess\nroot=Path('/Users/xf/workspace/SNURhythm/bms-parser-cpp')\nout=Path('/tmp/bms-md5-final')\nresults=[]\ndef run(label,cmd):\n p=subprocess.run(cmd,cwd=root,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)\n (out/(label+'.log')).write_text(p.stdout)\n results.append({'label':label,'command':cmd,'returncode':p.returncode})\n (out/'matrix-results.json').write_text(json.dumps(results,indent=2)+'\\n')\n if p.returncode:raise SystemExit(label+' failed: '+p.stdout[-2000:])\n print(label,'PASS',flush=True)\nsources=[str(out/'hash-tests.cpp'),*[str(p) for p in sorted((root/'src').glob('*.cpp'))]]\nfor label,cxx,extra in [\n ('native-sanitized','c++',['-O1','-g','-fsanitize=address,undefined,float-cast-overflow','-fno-sanitize-recover=all']),\n ('portable-gcc','/opt/homebrew/bin/g++-15',['-O2']),\n]:\n binary=str(out/label)\n run(label+'-build',[cxx,'-std=c++17','-Wall','-Werror',*extra,*sources,'-o',binary])\n run(label,[binary])\nmacsdk=subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()\niosdk=subprocess.check_output(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip()\nndk='/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang++'\nfor label,cxx,extra in [\n ('macos-x86-fallback','c++',['-target','x86_64-apple-macos11','-isysroot',macsdk]),\n ('ios-arm64','c++',['-target','arm64-apple-ios15.0','-isysroot',iosdk]),\n ('android-arm64-fallback',ndk,[]),\n ('android-arm64-sha2',ndk,['-march=armv8-a+crypto']),\n]:\n run(label,[cxx,'-std=c++17','-Wall','-Werror','-O2',*extra,'-c','build/bms_parser.cpp','-o',str(out/(label+'.o'))])\nprint('ALL MATRIX CHECKS PASS',flush=True)\n",
+    "fixture_driver": "#include <algorithm>\n#include <atomic>\n#include \"/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/Parser.h\"\n#include <iostream>\n#include <memory>\n#include <string>\n#include <vector>\n#include \"/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/SHA256.h\"\n#include \"/Users/xf/workspace/SNURhythm/bms-parser-cpp/src/md5.h\"\n#define ASSERT_EQ(a,b,desc) do { if ((a)!=(b)) { std::cerr << desc << \" mismatch\\n\"; return 1; } } while (0)\n#include \"/Users/xf/workspace/SNURhythm/bms-parser-cpp/test/HashTests.h\"\nint main() { if (runHashBoundaryTests() || runParserHashBoundaryTests()) return 1; std::cout << \"Hash class and parser raw-byte boundary vectors PASS\\n\"; }\n",
+    "new_parser_boundary_fixtures": {
+      "lengths": [
+        55,
+        56,
+        57,
+        63,
+        64,
+        65,
+        119,
+        120,
+        127,
+        128,
+        129,
+        255,
+        256,
+        257,
+        1024,
+        65537
+      ],
+      "modes": [
+        "Full",
+        "Metadata",
+        "Scan"
+      ],
+      "baseline_passed_before_backend_change": true
+    },
+    "source_sha256": {
+      "src/Parser.cpp": "6e720725db2ac646885a30e0aae6975b9a3bb25d0405788d98db1412b43518d2",
+      "test/HashTests.h": "4caaaac76cf932aa3f99619d8ded3e87b946f05dff362136f1e5b318e90b24b5",
+      "test/main.cpp": "7631a2d2a26a2b3fc994a3103cffa4227845e74c0efe754e759780796876f5bf",
+      "build/bms_parser.hpp": "4339e276fd3f8f0a3693bafdd6a86dc1d667250811fb70eb2847e7bb776b703e",
+      "build/bms_parser.cpp": "f79d4b4170369e2b5b32950ac4745da9f1920addc733aaa7ccc03bfb44058e37"
+    },
+    "production_candidate_difference": "Only a comment documenting retained one-shot length conversion; helper and call expression unchanged."
+  }
+}
