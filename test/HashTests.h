@@ -50,6 +50,23 @@ inline int runHashBoundaryTests() {
       ASSERT_EQ(std::string(test.sha256), hex, "chunked SHA-256");
       ASSERT_EQ(std::string(test.md5), md5.hexdigest(), "chunked MD5");
     }
+    if (test.size == 129 || test.size == 257 || test.size == 65537) {
+      // SHA update accepts byte-aligned input. Exact-sized buffers also let
+      // sanitizers catch vector loads that read beyond the final full block.
+      for (const size_t offset : {size_t{1}, size_t{3}, size_t{15}}) {
+        const auto storage = std::make_unique<unsigned char[]>(offset + bytes.size());
+        std::copy(bytes.begin(), bytes.end(), storage.get() + offset);
+        bms_parser::SHA256 sha;
+        sha.init();
+        sha.update(storage.get() + offset, static_cast<unsigned int>(bytes.size()));
+        unsigned char digest[32];
+        sha.final(digest);
+        std::string hex;
+        constexpr char digits[] = "0123456789abcdef";
+        for (const auto byte : digest) { hex += digits[byte >> 4]; hex += digits[byte & 15]; }
+        ASSERT_EQ(std::string(test.sha256), hex, "unaligned SHA-256");
+      }
+    }
   }
   return 0;
 }

@@ -1,0 +1,1243 @@
+{
+  "context": {
+    "baseline_commit": "33596fa855ec1b8fd92f12b719979c27bdce233a",
+    "flags": "Apple Clang 21 -std=c++17 -O3 -DNDEBUG -DBMS_PARSER_VERBOSE=0 -DBMS_BENCH_SCAN=1 -pthread",
+    "features": "__aarch64__=1 __ARM_FEATURE_SHA2=1 __BYTE_ORDER__=__ORDER_LITTLE_ENDIAN__",
+    "binary_sha256": {
+      "base-bench": "277c4dcfedd152f2ebee8a8b66c34fe650710e66b89f4c0ebfd43b64ce9dff13",
+      "sha-arm-bench": "b34a11eda8fd0138d17dc1b407b86c83d490eb28e5a16044e15dbad2e0023f5e",
+      "base-micro": "96954dbc7cfa69b1aaccf8d0fb3e839c88d38bd10ab932e359d7ab5c4b857980",
+      "sha-arm-micro": "c80fa162e508b055b716a4dc933b850d3f949957cc771670a87cad9198a153a6"
+    },
+    "source_sha256": {
+      "base": "7a117f9e766cf5ea206869c255e0a624a7ae993d53e8e294267c6ec211e56d48",
+      "sha-arm": "25b617d65a0846620c51461e3582c2fc6afe51fd545a876224059597c8f03bb1"
+    },
+    "manifest": "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+    "manifest_sha256": "3c9dea0ff10b68607f25692c84bfa2723cc8cb521566fdedfbf0b88b76c1684e",
+    "measured_rounds": [
+      1,
+      2,
+      3
+    ],
+    "warmup_round": 0,
+    "seed": 12345,
+    "quiet_context": "root authorized quiet window; no builds/tests/pushes; all binaries compiled before timings; idle Runner.Listener and no Runner.Worker",
+    "micro_flags": "Apple Clang 21 -std=c++17 -O3 -DNDEBUG with variant src include path"
+  },
+  "summary": {
+    "full": {
+      "base": {
+        "median_wall_ms": 1710.9650000000001,
+        "median_cpu_ms": 1710.0900000000001,
+        "rounds": [
+          [
+            1711.64,
+            1711.25
+          ],
+          [
+            1709.54,
+            1708.93
+          ],
+          [
+            1725.62,
+            1721.22
+          ],
+          [
+            1710.29,
+            1708.45
+          ],
+          [
+            1716.61,
+            1716.01
+          ],
+          [
+            1700.66,
+            1700.16
+          ]
+        ]
+      },
+      "sha-arm": {
+        "median_wall_ms": 1423.365,
+        "median_cpu_ms": 1423.0300000000002,
+        "rounds": [
+          [
+            1420.49,
+            1420.14
+          ],
+          [
+            1460.99,
+            1444.98
+          ],
+          [
+            1405.0,
+            1404.65
+          ],
+          [
+            1432.29,
+            1427.19
+          ],
+          [
+            1406.55,
+            1405.92
+          ],
+          [
+            1426.24,
+            1425.92
+          ]
+        ]
+      },
+      "wall_change_percent": -16.809227541182903,
+      "cpu_change_percent": -16.786251016028388,
+      "cpu_speedup": 1.2017244892939714
+    },
+    "scan": {
+      "base": {
+        "median_wall_ms": 1254.075,
+        "median_cpu_ms": 1253.28,
+        "rounds": [
+          [
+            1260.22,
+            1259.87
+          ],
+          [
+            1255.99,
+            1255.6
+          ],
+          [
+            1252.16,
+            1250.96
+          ],
+          [
+            1245.78,
+            1245.38
+          ],
+          [
+            1243.15,
+            1242.91
+          ],
+          [
+            1257.25,
+            1256.34
+          ]
+        ]
+      },
+      "sha-arm": {
+        "median_wall_ms": 958.7745,
+        "median_cpu_ms": 957.4065,
+        "rounds": [
+          [
+            946.068,
+            945.64
+          ],
+          [
+            960.509,
+            959.903
+          ],
+          [
+            945.235,
+            944.915
+          ],
+          [
+            957.72,
+            955.594
+          ],
+          [
+            961.396,
+            959.219
+          ],
+          [
+            959.829,
+            959.552
+          ]
+        ]
+      },
+      "wall_change_percent": -23.547275880629147,
+      "cpu_change_percent": -23.607932784373798,
+      "cpu_speedup": 1.3090364437676159
+    },
+    "metadata": {
+      "base": {
+        "median_wall_ms": 1170.12,
+        "median_cpu_ms": 1168.955,
+        "rounds": [
+          [
+            1164.36,
+            1163.07
+          ],
+          [
+            1153.96,
+            1153.69
+          ],
+          [
+            1175.88,
+            1174.84
+          ],
+          [
+            1178.15,
+            1177.69
+          ],
+          [
+            1178.5,
+            1175.32
+          ],
+          [
+            1162.47,
+            1160.99
+          ]
+        ]
+      },
+      "sha-arm": {
+        "median_wall_ms": 859.835,
+        "median_cpu_ms": 859.345,
+        "rounds": [
+          [
+            863.519,
+            863.037
+          ],
+          [
+            849.993,
+            849.724
+          ],
+          [
+            891.036,
+            876.728
+          ],
+          [
+            868.845,
+            868.198
+          ],
+          [
+            851.786,
+            851.522
+          ],
+          [
+            856.151,
+            855.653
+          ]
+        ]
+      },
+      "wall_change_percent": -26.51736574026594,
+      "cpu_change_percent": -26.486049505755137,
+      "cpu_speedup": 1.3602860318032919
+    },
+    "micro-64": {
+      "base": {
+        "median_wall_ms": 172.34449999999998,
+        "median_cpu_ms": 172.2955,
+        "rounds": [
+          [
+            170.616,
+            170.581
+          ],
+          [
+            174.21,
+            174.199
+          ],
+          [
+            171.367,
+            171.326
+          ],
+          [
+            170.743,
+            170.664
+          ],
+          [
+            173.322,
+            173.265
+          ],
+          [
+            181.241,
+            181.049
+          ]
+        ]
+      },
+      "sha-arm": {
+        "median_wall_ms": 29.92035,
+        "median_cpu_ms": 29.918,
+        "rounds": [
+          [
+            34.2904,
+            34.29
+          ],
+          [
+            29.7737,
+            29.762
+          ],
+          [
+            29.7272,
+            29.727
+          ],
+          [
+            30.0485,
+            29.994
+          ],
+          [
+            29.9654,
+            29.965
+          ],
+          [
+            29.8753,
+            29.871
+          ]
+        ]
+      },
+      "wall_change_percent": -82.63921970239839,
+      "cpu_change_percent": -82.63564631693805,
+      "cpu_speedup": 5.758924393341801
+    },
+    "micro-4096": {
+      "base": {
+        "median_wall_ms": 308.36350000000004,
+        "median_cpu_ms": 308.265,
+        "rounds": [
+          [
+            306.467,
+            306.331
+          ],
+          [
+            306.075,
+            306.021
+          ],
+          [
+            311.517,
+            311.322
+          ],
+          [
+            308.809,
+            308.728
+          ],
+          [
+            307.918,
+            307.802
+          ],
+          [
+            314.273,
+            314.151
+          ]
+        ]
+      },
+      "sha-arm": {
+        "median_wall_ms": 31.58645,
+        "median_cpu_ms": 31.585,
+        "rounds": [
+          [
+            31.9379,
+            31.938
+          ],
+          [
+            32.033,
+            32.029
+          ],
+          [
+            32.1103,
+            32.088
+          ],
+          [
+            31.2172,
+            31.219
+          ],
+          [
+            31.229,
+            31.223
+          ],
+          [
+            31.235,
+            31.232
+          ]
+        ]
+      },
+      "wall_change_percent": -89.75674812356196,
+      "cpu_change_percent": -89.75394546899584,
+      "cpu_speedup": 9.759854361247427
+    },
+    "micro-1048576": {
+      "base": {
+        "median_wall_ms": 305.297,
+        "median_cpu_ms": 305.2455,
+        "rounds": [
+          [
+            302.514,
+            302.47
+          ],
+          [
+            313.244,
+            312.733
+          ],
+          [
+            301.844,
+            301.771
+          ],
+          [
+            308.226,
+            308.173
+          ],
+          [
+            305.09,
+            305.041
+          ],
+          [
+            305.504,
+            305.45
+          ]
+        ]
+      },
+      "sha-arm": {
+        "median_wall_ms": 29.85595,
+        "median_cpu_ms": 29.854,
+        "rounds": [
+          [
+            29.918,
+            29.902
+          ],
+          [
+            29.8316,
+            29.826
+          ],
+          [
+            29.865,
+            29.861
+          ],
+          [
+            29.8469,
+            29.847
+          ],
+          [
+            29.8782,
+            29.87
+          ],
+          [
+            29.8128,
+            29.807
+          ]
+        ]
+      },
+      "wall_change_percent": -90.22068674110784,
+      "cpu_change_percent": -90.2196756381339,
+      "cpu_speedup": 10.22460976753534
+    }
+  },
+  "runs": [
+    {
+      "mode": "full",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:04.392506+00:00",
+      "end_utc": "2026-10-04T06:12:12.520281+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1746.1 cpu_ms=1744.18 charts_sec=296.089 notes=1354159 peak_rss_mb=154.203\nround=1 mode=full workers=1 wall_ms=1711.64 cpu_ms=1711.25 charts_sec=302.049 notes=1354159 peak_rss_mb=155.828\nround=2 mode=full workers=1 wall_ms=1709.54 cpu_ms=1708.93 charts_sec=302.421 notes=1354159 peak_rss_mb=157.125\nround=3 mode=full workers=1 wall_ms=1725.62 cpu_ms=1721.22 charts_sec=299.603 notes=1354159 peak_rss_mb=157.234\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 1,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:12.520502+00:00",
+      "end_utc": "2026-10-04T06:12:18.894001+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1450.46 cpu_ms=1449.76 charts_sec=356.439 notes=1354159 peak_rss_mb=154.219\nround=1 mode=full workers=1 wall_ms=1420.49 cpu_ms=1420.14 charts_sec=363.959 notes=1354159 peak_rss_mb=155.547\nround=2 mode=full workers=1 wall_ms=1460.99 cpu_ms=1444.98 charts_sec=353.869 notes=1354159 peak_rss_mb=156.062\nround=3 mode=full workers=1 wall_ms=1405 cpu_ms=1404.65 charts_sec=367.973 notes=1354159 peak_rss_mb=156.062\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 2,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:18.894249+00:00",
+      "end_utc": "2026-10-04T06:12:24.808105+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1428.46 cpu_ms=1427.46 charts_sec=361.928 notes=1354159 peak_rss_mb=155.125\nround=1 mode=full workers=1 wall_ms=1432.29 cpu_ms=1427.19 charts_sec=360.96 notes=1354159 peak_rss_mb=156.875\nround=2 mode=full workers=1 wall_ms=1406.55 cpu_ms=1405.92 charts_sec=367.566 notes=1354159 peak_rss_mb=156.922\nround=3 mode=full workers=1 wall_ms=1426.24 cpu_ms=1425.92 charts_sec=362.492 notes=1354159 peak_rss_mb=157.016\n",
+      "stderr": ""
+    },
+    {
+      "mode": "full",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:24.808352+00:00",
+      "end_utc": "2026-10-04T06:12:31.892970+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=full workers=1 wall_ms=1746.62 cpu_ms=1745.41 charts_sec=296 notes=1354159 peak_rss_mb=154.391\nround=1 mode=full workers=1 wall_ms=1710.29 cpu_ms=1708.45 charts_sec=302.289 notes=1354159 peak_rss_mb=155.828\nround=2 mode=full workers=1 wall_ms=1716.61 cpu_ms=1716.01 charts_sec=301.175 notes=1354159 peak_rss_mb=155.906\nround=3 mode=full workers=1 wall_ms=1700.66 cpu_ms=1700.16 charts_sec=303.999 notes=1354159 peak_rss_mb=155.953\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:31.893240+00:00",
+      "end_utc": "2026-10-04T06:12:37.139647+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=1266.29 cpu_ms=1264.42 charts_sec=408.281 notes=1354159 peak_rss_mb=117.391\nround=1 mode=scan workers=1 wall_ms=1260.22 cpu_ms=1259.87 charts_sec=410.246 notes=1354159 peak_rss_mb=118.391\nround=2 mode=scan workers=1 wall_ms=1255.99 cpu_ms=1255.6 charts_sec=411.628 notes=1354159 peak_rss_mb=118.516\nround=3 mode=scan workers=1 wall_ms=1252.16 cpu_ms=1250.96 charts_sec=412.887 notes=1354159 peak_rss_mb=118.531\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 1,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:37.139968+00:00",
+      "end_utc": "2026-10-04T06:12:41.187561+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=992.966 cpu_ms=979.569 charts_sec=520.662 notes=1354159 peak_rss_mb=115.141\nround=1 mode=scan workers=1 wall_ms=946.068 cpu_ms=945.64 charts_sec=546.472 notes=1354159 peak_rss_mb=115.234\nround=2 mode=scan workers=1 wall_ms=960.509 cpu_ms=959.903 charts_sec=538.256 notes=1354159 peak_rss_mb=116.188\nround=3 mode=scan workers=1 wall_ms=945.235 cpu_ms=944.915 charts_sec=546.954 notes=1354159 peak_rss_mb=116.188\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 2,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:41.187820+00:00",
+      "end_utc": "2026-10-04T06:12:45.223957+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=957.906 cpu_ms=957.554 charts_sec=539.719 notes=1354159 peak_rss_mb=114.859\nround=1 mode=scan workers=1 wall_ms=957.72 cpu_ms=955.594 charts_sec=539.824 notes=1354159 peak_rss_mb=115.375\nround=2 mode=scan workers=1 wall_ms=961.396 cpu_ms=959.219 charts_sec=537.76 notes=1354159 peak_rss_mb=115.422\nround=3 mode=scan workers=1 wall_ms=959.829 cpu_ms=959.552 charts_sec=538.638 notes=1354159 peak_rss_mb=115.438\n",
+      "stderr": ""
+    },
+    {
+      "mode": "scan",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:45.224258+00:00",
+      "end_utc": "2026-10-04T06:12:50.438357+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=scan workers=1 wall_ms=1262.75 cpu_ms=1262.42 charts_sec=409.423 notes=1354159 peak_rss_mb=114.062\nround=1 mode=scan workers=1 wall_ms=1245.78 cpu_ms=1245.38 charts_sec=415 notes=1354159 peak_rss_mb=114.328\nround=2 mode=scan workers=1 wall_ms=1243.15 cpu_ms=1242.91 charts_sec=415.879 notes=1354159 peak_rss_mb=114.406\nround=3 mode=scan workers=1 wall_ms=1257.25 cpu_ms=1256.34 charts_sec=411.214 notes=1354159 peak_rss_mb=114.75\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:50.438625+00:00",
+      "end_utc": "2026-10-04T06:12:55.291176+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=1159.03 cpu_ms=1157.79 charts_sec=446.062 notes=1354159 peak_rss_mb=114.453\nround=1 mode=metadata workers=1 wall_ms=1164.36 cpu_ms=1163.07 charts_sec=444.02 notes=1354159 peak_rss_mb=115.234\nround=2 mode=metadata workers=1 wall_ms=1153.96 cpu_ms=1153.69 charts_sec=448.021 notes=1354159 peak_rss_mb=115.328\nround=3 mode=metadata workers=1 wall_ms=1175.88 cpu_ms=1174.84 charts_sec=439.671 notes=1354159 peak_rss_mb=115.344\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 1,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:55.291452+00:00",
+      "end_utc": "2026-10-04T06:12:58.979087+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=870.509 cpu_ms=870.182 charts_sec=593.905 notes=1354159 peak_rss_mb=114.703\nround=1 mode=metadata workers=1 wall_ms=863.519 cpu_ms=863.037 charts_sec=598.713 notes=1354159 peak_rss_mb=114.906\nround=2 mode=metadata workers=1 wall_ms=849.993 cpu_ms=849.724 charts_sec=608.24 notes=1354159 peak_rss_mb=114.984\nround=3 mode=metadata workers=1 wall_ms=891.036 cpu_ms=876.728 charts_sec=580.223 notes=1354159 peak_rss_mb=115.281\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 2,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:12:58.979461+00:00",
+      "end_utc": "2026-10-04T06:13:02.631339+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=866.65 cpu_ms=865.98 charts_sec=596.55 notes=1354159 peak_rss_mb=115.609\nround=1 mode=metadata workers=1 wall_ms=868.845 cpu_ms=868.198 charts_sec=595.043 notes=1354159 peak_rss_mb=115.797\nround=2 mode=metadata workers=1 wall_ms=851.786 cpu_ms=851.522 charts_sec=606.96 notes=1354159 peak_rss_mb=115.875\nround=3 mode=metadata workers=1 wall_ms=856.151 cpu_ms=855.653 charts_sec=603.866 notes=1354159 peak_rss_mb=115.875\n",
+      "stderr": ""
+    },
+    {
+      "mode": "metadata",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "4"
+      ],
+      "start_utc": "2026-10-04T06:13:02.631639+00:00",
+      "end_utc": "2026-10-04T06:13:07.520509+00:00",
+      "returncode": 0,
+      "stdout": "charts=517 bytes=73152865\nround=0 mode=metadata workers=1 wall_ms=1154.36 cpu_ms=1153.99 charts_sec=447.868 notes=1354159 peak_rss_mb=116.859\nround=1 mode=metadata workers=1 wall_ms=1178.15 cpu_ms=1177.69 charts_sec=438.822 notes=1354159 peak_rss_mb=117.359\nround=2 mode=metadata workers=1 wall_ms=1178.5 cpu_ms=1175.32 charts_sec=438.695 notes=1354159 peak_rss_mb=117.5\nround=3 mode=metadata workers=1 wall_ms=1162.47 cpu_ms=1160.99 charts_sec=444.744 notes=1354159 peak_rss_mb=117.656\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 0,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-micro"
+      ],
+      "start_utc": "2026-10-04T06:13:07.520825+00:00",
+      "end_utc": "2026-10-04T06:13:11.181686+00:00",
+      "returncode": 0,
+      "stdout": "size=64 iterations=262144 round=0 wall_ms=215.324 cpu_ms=208.965 checksum=17784832\nsize=64 iterations=262144 round=1 wall_ms=170.616 cpu_ms=170.581 checksum=35569664\nsize=64 iterations=262144 round=2 wall_ms=174.21 cpu_ms=174.199 checksum=53354496\nsize=64 iterations=262144 round=3 wall_ms=171.367 cpu_ms=171.326 checksum=71139328\nsize=4096 iterations=16384 round=0 wall_ms=308.665 cpu_ms=308.601 checksum=72241408\nsize=4096 iterations=16384 round=1 wall_ms=306.467 cpu_ms=306.331 checksum=73343488\nsize=4096 iterations=16384 round=2 wall_ms=306.075 cpu_ms=306.021 checksum=74445568\nsize=4096 iterations=16384 round=3 wall_ms=311.517 cpu_ms=311.322 checksum=75547648\nsize=1048576 iterations=64 round=0 wall_ms=305.06 cpu_ms=304.817 checksum=75552409\nsize=1048576 iterations=64 round=1 wall_ms=302.514 cpu_ms=302.47 checksum=75557170\nsize=1048576 iterations=64 round=2 wall_ms=313.244 cpu_ms=312.733 checksum=75561931\nsize=1048576 iterations=64 round=3 wall_ms=301.844 cpu_ms=301.771 checksum=75566692\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 1,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-micro"
+      ],
+      "start_utc": "2026-10-04T06:13:11.182008+00:00",
+      "end_utc": "2026-10-04T06:13:11.971205+00:00",
+      "returncode": 0,
+      "stdout": "size=64 iterations=262144 round=0 wall_ms=65.2745 cpu_ms=65.063 checksum=17784832\nsize=64 iterations=262144 round=1 wall_ms=34.2904 cpu_ms=34.29 checksum=35569664\nsize=64 iterations=262144 round=2 wall_ms=29.7737 cpu_ms=29.762 checksum=53354496\nsize=64 iterations=262144 round=3 wall_ms=29.7272 cpu_ms=29.727 checksum=71139328\nsize=4096 iterations=16384 round=0 wall_ms=31.2593 cpu_ms=31.259 checksum=72241408\nsize=4096 iterations=16384 round=1 wall_ms=31.9379 cpu_ms=31.938 checksum=73343488\nsize=4096 iterations=16384 round=2 wall_ms=32.033 cpu_ms=32.029 checksum=74445568\nsize=4096 iterations=16384 round=3 wall_ms=32.1103 cpu_ms=32.088 checksum=75547648\nsize=1048576 iterations=64 round=0 wall_ms=30.6304 cpu_ms=30.622 checksum=75552409\nsize=1048576 iterations=64 round=1 wall_ms=29.918 cpu_ms=29.902 checksum=75557170\nsize=1048576 iterations=64 round=2 wall_ms=29.8316 cpu_ms=29.826 checksum=75561931\nsize=1048576 iterations=64 round=3 wall_ms=29.865 cpu_ms=29.861 checksum=75566692\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 2,
+      "variant": "sha-arm",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-micro"
+      ],
+      "start_utc": "2026-10-04T06:13:11.971604+00:00",
+      "end_utc": "2026-10-04T06:13:12.341638+00:00",
+      "returncode": 0,
+      "stdout": "size=64 iterations=262144 round=0 wall_ms=30.0756 cpu_ms=30.061 checksum=17784832\nsize=64 iterations=262144 round=1 wall_ms=30.0485 cpu_ms=29.994 checksum=35569664\nsize=64 iterations=262144 round=2 wall_ms=29.9654 cpu_ms=29.965 checksum=53354496\nsize=64 iterations=262144 round=3 wall_ms=29.8753 cpu_ms=29.871 checksum=71139328\nsize=4096 iterations=16384 round=0 wall_ms=31.2334 cpu_ms=31.229 checksum=72241408\nsize=4096 iterations=16384 round=1 wall_ms=31.2172 cpu_ms=31.219 checksum=73343488\nsize=4096 iterations=16384 round=2 wall_ms=31.229 cpu_ms=31.223 checksum=74445568\nsize=4096 iterations=16384 round=3 wall_ms=31.235 cpu_ms=31.232 checksum=75547648\nsize=1048576 iterations=64 round=0 wall_ms=29.828 cpu_ms=29.824 checksum=75552409\nsize=1048576 iterations=64 round=1 wall_ms=29.8469 cpu_ms=29.847 checksum=75557170\nsize=1048576 iterations=64 round=2 wall_ms=29.8782 cpu_ms=29.87 checksum=75561931\nsize=1048576 iterations=64 round=3 wall_ms=29.8128 cpu_ms=29.807 checksum=75566692\n",
+      "stderr": ""
+    },
+    {
+      "mode": "micro",
+      "order": 3,
+      "variant": "base",
+      "command": [
+        "/tmp/bms-hash-optimization/base-micro"
+      ],
+      "start_utc": "2026-10-04T06:13:12.342219+00:00",
+      "end_utc": "2026-10-04T06:13:15.515843+00:00",
+      "returncode": 0,
+      "stdout": "size=64 iterations=262144 round=0 wall_ms=170.605 cpu_ms=170.6 checksum=17784832\nsize=64 iterations=262144 round=1 wall_ms=170.743 cpu_ms=170.664 checksum=35569664\nsize=64 iterations=262144 round=2 wall_ms=173.322 cpu_ms=173.265 checksum=53354496\nsize=64 iterations=262144 round=3 wall_ms=181.241 cpu_ms=181.049 checksum=71139328\nsize=4096 iterations=16384 round=0 wall_ms=311.122 cpu_ms=309.325 checksum=72241408\nsize=4096 iterations=16384 round=1 wall_ms=308.809 cpu_ms=308.728 checksum=73343488\nsize=4096 iterations=16384 round=2 wall_ms=307.918 cpu_ms=307.802 checksum=74445568\nsize=4096 iterations=16384 round=3 wall_ms=314.273 cpu_ms=314.151 checksum=75547648\nsize=1048576 iterations=64 round=0 wall_ms=310.236 cpu_ms=310.189 checksum=75552409\nsize=1048576 iterations=64 round=1 wall_ms=308.226 cpu_ms=308.173 checksum=75557170\nsize=1048576 iterations=64 round=2 wall_ms=305.09 cpu_ms=305.041 checksum=75561931\nsize=1048576 iterations=64 round=3 wall_ms=305.504 cpu_ms=305.45 checksum=75566692\n",
+      "stderr": ""
+    }
+  ],
+  "quiet_processes_before": " 8318  8233   0.0 /Users/xf/actions-runner/bin/Runner.Listener run --startuptype service\n",
+  "quiet_processes_after": " 8318  8233   0.0 /Users/xf/actions-runner/bin/Runner.Listener run --startuptype service\n",
+  "equivalence_output": "stream_bytes=536870911 digest=007f81b080435d587a04236122abfe7203cf142da760ed27ef372cf0fd735f04\nstream_bytes=536870912 digest=de17a02f4da1c87d31c4b6bb99bf55e8264416b83867dd1f69e9784a8d762643\nstream_bytes=536870913 digest=1aea8d2e3ec3f250c427976fdeaefa71722de33179f72cf71af2d83f3d2f9c14\nequivalence_checks=11075 known_vectors=4 random_seed=12345\n",
+  "equivalence_harness": "#define bms_parser bms_base\n#include \"base/src/SHA256.h\"\n#undef bms_parser\n#include \"sha-arm/src/SHA256.h\"\n#include <algorithm>\n#include <array>\n#include <cstring>\n#include <iostream>\n#include <random>\n#include <stdexcept>\nusing Digest = std::array<unsigned char, 32>;\ntemplate<class Hash> Digest digest(const unsigned char *data, size_t size, size_t chunk) {\n  Hash hash; hash.init();\n  for(size_t offset = 0; offset < size; offset += chunk)\n    hash.update(data + offset, static_cast<unsigned>(std::min(chunk, size - offset)));\n  Digest result; hash.final(result.data()); return result;\n}\nstd::string hex(Digest d) { std::string s; for(auto x:d) {s += \"0123456789abcdef\"[x>>4];s += \"0123456789abcdef\"[x&15];}return s; }\nvoid check(bool ok, const char *what) {if(!ok) throw std::runtime_error(what);}\nstruct BaseProbe: bms_base::SHA256 { using SHA256::transform; using SHA256::m_h; using SHA256::m_tot_len; };\nstruct ArmProbe: bms_parser::SHA256 { using SHA256::transform; using SHA256::m_h; using SHA256::m_tot_len; };\nint main() {\n std::mt19937 rng(12345); size_t checks=0;\n const std::pair<std::string,std::string> known[]={\n {\"\",\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"},\n {\"abc\",\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"},\n {\"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq\",\"248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1\"},\n {std::string(1000000,'a'),\"cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0\"}};\n for(auto &v:known) { auto *p=reinterpret_cast<const unsigned char*>(v.first.data());for(size_t c:{size_t(1),size_t(7),size_t(64),size_t(4096)}) {check(hex(digest<bms_parser::SHA256>(p,v.first.size(),c))==v.second,\"known vector\");++checks;}}\n for(size_t n=0;n<1400;++n) {\n  size_t len=n<1025?n:rng()%131073;std::vector<unsigned char> bytes(len+32);for(auto &b:bytes)b=static_cast<unsigned char>(rng());auto *p=bytes.data()+(n%32);\n  auto expected=digest<bms_base::SHA256>(p,len,std::max(size_t(1),len));\n  for(size_t c:{size_t(1),size_t(7),size_t(55),size_t(64),size_t(129),size_t(4096),std::max(size_t(1),len)}) {check(digest<bms_parser::SHA256>(p,len,c)==expected,\"chunk/alignment equivalence\");++checks;}\n }\n for(unsigned n=0;n<1000;++n) {\n  unsigned blocks=rng()%33;std::vector<unsigned char> bytes(blocks*64+32);for(auto &b:bytes)b=static_cast<unsigned char>(rng());BaseProbe a;ArmProbe b;\n  for(int i=0;i<8;++i)a.m_h[i]=b.m_h[i]=rng();a.transform(bytes.data()+n%32,blocks);b.transform(bytes.data()+n%32,blocks);check(std::memcmp(a.m_h,b.m_h,sizeof(a.m_h))==0,\"raw compression\");++checks;\n }\n // Exercise the legacy 32-bit length wrap in final() without allocating 512 MiB.\n for(unsigned total:{0u,0x1fffffc0u,0x20000000u,0xffffffc0u})for(unsigned tail=0;tail<64;++tail){BaseProbe a;ArmProbe b;a.init();b.init();a.m_tot_len=b.m_tot_len=total;std::array<unsigned char,64> bytes{};for(auto &x:bytes)x=static_cast<unsigned char>(rng());a.update(bytes.data(),tail);b.update(bytes.data(),tail);Digest x,y;a.final(x.data());b.final(y.data());check(x==y,\"legacy length padding\");++checks;}\n // Actual streamed input crosses the 512 MiB length-encoding boundary.\n bms_base::SHA256 streamBase; bms_parser::SHA256 streamArm;streamBase.init();streamArm.init();\n std::array<unsigned char,65536> chunk{};for(auto &x:chunk)x=static_cast<unsigned char>(rng());\n for(unsigned i=0;i<8191;++i){streamBase.update(chunk.data(),chunk.size());streamArm.update(chunk.data(),chunk.size());}\n streamBase.update(chunk.data(),65535);streamArm.update(chunk.data(),65535);\n for(unsigned extra=0;extra<3;++extra){if(extra){streamBase.update(chunk.data(),1);streamArm.update(chunk.data(),1);}auto a=streamBase;auto b=streamArm;Digest x,y;a.final(x.data());b.final(y.data());check(x==y,\"actual 512 MiB boundary stream\");++checks;std::cout<<\"stream_bytes=\"<<(536870911u+extra)<<\" digest=\"<<hex(x)<<\"\\n\";}\n std::cout << \"equivalence_checks=\" << checks << \" known_vectors=4 random_seed=12345\\n\";\n}\n",
+  "snapshot_comparisons": [
+    {
+      "variant": "base",
+      "mode": "full",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/full-12345-base.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/full-12345-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "full",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/full-12345-sha-arm.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/full-12345-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "full",
+      "seed": "12345",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "ready",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "ready",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/ready-12345-base.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/ready-12345-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "ready",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "ready",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/ready-12345-sha-arm.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/ready-12345-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "ready",
+      "seed": "12345",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "metadata",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/metadata-12345-base.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/metadata-12345-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "metadata",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/metadata-12345-sha-arm.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/metadata-12345-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "metadata",
+      "seed": "12345",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "scan",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-12345-base.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-12345-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "scan",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-12345-sha-arm.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-12345-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "scan",
+      "seed": "12345",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "scan-reference",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan-reference",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-reference-12345-base.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-reference-12345-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "scan-reference",
+      "seed": "12345",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan-reference",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-reference-12345-sha-arm.txt",
+        "12345"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-reference-12345-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "scan-reference",
+      "seed": "12345",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "full",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/full-987654321-base.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/full-987654321-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "full",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "full",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/full-987654321-sha-arm.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/full-987654321-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "full",
+      "seed": "987654321",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "ready",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "ready",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/ready-987654321-base.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/ready-987654321-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "ready",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "ready",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/ready-987654321-sha-arm.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/ready-987654321-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "ready",
+      "seed": "987654321",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "metadata",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/metadata-987654321-base.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/metadata-987654321-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "metadata",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "metadata",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/metadata-987654321-sha-arm.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/metadata-987654321-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "metadata",
+      "seed": "987654321",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "scan",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-987654321-base.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-987654321-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "scan",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-987654321-sha-arm.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-987654321-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "scan",
+      "seed": "987654321",
+      "identical": true,
+      "rows": 517
+    },
+    {
+      "variant": "base",
+      "mode": "scan-reference",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/base-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan-reference",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-reference-987654321-base.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-reference-987654321-base.txt"
+    },
+    {
+      "variant": "sha-arm",
+      "mode": "scan-reference",
+      "seed": "987654321",
+      "command": [
+        "/tmp/bms-hash-optimization/sha-arm-bench",
+        "/tmp/parser-perf-review.h3Bx8e/corpus.txt",
+        "scan-reference",
+        "1",
+        "1",
+        "/tmp/bms-hash-optimization/results/snapshots/scan-reference-987654321-sha-arm.txt",
+        "987654321"
+      ],
+      "returncode": 0,
+      "snapshot_file": "/tmp/bms-hash-optimization/results/snapshots/scan-reference-987654321-sha-arm.txt"
+    },
+    {
+      "comparison": true,
+      "mode": "scan-reference",
+      "seed": "987654321",
+      "identical": true,
+      "rows": 517
+    }
+  ],
+  "production_hash_matrix": [
+    {
+      "label": "native-sanitized-build",
+      "command": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined,float-cast-overflow",
+        "-fno-sanitize-recover=all",
+        "/tmp/bms-hash-final/hash-tests.cpp",
+        "src/SHA256.cpp",
+        "src/md5.cpp",
+        "-o",
+        "/tmp/bms-hash-final/native-sanitized"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "native-sanitized",
+      "command": [
+        "/tmp/bms-hash-final/native-sanitized"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "portable-clang-build",
+      "command": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "-march=armv8-a",
+        "/tmp/bms-hash-final/hash-tests.cpp",
+        "src/SHA256.cpp",
+        "src/md5.cpp",
+        "-o",
+        "/tmp/bms-hash-final/portable-clang"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "portable-clang",
+      "command": [
+        "/tmp/bms-hash-final/portable-clang"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "portable-gcc-build",
+      "command": [
+        "/opt/homebrew/bin/g++-15",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "/tmp/bms-hash-final/hash-tests.cpp",
+        "src/SHA256.cpp",
+        "src/md5.cpp",
+        "-o",
+        "/tmp/bms-hash-final/portable-gcc"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "portable-gcc",
+      "command": [
+        "/tmp/bms-hash-final/portable-gcc"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "accelerated-gcc-build",
+      "command": [
+        "/opt/homebrew/bin/g++-15",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "-march=armv8-a+crypto",
+        "/tmp/bms-hash-final/hash-tests.cpp",
+        "src/SHA256.cpp",
+        "src/md5.cpp",
+        "-o",
+        "/tmp/bms-hash-final/accelerated-gcc"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "accelerated-gcc",
+      "command": [
+        "/tmp/bms-hash-final/accelerated-gcc"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "macos-x86-fallback",
+      "command": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "-target",
+        "x86_64-apple-macos11",
+        "-isysroot",
+        "/Applications/Xcode-26.6.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-c",
+        "src/SHA256.cpp",
+        "-o",
+        "/tmp/bms-hash-final/macos-x86-fallback.o"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "ios-arm64",
+      "command": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "-target",
+        "arm64-apple-ios15.0",
+        "-isysroot",
+        "/Applications/Xcode-26.6.0.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk",
+        "-c",
+        "src/SHA256.cpp",
+        "-o",
+        "/tmp/bms-hash-final/ios-arm64.o"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "android-arm64-fallback",
+      "command": [
+        "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang++",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "-c",
+        "src/SHA256.cpp",
+        "-o",
+        "/tmp/bms-hash-final/android-arm64-fallback.o"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "android-arm64-sha2",
+      "command": [
+        "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang++",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        "-O2",
+        "-march=armv8-a+crypto",
+        "-c",
+        "src/SHA256.cpp",
+        "-o",
+        "/tmp/bms-hash-final/android-arm64-sha2.o"
+      ],
+      "returncode": 0
+    }
+  ],
+  "production_source_sha256": "25b617d65a0846620c51461e3582c2fc6afe51fd545a876224059597c8f03bb1"
+}
