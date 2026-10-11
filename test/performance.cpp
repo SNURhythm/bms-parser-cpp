@@ -41,7 +41,7 @@ void operator delete[](void *memory, size_t) noexcept { std::free(memory); }
 // Snapshot work is enabled separately, never mixed with throughput measurements.
 int main(int argc, char **argv) {
   if (argc < 5 || argc > 7) {
-    std::cerr << "usage: performance MANIFEST full|metadata|ready|file|scan WORKERS ROUNDS [SNAPSHOTS] [SEED]\n";
+    std::cerr << "usage: performance MANIFEST full|metadata|ready|file|scan|scan-file WORKERS ROUNDS [SNAPSHOTS] [SEED]\n";
     return 1;
   }
   struct Input { std::filesystem::path path; std::vector<unsigned char> bytes; };
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   if (mode != "full" && mode != "metadata" && mode != "ready" &&
       mode != "file" && mode != "scan-reference"
 #ifdef BMS_BENCH_SCAN
-      && mode != "scan"
+      && mode != "scan" && mode != "scan-file"
 #endif
       ) {
     std::cerr << "unsupported mode: " << mode << '\n';
@@ -85,6 +85,9 @@ int main(int argc, char **argv) {
     for (int worker = 0; worker < workers; ++worker) {
       threads.emplace_back([&] {
         size_t localNotes = 0;
+#ifdef BMS_BENCH_WORKSPACE
+        bms_parser::ScanWorkspace workspace;
+#endif
 #ifdef BMS_BENCH_ALLOCATIONS
         allocationCount = allocationBytes = 0;
 #endif
@@ -100,8 +103,16 @@ int main(int argc, char **argv) {
             std::atomic_bool cancelled{false};
             std::string snapshot;
 #ifdef BMS_BENCH_SCAN
-            if (mode == "scan") {
-              const auto scan = parser.Scan(inputs[i].bytes, cancelled);
+            if (mode == "scan" || mode == "scan-file") {
+#ifdef BMS_BENCH_WORKSPACE
+              const auto scan = mode == "scan-file"
+                  ? parser.Scan(inputs[i].path, cancelled, workspace)
+                  : parser.Scan(inputs[i].bytes, cancelled, inputs[i].path, workspace);
+#else
+              const auto scan = mode == "scan-file"
+                  ? parser.Scan(inputs[i].path, cancelled)
+                  : parser.Scan(inputs[i].bytes, cancelled, inputs[i].path);
+#endif
               if (!scan) throw std::runtime_error("no scan result");
               localNotes += scan->Meta.TotalNotes;
               if (snapshots) {

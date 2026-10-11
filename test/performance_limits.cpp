@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <new>
@@ -13,6 +15,7 @@
 namespace {
 bool measuring = false;
 std::size_t liveBytes = 0, peakBytes = 0, allocationCount = 0;
+std::size_t largeAllocationCount = 0;
 std::atomic_bool *cancelTarget = nullptr;
 std::size_t cancelAtAllocation = 0;
 // The allocation prefix must preserve ordinary operator new's ABI alignment;
@@ -27,6 +30,7 @@ void *operator new(std::size_t bytes) {
   allocation->measuredBytes = measuring ? bytes : 0;
   if (measuring) {
     ++allocationCount;
+    if (bytes >= 128 * 1024) ++largeAllocationCount;
     if (cancelTarget && allocationCount == cancelAtAllocation) *cancelTarget = true;
   }
   liveBytes += allocation->measuredBytes;
@@ -44,7 +48,62 @@ void operator delete[](void *pointer) noexcept { ::operator delete(pointer); }
 void operator delete(void *pointer, std::size_t) noexcept { ::operator delete(pointer); }
 void operator delete[](void *pointer, std::size_t) noexcept { ::operator delete(pointer); }
 
+int testWorkspaceReuse() {
+  const auto path = std::filesystem::temp_directory_path() /
+      ("bms-workspace-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()) + ".bms");
+  struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); }
+  } cleanup{path};
+  const auto writeChart = [&](std::size_t padding) {
+    std::ofstream file(path, std::ios::binary);
+    file << "#CHARSET UTF-8\n#TITLE reusable buffers\n#BPM 120\n#00111:01\n*"
+         << std::string(padding, 'x') << '\n';
+  };
+  writeChart(256 * 1024);
+  std::atomic_bool cancelled{false};
+  {
+    bms_parser::ScanWorkspace workspace;
+    bms_parser::Parser first;
+    measuring = true;
+    {
+      const auto scan = first.Scan(path, cancelled, workspace);
+      if (!scan || scan->Meta.TotalNotes != 1) return 1;
+    }
+    measuring = false;
+    largeAllocationCount = 0;
+    measuring = true;
+    for (int i = 0; i < 4; ++i) {
+      bms_parser::Parser parser;
+      const auto scan = parser.Scan(path, cancelled, workspace);
+      if (!scan || scan->Meta.TotalNotes != 1) return 1;
+    }
+    measuring = false;
+    std::cout << "Workspace: repeated large allocations=" << largeAllocationCount << '\n';
+    if (largeAllocationCount != 0) {
+      std::cerr << "Warm worker must reuse input and decoded-text storage\n";
+      return 1;
+    }
+    writeChart(4 * 1024 * 1024);
+    measuring = true;
+    {
+      bms_parser::Parser parser;
+      const auto scan = parser.Scan(path, cancelled, workspace);
+      if (!scan || scan->Meta.TotalNotes != 1) return 1;
+    }
+    measuring = false;
+    if (liveBytes > 4 * 1024 * 1024) {
+      std::cerr << "An oversized chart must not leave unbounded worker storage\n";
+      return 1;
+    }
+  }
+  if (liveBytes != 0) return 1;
+  return 0;
+}
+
 int main() {
+  if (testWorkspaceReuse() != 0) return 1;
   std::string text = "#TITLE scan memory budget\n#BPM 150\n#WAV01 note.wav\n";
   for (int measure = 0; measure < 256; ++measure) {
     char channel[16];

@@ -30,6 +30,19 @@ public:
     for (auto &block : blocks) block.used = 0;
   }
 
+  void releaseExcess(size_t maximumRetainedBytes) noexcept {
+    size_t remaining = maximumRetainedBytes;
+    for (const auto &block : blocks) {
+      if (block.bytes > remaining) {
+        std::vector<Block>().swap(blocks);
+        current = 0;
+        return;
+      }
+      remaining -= block.bytes;
+    }
+    reset();
+  }
+
   void *allocate(size_t bytes, size_t alignment) {
     for (;;) {
       if (current == blocks.size()) {

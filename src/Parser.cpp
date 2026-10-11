@@ -25,6 +25,7 @@
 #include "TimeLine.h"
 #include "TextScan.h"
 #include "ParserScratch.h"
+#include <chrono>
 #include "ParserNotes.h"
 #include <cwctype>
 #include <iterator>
@@ -880,6 +881,94 @@ const int *Scratchless(int keyMode) {
 
 constexpr int TempKey = 16;
 
+namespace {
+using ScanClock = std::chrono::steady_clock;
+std::uint64_t scanElapsed(ScanClock::time_point start) {
+  return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+      ScanClock::now() - start).count());
+}
+struct ScanStageTimer {
+  std::uint64_t *result;
+  ScanClock::time_point start;
+  explicit ScanStageTimer(std::uint64_t *result)
+      : result(result), start(result ? ScanClock::now() : ScanClock::time_point{}) {}
+  ~ScanStageTimer() { if (result) *result += scanElapsed(start); }
+};
+struct ScanParseTimer {
+  ScanTimings *result;
+  ScanClock::time_point start;
+  explicit ScanParseTimer(ScanTimings *result)
+      : result(result), start(result ? ScanClock::now() : ScanClock::time_point{}) {}
+  ~ScanParseTimer() {
+    if (!result) return;
+    const auto elapsed = scanElapsed(start);
+    result->ParseNanoseconds += elapsed - std::min(elapsed,
+        result->HashNanoseconds + result->DecodeNanoseconds);
+  }
+};
+}
+
+struct ScanWorkspace::Storage {
+  std::vector<unsigned char> input;
+  std::string decoded;
+  std::vector<std::pair<unsigned long long, unsigned long long>> prepTimingPositions;
+  detail::ParserScratchArena timelineNodes;
+
+  // Each retained buffer has a 1 MiB ceiling. Very large charts still parse,
+  // but cannot permanently enlarge every worker after the scan completes.
+  void release() noexcept {
+    constexpr size_t limit = 1024 * 1024;
+    input.clear();
+    decoded.clear();
+    prepTimingPositions.clear();
+    if (input.capacity() > limit) std::vector<unsigned char>().swap(input);
+    if (decoded.capacity() > limit) std::string().swap(decoded);
+    if (prepTimingPositions.capacity() > limit / sizeof(prepTimingPositions[0]))
+      decltype(prepTimingPositions)().swap(prepTimingPositions);
+    timelineNodes.releaseExcess(limit);
+  }
+  struct ReleaseOnExit {
+    Storage &storage;
+    ~ReleaseOnExit() { storage.release(); }
+  };
+};
+
+ScanWorkspace::ScanWorkspace() : storage(std::make_unique<Storage>()) {}
+ScanWorkspace::~ScanWorkspace() = default;
+
+std::optional<ChartScanResult> Parser::Scan(
+    const std::vector<unsigned char> &bytes, std::atomic_bool &cancelled,
+    const std::filesystem::path &path, ScanWorkspace &workspace, ScanTimings *timings) {
+  if (timings) *timings = {};
+  ScanWorkspace::Storage::ReleaseOnExit release{*workspace.storage};
+  return ScanInternal(bytes, cancelled, path, &workspace, timings);
+}
+
+std::optional<ChartScanResult> Parser::Scan(
+    const std::filesystem::path &path, std::atomic_bool &cancelled,
+    ScanWorkspace &workspace, ScanTimings *timings) {
+  if (timings) *timings = {};
+  ScanWorkspace::Storage::ReleaseOnExit release{*workspace.storage};
+  if (cancelled) return std::nullopt;
+  auto &bytes = workspace.storage->input;
+  {
+    ScanStageTimer timer(timings ? &timings->ReadNanoseconds : nullptr);
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file) return std::nullopt;
+    const auto size = file.tellg();
+    if (size < 0) return std::nullopt;
+    bytes.resize(static_cast<size_t>(size));
+    file.seekg(0, std::ios::beg);
+    if (!file.read(reinterpret_cast<char *>(bytes.data()), size)) return std::nullopt;
+  }
+  auto result = ScanInternal(bytes, cancelled, path, &workspace, timings);
+  if (result) {
+    result->Meta.BmsPath = path;
+    result->Meta.Folder = path.parent_path();
+  }
+  return result;
+}
+
 Parser::Parser() : BpmTable{}, StopLengthTable{}, ScrollTable{}, SpeedTable{} {
   std::random_device seeder;
   Seed = seeder();
@@ -986,12 +1075,20 @@ std::optional<ChartScanResult>
 Parser::Scan(const std::vector<unsigned char> &bytes,
              std::atomic_bool &bCancelled,
              const std::filesystem::path &sourcePath) {
+  return ScanInternal(bytes, bCancelled, sourcePath, nullptr, nullptr);
+}
+
+std::optional<ChartScanResult>
+Parser::ScanInternal(const std::vector<unsigned char> &bytes,
+                     std::atomic_bool &bCancelled,
+                     const std::filesystem::path &sourcePath,
+                     ScanWorkspace *workspace, ScanTimings *timings) {
   if (bCancelled) return std::nullopt;
   ChartScanResult result;
   Chart *raw = nullptr;
   try {
     ParseInternal(bytes, &raw, false, false, bCancelled, &result,
-                  isPmsSource(sourcePath));
+                  isPmsSource(sourcePath), workspace, timings);
   } catch (...) {
     delete raw;
     throw;
@@ -1025,7 +1122,11 @@ Parser::Scan(const std::filesystem::path &path, std::atomic_bool &bCancelled) {
 void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **chart,
                           bool addReadyMeasure, bool metaOnly,
                           std::atomic_bool &bCancelled, ChartScanResult *scan,
-                          bool pms) {
+                          bool pms, ScanWorkspace *workspace,
+                          ScanTimings *timings) {
+  ScanParseTimer timer(timings);
+  ScanWorkspace::Storage localBuffers;
+  auto &buffers = workspace ? *workspace->storage : localBuffers;
   // Scan traverses all full-mode events for identical timing/statistics. Legacy
   // metaOnly keeps its existing shortcuts; neither mode needs lane-note objects.
   const bool materialize = !metaOnly && scan == nullptr;
@@ -1054,43 +1155,49 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
   auto measures =
       std::unordered_map<int, std::vector<std::pair<int, std::string_view>>>();
 
-  // Keep hashing synchronous. Library scans already parallelize at the file
-  // level; spawning two extra threads per tiny chart creates heavy thread churn.
+  {
+    ScanStageTimer hashTimer(timings ? &timings->HashNanoseconds : nullptr);
+    // Keep hashing synchronous. Library scans already parallelize at the file
+    // level; spawning two extra threads per tiny chart creates heavy thread churn.
 #if BMS_PARSER_VERBOSE == 1
-  auto md5StartTime = std::chrono::high_resolution_clock::now();
+    auto md5StartTime = std::chrono::high_resolution_clock::now();
 #endif
-  // Preserve the existing one-shot MD5 length conversion on every backend.
-  new_chart->Meta.MD5 = md5Fingerprint(
-      bytes.data(), static_cast<MD5::size_type>(bytes.size()));
+    // Preserve the existing one-shot MD5 length conversion on every backend.
+    new_chart->Meta.MD5 = md5Fingerprint(
+        bytes.data(), static_cast<MD5::size_type>(bytes.size()));
 #if BMS_PARSER_VERBOSE == 1
-  std::cout << "Hashing MD5 took "
-            << std::chrono::duration_cast<std::chrono::microseconds>(
-                   std::chrono::high_resolution_clock::now() - md5StartTime)
-                   .count()
-            << "\n";
+    std::cout << "Hashing MD5 took "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::high_resolution_clock::now() - md5StartTime)
+                     .count()
+              << "\n";
 #endif
 #if BMS_PARSER_VERBOSE == 1
-  auto sha256StartTime = std::chrono::high_resolution_clock::now();
+    auto sha256StartTime = std::chrono::high_resolution_clock::now();
 #endif
-  new_chart->Meta.SHA256 = sha256(bytes);
+    new_chart->Meta.SHA256 = sha256(bytes);
 #if BMS_PARSER_VERBOSE == 1
-  std::cout << "Hashing SHA256 took "
-            << std::chrono::duration_cast<std::chrono::microseconds>(
-                   std::chrono::high_resolution_clock::now() - sha256StartTime)
-                   .count()
-            << "\n";
+    std::cout << "Hashing SHA256 took "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::high_resolution_clock::now() - sha256StartTime)
+                     .count()
+              << "\n";
 #endif
-
+  }
   // std::cout<<"file size: "<<size<<std::endl;
   // bytes to std::string
 #if BMS_PARSER_VERBOSE == 1
   auto midStartTime = std::chrono::high_resolution_clock::now();
 #endif
-  std::string content;
-  const bool shiftJis = decodeBmsText(bytes, content);
-  // BufferedReader.readLine accepts CR, LF and CRLF. Extra empty lines from
-  // CRLF are ignored; hashes above still use the original bytes.
-  std::replace(content.begin(), content.end(), '\r', '\n');
+  auto &content = buffers.decoded;
+  bool shiftJis;
+  {
+    ScanStageTimer decodeTimer(timings ? &timings->DecodeNanoseconds : nullptr);
+    shiftJis = decodeBmsText(bytes, content);
+    // BufferedReader.readLine accepts CR, LF and CRLF. Extra empty lines from
+    // CRLF are ignored; hashes above still use the original bytes.
+    std::replace(content.begin(), content.end(), '\r', '\n');
+  }
 #if BMS_PARSER_VERBOSE == 1
   std::cout << "BMS text decoding took "
             << std::chrono::duration_cast<std::chrono::microseconds>(
@@ -1416,8 +1523,8 @@ void Parser::ParseInternal(const std::vector<unsigned char> &bytes, Chart **char
   OpeningTripleCandidateTracker openingTripleCandidate;
   // Only the unique count is used. Reuse contiguous scratch storage instead
   // of allocating a tree node for every distinct position in every measure.
-  std::vector<std::pair<unsigned long long, unsigned long long>> prepTimingPositions;
-  detail::ParserScratchArena timelineNodes;
+  auto &prepTimingPositions = buffers.prepTimingPositions;
+  auto &timelineNodes = buffers.timelineNodes;
   std::deque<TimeLine> scratchTimelines;
   TimeLine carriedTimeline(0, true);
   for (auto measureIdx = 0; measureIdx <= lastMeasure; ++measureIdx) {

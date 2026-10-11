@@ -31,7 +31,27 @@ overload leaves those for the caller. The existing `metaOnly` mode keeps its
 legacy behavior and is separate from `Scan`.
 
 For concurrent scans, use a separate `Parser` instance per job. Parsing and
-hashing stay on the calling thread, and scratch memory belongs to each parse.
+hashing stay on the calling thread. A worker can reuse buffers across jobs with
+its own `ScanWorkspace`; keep constructing a fresh parser per job to preserve
+independent random state:
+
+```cpp
+bms_parser::ScanWorkspace workspace; // one per worker, outside its job loop
+// For each job:
+bms_parser::Parser parser;
+bms_parser::ScanTimings timings;
+auto result = parser.Scan(path, cancelled, workspace, &timings);
+// Or: parser.Scan(bytes, cancelled, sourcePath, workspace, &timings);
+```
+
+The workspace retains input, decoded text, timing positions and arena blocks,
+with a 1 MiB ceiling for each category after every call (about 4 MiB per worker).
+Larger charts still parse, then release their oversized buffers. Cancellation
+and exceptions also clear the workspace. Results own their data and remain valid
+when the workspace is reused. A workspace is not safe for simultaneous calls.
+Optional timings report input read, hashes, decoding and remaining parse work;
+parallel sums are worker time, not elapsed batch time. Archive extraction and
+caller work are outside these counters. Omit the timing pointer to avoid clocks.
 Full charts retain their existing public vectors and `delete` ownership.
 
 File parsing/scanning selects the nine-key PMS layout for `.pms` files; byte
@@ -84,7 +104,10 @@ build/parser_benchmark chart-paths.txt full 8 5
 build/parser_benchmark chart-paths.txt scan 8 5
 ```
 
-Inputs are preloaded; timings include parser construction and chart destruction.
+All inputs are preloaded. `file` and `scan-file` reread them during timing, so
+these measure warmed filesystem caches. Timings include parser construction and
+chart destruction. Define `BMS_BENCH_WORKSPACE=1` together with
+`BMS_BENCH_SCAN=1` to reuse one workspace per worker in `scan`/`scan-file` modes.
 An optional fifth argument writes semantic fingerprints instead of running a
 pure timing measurement. `scripts/check_parser_equivalence.py` compares two
 separately built benchmark binaries across full/metadata/ready/file parsing,
