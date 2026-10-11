@@ -135,12 +135,12 @@ int main() {
     std::cout << (metadataOnly ? "Metadata" : "Scan")
               << ": notes=" << notes << " peak_live_bytes=" << peakBytes
               << " allocations=" << allocationCount << '\n';
-    // A redundant timeline index used to allocate another tree node for each
-    // note. Bound allocation churn as well as retained heap on this workload.
+    // Per-note lane nodes must be recycled after old measures retire. This
+    // catches returning to one general-heap allocation per scoring note.
     // Allow for libc++/libstdc++ differences in deque block allocation.
     if (notes != 256000 || peakBytes > 8 * 1024 * 1024 || liveBytes != 0 ||
-        allocationCount > 2 * 256000) {
-      std::cerr << "Expected 256000 notes, <=8 MiB peak live heap, <=2 allocations per note and no retained allocations\n";
+        allocationCount > 256000 / 2) {
+      std::cerr << "Expected 256000 notes, <=8 MiB peak live heap, <=0.5 allocations per note and no retained allocations\n";
       return 1;
     }
   }

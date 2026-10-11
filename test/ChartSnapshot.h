@@ -72,6 +72,8 @@ inline std::string chartSnapshot(const bms_parser::Chart &chart) {
         if (note) noteIds.emplace(note, noteIds.size() + 1);
     }
   }
+  for (const auto &note : chart.DetachedNotes)
+    if (note) noteIds.emplace(note.get(), noteIds.size() + 1);
   const auto noteId = [&](const bms_parser::Note *note) {
     if (!note) return size_t{0};
     const auto found = noteIds.find(note);
@@ -102,7 +104,8 @@ inline std::string chartSnapshot(const bms_parser::Chart &chart) {
 #define TIMELINE(field) out.add(t->field)
       TIMELINE(Bpm); TIMELINE(BpmChange); TIMELINE(BpmChangeApplied);
       TIMELINE(ScrollChange); TIMELINE(HasSpeedObject); TIMELINE(BgaBase);
-      TIMELINE(BgaLayer); TIMELINE(StopLength); TIMELINE(Scroll); TIMELINE(Speed);
+      TIMELINE(BgaLayer); TIMELINE(StopLength); TIMELINE(ParsedStopDuration);
+      TIMELINE(Scroll); TIMELINE(Speed);
       TIMELINE(Timing); TIMELINE(BeatPosition); TIMELINE(IsFirstInMeasure);
 #undef TIMELINE
       out.add(t->BgaPoor.has_value());
@@ -118,6 +121,8 @@ inline std::string chartSnapshot(const bms_parser::Chart &chart) {
       for (auto *note : t->LandmineNotes) addNote(note);
     }
   }
+  out.add(chart.DetachedNotes.size());
+  for (const auto &note : chart.DetachedNotes) addNote(note.get());
   return std::move(out.bytes);
 }
 } // namespace parser_test

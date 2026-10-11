@@ -92,4 +92,77 @@ template <typename T> struct ParserScratchAllocator {
   }
 };
 
+// One node-size class shared by the parser's lane maps. Erasure returns nodes
+// immediately, so memory follows the maximum live set rather than total notes.
+// The owning parser must outlive all maps; this pool is never shared by threads.
+class ParserNodePool {
+  struct FreeNode { FreeNode *next; };
+  ParserScratchArena arena;
+  FreeNode *free = nullptr;
+  size_t nodeBytes = 0;
+  size_t nodeAlignment = 0;
+
+public:
+  ParserNodePool() = default;
+  ParserNodePool(const ParserNodePool &) = delete;
+  ParserNodePool &operator=(const ParserNodePool &) = delete;
+
+  void *allocate(size_t bytes, size_t alignment) {
+    bytes = std::max(bytes, sizeof(FreeNode));
+    alignment = std::max(alignment, alignof(FreeNode));
+    if (nodeBytes == 0) {
+      nodeBytes = bytes;
+      nodeAlignment = alignment;
+    }
+    // Allocator rebinds of a different size remain valid but are not pooled.
+    if (bytes != nodeBytes || alignment != nodeAlignment)
+      return ::operator new(bytes);
+    if (free) {
+      auto *node = free;
+      free = node->next;
+      return node;
+    }
+    return arena.allocate(bytes, alignment);
+  }
+
+  void deallocate(void *memory, size_t bytes, size_t alignment) noexcept {
+    bytes = std::max(bytes, sizeof(FreeNode));
+    alignment = std::max(alignment, alignof(FreeNode));
+    if (bytes != nodeBytes || alignment != nodeAlignment) {
+      ::operator delete(memory);
+      return;
+    }
+    free = new (memory) FreeNode{free};
+  }
+};
+
+template <typename T> struct ParserNodeAllocator {
+  using value_type = T;
+  ParserNodePool *pool;
+
+  explicit ParserNodeAllocator(ParserNodePool &storage) noexcept : pool(&storage) {}
+  template <typename U>
+  ParserNodeAllocator(const ParserNodeAllocator<U> &other) noexcept : pool(other.pool) {}
+
+  T *allocate(size_t count) {
+    static_assert(alignof(T) <= alignof(std::max_align_t));
+    if (count > std::numeric_limits<size_t>::max() / sizeof(T))
+      throw std::bad_array_new_length();
+    if (count != 1) return static_cast<T *>(::operator new(count * sizeof(T)));
+    return static_cast<T *>(pool->allocate(sizeof(T), alignof(T)));
+  }
+  void deallocate(T *memory, size_t count) noexcept {
+    if (count != 1) ::operator delete(memory);
+    else pool->deallocate(memory, sizeof(T), alignof(T));
+  }
+  template <typename U>
+  bool operator==(const ParserNodeAllocator<U> &other) const noexcept {
+    return pool == other.pool;
+  }
+  template <typename U>
+  bool operator!=(const ParserNodeAllocator<U> &other) const noexcept {
+    return !(*this == other);
+  }
+};
+
 } // namespace bms_parser::detail

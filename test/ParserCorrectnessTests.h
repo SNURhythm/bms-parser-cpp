@@ -6,6 +6,23 @@
 #include "ChartSnapshot.h"
 
 inline int runParserCorrectnessTests() {
+  {
+    bms_parser::Chart chart;
+    chart.DetachedNotes.push_back(std::make_unique<bms_parser::Note>(1));
+    const auto before = parser_test::chartSnapshot(chart);
+    chart.DetachedNotes.back()->Wav = 2;
+    ASSERT_EQ(false, before == parser_test::chartSnapshot(chart),
+              "snapshot detects detached note changes");
+    auto *measure = new bms_parser::Measure();
+    chart.Measures.push_back(measure);
+    auto *timeline = new bms_parser::TimeLine(1, false);
+    measure->TimeLines.push_back(timeline);
+    const auto withoutStop = parser_test::chartSnapshot(chart);
+    timeline->ParsedStopDuration = 123;
+    ASSERT_EQ(false, withoutStop == parser_test::chartSnapshot(chart),
+              "snapshot detects resolved stop duration changes");
+  }
+
   using namespace bms_parser;
   const std::string header = "#TITLE audit\n#BPM 120\n#WAV01 head.wav\n#WAV02 tail.wav\n";
   // Even ordinary source rows can change the last truncated microsecond:

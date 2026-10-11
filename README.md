@@ -135,7 +135,7 @@ allocation and cancellation fixes without changing the decoding contract.
 The [timing consolidation](docs/performance/2026-10-04-timing-consolidation.md)
 removes the remaining duplicate timing index while retaining exact timestamps.
 `make test` checks that scanning a 256,000-note ordinary chart stays below
-8 MiB of peak requested live C++ heap and two allocations per note, and that
+8 MiB of peak requested live C++ heap and half an allocation per note, and that
 cancellation interrupts dense chart construction, note publication and hold-closure work.
 
 For comparison against the local Java reference implementation:

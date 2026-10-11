@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
             {
               bms_parser::Chart *raw = nullptr;
               if (mode == "file") parser.Parse(inputs[i].path, &raw, false, false, cancelled);
-              else parser.Parse(inputs[i].bytes, &raw, mode == "ready", mode == "metadata", cancelled);
+              else parser.Parse(inputs[i].bytes, &raw, mode == "ready", mode == "metadata", cancelled, inputs[i].path);
               const std::unique_ptr<bms_parser::Chart> chart(raw);
               if (!chart) throw std::runtime_error("no chart");
               localNotes += chart->Meta.TotalNotes;

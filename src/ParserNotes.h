@@ -2,6 +2,7 @@
 
 #include "Chart.h"
 #include "LongNote.h"
+#include "ParserScratch.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -34,10 +35,23 @@ public:
     bool published = false;
   };
   static constexpr int Lanes = 16;
-  std::array<std::map<Position, Event *>, Lanes> lanes;
+private:
+  // Declared before the containers so their nodes are destroyed first.
+  ParserNodePool laneNodes;
+  using LaneAllocator = ParserNodeAllocator<std::pair<const Position, Event *>>;
+  using LaneSlots = std::map<Position, Event *, std::less<Position>, LaneAllocator>;
+  template <size_t... I>
+  static std::array<LaneSlots, Lanes> makeLanes(ParserNodePool &pool,
+                                               std::index_sequence<I...>) {
+    return {{(static_cast<void>(I), LaneSlots{LaneAllocator(pool)})...}};
+  }
+
+public:
+  std::array<LaneSlots, Lanes> lanes;
 
   explicit ParserNotes(int silentWav, int mode, const std::atomic_bool &cancelled)
-      : noWav(silentWav), lnType(LongNoteTypeFromLnMode(mode)), cancelled(cancelled) {}
+      : lanes(makeLanes(laneNodes, std::make_index_sequence<Lanes>{})),
+        noWav(silentWav), lnType(LongNoteTypeFromLnMode(mode)), cancelled(cancelled) {}
 
   void normal(int lane, Position pos, int wav, bool endpoint, TimeLine *timeline) {
     auto &slots = lanes[lane];
