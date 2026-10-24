@@ -175,6 +175,15 @@ bool hasReferencedBmp(const bms_parser::Chart *chart, int bmp) {
 }
 
 int runEncodingTests() {
+  for (const auto &entry : std::vector<std::pair<std::string, std::string>>{
+           {"#CHARSET SHIFT_JIS\r\n#TITLE \x83\x65\x83\x58\x83\x67\r\n", u8"#CHARSET SHIFT_JIS\r\n#TITLE テスト\r\n"},
+           {"#CHARSET EUC-KR\n#TITLE \xc7\xd1\xb1\xb9\xbe\xee\n", u8"#CHARSET EUC-KR\n#TITLE 한국어\n"},
+           {u8"#CHARSET UTF-8\n#TITLE 한국어\n", u8"#CHARSET UTF-8\n#TITLE 한국어\n"},
+           {"", ""}}) {
+    ASSERT_EQ(entry.second, bms_parser::Parser::DecodeText(bytesFromString(entry.first)),
+              "source_text_uses_chart_decoder_and_preserves_line_endings");
+  }
+
   {
     const std::string koreanTitle =
         "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4";
