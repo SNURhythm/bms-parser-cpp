@@ -113,6 +113,17 @@ inline std::string chartSnapshot(const bms_parser::Chart &chart) {
         out.add(t->BgaPoor->Frames.size());
         for (const auto frame : t->BgaPoor->Frames) out.add(frame);
       }
+      out.add(t->BgaEvents.size());
+      for (const auto &event : t->BgaEvents) {
+        out.add(event.Condition); out.add(event.Interval);
+        out.add(event.Sequences.size());
+        for (const auto &sequence : event.Sequences) {
+          out.add(sequence->size());
+          for (const auto &frame : *sequence) {
+            out.add(frame.TimeMillis); out.add(frame.BmpId); out.add(frame.IsEnd);
+          }
+        }
+      }
       for (const auto *notes : {&t->Notes, &t->InvisibleNotes, &t->BackgroundNotes}) {
         out.add(notes->size());
         for (auto *note : *notes) addNote(note);

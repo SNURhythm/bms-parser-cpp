@@ -18,6 +18,7 @@
 
 #include "LandmineNote.h"
 #include "Note.h"
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -30,6 +31,26 @@ inline constexpr int BgaSequenceBlank = -1;
 
 struct BgaPoorSequence {
   std::vector<int> Frames;
+};
+
+enum class BgaEventCondition { Always, Play, Miss };
+
+struct BgaSequenceFrame {
+  // Authored bmson milliseconds, independent of the timeline's microseconds.
+  long long TimeMillis = 0;
+  // BmpTable key, or BgaSequenceBlank for an unresolved image or END.
+  int BmpId = BgaSequenceBlank;
+  bool IsEnd = false;
+};
+
+using BgaSequence = std::vector<BgaSequenceFrame>;
+
+struct BgaEvent {
+  BgaEventCondition Condition = BgaEventCondition::Always;
+  int Interval = 0;
+  // Nonnull immutable sequences share storage across references. Preserve
+  // every id_set alternative and its authored frame order/timing.
+  std::vector<std::shared_ptr<const BgaSequence>> Sequences;
 };
 
 class TimeLine {
@@ -46,6 +67,8 @@ public:
   int BgaBase = -1;
   int BgaLayer = -1;
   std::optional<BgaPoorSequence> BgaPoor;
+  // Effective bmson event metadata; poor_events replace same-pulse layers.
+  std::vector<BgaEvent> BgaEvents;
 
   double StopLength = 0;
   std::optional<long long> ParsedStopDuration;

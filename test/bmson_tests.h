@@ -1,7 +1,236 @@
 #include <set>
 
+// Exercise sequence decoding through the existing playback projection first.
+int runBmsonBgaTests() {
+  const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120},"bga":{
+    "bga_header":[{"id":42,"name":"first.png"},{"id":77,"name":"second.png"},
+                  {"id":91,"name":"alternate.png"},{"id":123,"name":"unused.png"}],
+    "bga_sequence":[
+      {"id":100,"sequence":[{"time":-10,"id":42},{"time":125,"id":77},{"time":500}]},
+      {"id":101,"sequence":[{"time":30,"id":91},{"time":9000000000,"id":-2147483648}]},
+      {"id":102,"sequence":[]},
+      {"id":103,"sequence":[{"time":0,"id":77},{"time":500}]}],
+    "bga_events":[{"y":0,"id":42},{"y":1440,"id":999}],
+    "layer_events":[{"y":0,"id":77},
+      {"y":240,"condition":"miss","interval":-3,"id_set":[100,101]},
+      {"y":480,"condition":"play","interval":2,"id":77},
+      {"y":720,"condition":"miss","id":100},
+      {"y":1440,"id":999},
+      {"y":1680,"condition":"miss","id_set":[]}],
+    "poor_events":[{"y":720,"id":103},{"y":960,"id":102},{"y":1200,"id":42}]
+  }})";
+  bms_parser::Parser parser;
+  std::atomic_bool cancelled{false};
+  bms_parser::Chart *raw = nullptr;
+  parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+  std::unique_ptr<bms_parser::Chart> chart(raw);
+  ASSERT_EQ(true, bool(chart), "extended BGA parsed");
+  std::map<long long, bms_parser::TimeLine *> timelines;
+  for (auto *measure : chart->Measures) for (auto *timeline : measure->TimeLines)
+    timelines[timeline->Timing] = timeline;
+  ASSERT_EQ(42, timelines.at(0)->BgaBase, "arbitrary base header ID retained");
+  ASSERT_EQ(77, timelines.at(0)->BgaLayer, "standard layer playback retained");
+  const auto *miss = timelines.at(500000);
+  ASSERT_EQ(-1, miss->BgaLayer, "conditional MISS is never an unconditional layer");
+  ASSERT_EQ(true, miss->BgaPoor.has_value(), "MISS sequence projected for playback");
+  ASSERT_EQ(size_t(3), miss->BgaPoor->Frames.size(), "all first-sequence frames projected");
+  ASSERT_EQ(42, miss->BgaPoor->Frames[0], "sequence resolves authored header ID");
+  ASSERT_EQ(77, miss->BgaPoor->Frames[1], "sequence advances to second image");
+  ASSERT_EQ(bms_parser::BgaSequenceBlank, miss->BgaPoor->Frames[2], "omitted frame ID is END");
+  ASSERT_EQ(-1, timelines.at(1000000)->BgaLayer, "conditional PLAY is never an unconditional layer");
+  ASSERT_EQ(false, timelines.at(1000000)->BgaPoor.has_value(), "PLAY does not become MISS");
+  const auto *poor = timelines.at(1500000);
+  ASSERT_EQ(77, poor->BgaPoor->Frames.front(), "poor event overrides same-pulse conditional layer");
+  ASSERT_EQ(bms_parser::BgaSequenceBlank, poor->BgaPoor->Frames.back(), "explicit Java END sentinel supported");
+  ASSERT_EQ(size_t(0), timelines.at(2000000)->BgaPoor->Frames.size(), "empty sequence remains a blank miss");
+  ASSERT_EQ(size_t(2), timelines.at(2500000)->BgaPoor->Frames.size(), "direct poor fallback includes terminal END");
+  ASSERT_EQ(42, timelines.at(2500000)->BgaPoor->Frames.front(), "direct poor fallback resolves header ID");
+  ASSERT_EQ(bms_parser::BgaSequenceBlank, timelines.at(2500000)->BgaPoor->Frames.back(), "direct poor fallback terminates");
+  ASSERT_EQ(-1, timelines.at(3000000)->BgaBase, "undefined direct base ignored");
+  ASSERT_EQ(-1, timelines.at(3000000)->BgaLayer, "undefined direct layer ignored");
+  ASSERT_EQ(true, timelines.at(3500000)->BgaPoor.has_value(), "empty id_set remains an effective MISS");
+  ASSERT_EQ(true, timelines.at(3500000)->BgaPoor->Frames.empty(), "empty id_set is a blank miss");
+  ASSERT_EQ(size_t(3), chart->ReferencedBmpTable.size(), "all reachable alternatives loaded, unused headers excluded");
+  ASSERT_EQ(std::string("alternate.png"), chart->ReferencedBmpTable.at(91), "alternative sequence image loaded");
+  ASSERT_EQ(size_t(1), miss->BgaEvents.size(), "effective event retained");
+  const auto &event = miss->BgaEvents.front();
+  ASSERT_EQ(true, event.Condition == bms_parser::BgaEventCondition::Miss, "MISS condition retained");
+  ASSERT_EQ(-3, event.Interval, "negative Java interval retained");
+  ASSERT_EQ(size_t(2), event.Sequences.size(), "all id_set alternatives retained");
+  ASSERT_EQ(-10LL, (*event.Sequences[0])[0].TimeMillis, "signed authored frame time retained");
+  ASSERT_EQ(125LL, (*event.Sequences[0])[1].TimeMillis, "nonuniform frame time retained");
+  ASSERT_EQ(77, (*event.Sequences[0])[1].BmpId, "metadata uses authored image IDs");
+  ASSERT_EQ(true, (*event.Sequences[0])[2].IsEnd, "omitted ID retains END identity");
+  ASSERT_EQ(9000000000LL, (*event.Sequences[1])[1].TimeMillis, "frame times exceed signed 32-bit");
+  ASSERT_EQ(true, (*event.Sequences[1])[1].IsEnd, "explicit Java END retains identity");
+  ASSERT_EQ(true, timelines.at(1000000)->BgaEvents.front().Condition == bms_parser::BgaEventCondition::Play, "PLAY metadata retained without playback invention");
+  ASSERT_EQ(2, timelines.at(1000000)->BgaEvents.front().Interval, "PLAY interval retained");
+  ASSERT_EQ(size_t(1), poor->BgaEvents.size(), "poor replaces conditional metadata");
+  ASSERT_EQ(1, poor->BgaEvents.front().Interval, "poor uses reference interval one");
+  ASSERT_EQ(77, (*poor->BgaEvents.front().Sequences[0])[0].BmpId, "poor metadata replaces layer sequence");
+  ASSERT_EQ(size_t(0), timelines.at(2000000)->BgaEvents.front().Sequences[0]->size(), "empty authored sequence retained in metadata");
+  ASSERT_EQ(500LL, (*timelines.at(2500000)->BgaEvents.front().Sequences[0])[1].TimeMillis, "fallback END time is 500 ms");
+  ASSERT_EQ(size_t(0), timelines.at(3500000)->BgaEvents.front().Sequences.size(), "empty id_set retained in metadata");
+  const auto snapshot = parser_test::chartSnapshot(*chart);
+  parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+  std::unique_ptr<bms_parser::Chart> repeated(raw);
+  ASSERT_EQ(snapshot, parser_test::chartSnapshot(*repeated), "BGA repeated decode equivalence");
+  const auto scan = parser.Scan(bytesFromString(input), cancelled);
+  ASSERT_EQ(true, scan.has_value() && scan->HasBga, "extended BGA scans successfully");
+  ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta), "extended BGA full and Scan agree");
+  {
+    const std::string duplicates = R"({"version":"1.0.0","info":{"init_bpm":120},"bga":{
+      "bga_header":[{"id":42,"name":"image.png"}],
+      "bga_events":[{"y":0,"id":42},{"y":240,"id":999}],
+      "layer_events":[{"y":0,"id":42},{"y":240,"id":42},
+        {"y":240,"id":42,"condition":"miss"},{"y":480,"id":42},
+        {"y":480,"id":42,"condition":"play"},{"y":720,"id":999},
+        {"y":960,"id":42},{"y":960,"id":999}]
+    }})";
+    parser.Parse(bytesFromString(duplicates), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> decoded(raw);
+    ASSERT_EQ(true, bool(decoded), "same-pulse layer assignments parsed");
+    int base = -1, layer = -1;
+    for (auto *measure : decoded->Measures) for (auto *timeline : measure->TimeLines) {
+      if (timeline->BgaBase >= 0) base = timeline->BgaBase;
+      if (timeline->BgaLayer >= 0) layer = timeline->BgaLayer;
+      if (timeline->Timing == 500000 || timeline->Timing == 1000000) {
+        ASSERT_EQ(-1, timeline->BgaLayer, "later conditional layer removes same-pulse unconditional assignment");
+      }
+      ASSERT_EQ(42, base, "undefined base preserves previously playing image");
+      ASSERT_EQ(42, layer, "undefined or conditional layer preserves earlier timeline image");
+    }
+  }
+  {
+    // Undefined sequence images must never be treated as header array indexes.
+    // Last definitions/events win, and every effective alternative is loaded.
+    const std::string edge = R"({"version":"1.0.0","info":{"init_bpm":120},"bga":{
+      "bga_header":[{"id":42,"name":"first.png"},{"id":77,"name":"second.png"}],
+      "bga_sequence":[null,{"id":100,"sequence":[{"id":42}]},
+        {"id":100,"sequence":[{"id":1,"time":-9223372036854775808},
+          {"id":999,"time":9223372036854775807},{"id":-1,"time":9007199254740993},
+          {"time":500}]},{"id":101,"sequence":[]}],
+      "layer_events":[{"y":0,"id":42,"condition":"miss"},
+        {"y":0,"id":100,"condition":"play","interval":2147483647},
+        {"y":240,"id_set":[101,77],"condition":"miss","interval":-2147483648},
+        {"y":480,"id_set":[77,42],"condition":"unknown"},
+        {"y":720,"id":100}]
+    }})";
+    parser.Parse(bytesFromString(edge), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> decoded(raw);
+    ASSERT_EQ(true, bool(decoded), "signed metadata limits accepted");
+    std::map<long long, bms_parser::TimeLine *> byTime;
+    for (auto *measure : decoded->Measures) for (auto *timeline : measure->TimeLines)
+      byTime[timeline->Timing] = timeline;
+    const auto *first = byTime.at(0);
+    ASSERT_EQ(false, first->BgaPoor.has_value(), "later PLAY replaces same-pulse MISS projection");
+    const auto &event = first->BgaEvents.front();
+    ASSERT_EQ(2147483647, event.Interval, "maximum signed interval retained");
+    ASSERT_EQ(size_t(4), event.Sequences[0]->size(), "last duplicate sequence definition wins");
+    ASSERT_EQ((-9223372036854775807LL - 1), (*event.Sequences[0])[0].TimeMillis, "minimum signed frame time retained");
+    ASSERT_EQ(9223372036854775807LL, (*event.Sequences[0])[1].TimeMillis, "maximum signed frame time retained");
+    ASSERT_EQ(9007199254740993LL, (*event.Sequences[0])[2].TimeMillis, "integer frame time beyond double precision retained exactly");
+    for (size_t i = 0; i < 3; ++i) {
+      ASSERT_EQ(bms_parser::BgaSequenceBlank, (*event.Sequences[0])[i].BmpId, "unresolved sequence image safely blank");
+      ASSERT_EQ(false, (*event.Sequences[0])[i].IsEnd, "unresolved image distinct from END");
+    }
+    ASSERT_EQ((-2147483647 - 1), byTime.at(500000)->BgaEvents.front().Interval, "minimum signed interval retained");
+    ASSERT_EQ(true, byTime.at(500000)->BgaPoor->Frames.empty(), "empty first alternative remains blank despite nonempty second");
+    ASSERT_EQ(true, byTime.at(1000000)->BgaEvents.front().Condition == bms_parser::BgaEventCondition::Always, "unknown condition uses Java ALWAYS default");
+    ASSERT_EQ(-1, byTime.at(1000000)->BgaLayer, "extended ALWAYS alternatives not reinterpreted as direct layer");
+    ASSERT_EQ(-1, byTime.at(1500000)->BgaLayer, "sequence ID not used as direct layer resource");
+    ASSERT_EQ(size_t(2), decoded->ReferencedBmpTable.size(), "resources reachable only through alternatives retained");
+  }
+  {
+    const std::string legacy = R"({"info":{"initBPM":120},"bga":{
+      "bgaHeader":[{"ID":42,"name":"legacy.png"}],
+      "bgaNotes":[{"y":0,"ID":42}],"layerNotes":[{"y":0,"ID":42}],
+      "poorNotes":[{"y":0,"ID":42}]}})";
+    parser.Parse(bytesFromString(legacy), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> decoded(raw);
+    ASSERT_EQ(true, bool(decoded), "legacy BGA schema retained");
+    const auto *first = decoded->Measures.front()->TimeLines.front();
+    ASSERT_EQ(42, first->BgaBase, "legacy direct base retained");
+    ASSERT_EQ(42, first->BgaLayer, "legacy direct layer survives simultaneous poor event");
+    ASSERT_EQ(42, first->BgaPoor->Frames.front(), "legacy poor fallback retains image");
+    ASSERT_EQ(bms_parser::BgaSequenceBlank, first->BgaPoor->Frames.back(), "legacy poor fallback terminates");
+  }
+  {
+    // Repeated references share timed metadata; the unavoidable legacy MISS
+    // projection has a total-frame budget, checked before allocating copies.
+    std::string sequence = "{\"id\":100,\"sequence\":[";
+    for (int i = 0; i < 1024; ++i) {
+      if (i) sequence += ',';
+      sequence += "{\"time\":" + std::to_string(i) + ",\"id\":42}";
+    }
+    sequence += "]}";
+    const auto source = [&](int references, const char *condition) {
+      std::string text = "{\"version\":\"1.0.0\",\"info\":{\"init_bpm\":120},\"bga\":{";
+      text += "\"bga_header\":[{\"id\":42,\"name\":\"image.png\"}],\"bga_sequence\":[" + sequence + "],\"layer_events\":[";
+      for (int i = 0; i < references; ++i) {
+        if (i) text += ',';
+        text += "{\"y\":" + std::to_string(i) + ",\"id\":100,\"condition\":\"" + condition + "\"}";
+      }
+      return text + "]}}";
+    };
+    parser.Parse(bytesFromString(source(1024, "miss")), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> decoded(raw);
+    ASSERT_EQ(true, bool(decoded), "MISS projection at expansion budget accepted");
+    const auto *shared = decoded->Measures.front()->TimeLines.front()->BgaEvents.front().Sequences.front().get();
+    size_t totalFrames = 0;
+    bool sharesAll = true;
+    for (auto *measure : decoded->Measures) for (auto *timeline : measure->TimeLines) {
+      if (timeline->BgaEvents.empty()) continue;
+      sharesAll = sharesAll && timeline->BgaEvents.front().Sequences.front().get() == shared;
+      totalFrames += timeline->BgaPoor->Frames.size();
+    }
+    ASSERT_EQ(true, sharesAll, "reused sequences share immutable storage");
+    ASSERT_EQ(size_t(1048576), totalFrames, "legacy projection copies bounded total frame count");
+    const auto overBudget = bytesFromString(source(1025, "miss"));
+    parser.Parse(overBudget, &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> rejected(raw);
+    ASSERT_EQ(false, bool(rejected), "MISS expansion above budget rejected before publication");
+    ASSERT_EQ(false, parser.Scan(overBudget, cancelled).has_value(), "Scan enforces identical MISS expansion budget");
+    parser.Parse(bytesFromString(source(1025, "play")), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> play(raw);
+    ASSERT_EQ(true, bool(play), "shared PLAY sequences need no legacy expansion limit");
+  }
+  {
+    const std::vector<std::string> invalidBga = {
+      R"("bga_sequence":[{"id":1}])",
+      R"("bga_sequence":[{"id":1,"sequence":null}])",
+      R"("bga_sequence":[{"id":1,"sequence":[null]}])",
+      R"("bga_sequence":[{"id":1,"sequence":[{"time":9223372036854775808}]}])",
+      R"("bga_sequence":[{"id":1,"sequence":[{"time":-9223372036854775809}]}])",
+      R"("bga_sequence":[{"id":1,"sequence":[{"time":0.5}]}])",
+      R"("bga_sequence":[{"id":1,"sequence":[{"id":2147483648}]}])",
+      R"("bga_sequence":[{"id":1,"sequence":[{"id":-2147483649}]}])",
+      R"("layer_events":[{"y":0,"interval":2147483648}])",
+      R"("layer_events":[{"y":0,"interval":-2147483649}])",
+      R"("layer_events":[{"y":0,"interval":0.5}])",
+      R"("layer_events":[{"y":0,"id_set":false}])",
+      R"("layer_events":[{"y":0,"id_set":[2147483648]}])",
+      R"("bga_header":[{"id":42,"name":"../unsafe.png"}])"
+    };
+    for (const auto &bga : invalidBga) {
+      const auto bytes = bytesFromString("{\"version\":\"1.0.0\",\"info\":{\"init_bpm\":120},\"bga\":{" + bga + "}}");
+      parser.Parse(bytes, &raw, false, false, cancelled);
+      std::unique_ptr<bms_parser::Chart> decoded(raw);
+      ASSERT_EQ(false, bool(decoded), "invalid BGA metadata rejected without partial chart");
+      ASSERT_EQ(false, parser.Scan(bytes, cancelled).has_value(), "invalid BGA Scan agrees");
+    }
+    cancelled = true;
+    parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> decoded(raw);
+    ASSERT_EQ(false, bool(decoded), "cancelled extended BGA publishes no chart");
+    ASSERT_EQ(false, parser.Scan(bytesFromString(input), cancelled).has_value(), "cancelled extended BGA publishes no scan");
+  }
+  return 0;
+}
+
 // Both schemas must reach the same playable timeline through the public API.
 int runBmsonTests() {
+  if (const int result = runBmsonBgaTests(); result != 0) return result;
   // Mode.java and BMSONDecoder.keyassign: beat-5/10 retain the sparse
   // eight-channel namespace; keyboard wheels occupy two lanes per player.
   struct ModeCase {

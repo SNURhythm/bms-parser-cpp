@@ -29,6 +29,12 @@
 #ifndef bms_parser_picojson_h
 #define bms_parser_picojson_h
 
+// Retain authored bmson frame timestamps exactly, including Java long limits.
+#ifndef PICOJSON_USE_INT64
+#define PICOJSON_USE_INT64
+#define BMS_PARSER_UNDEF_PICOJSON_INT64
+#endif
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -1006,6 +1012,11 @@ inline std::ostream& operator<<(std::ostream& os, const bms_parser_picojson::val
 }
 #ifdef _MSC_VER
     #pragma warning(pop)
+#endif
+
+#ifdef BMS_PARSER_UNDEF_PICOJSON_INT64
+#undef PICOJSON_USE_INT64
+#undef BMS_PARSER_UNDEF_PICOJSON_INT64
 #endif
 
 #endif

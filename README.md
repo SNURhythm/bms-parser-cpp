@@ -203,9 +203,44 @@ The common `ln_type`, note `t`/`up`, `scroll_events`, `key_channels` and
 source audio; their WAV IDs remain in `WavTable` rather than `WavSlices`.
 Mines retain authored damage and are suppressed on playable notes or within
 long notes. Nonpositive modern resolution falls back to 240.
-BGA sequences and conditional event layers are not implemented. Other unknown
-extensions are ignored. An empty `lines` array hides bars; omitted/null
+Other unknown extensions are ignored. An empty `lines` array hides bars; omitted/null
 lines generate 4/4 bars. Implicit generation is bounded to one million bars.
+
+### BGA event metadata
+
+`bga_sequence`, `layer_events` conditions/`id_set`/`interval`, and sequence IDs
+in `poor_events` are decoded into `TimeLine::BgaEvents`. Each `BgaEvent` has a
+`BgaEventCondition` (`Always`, `Play`, `Miss`), a signed `Interval`, and
+`Sequences`: nonnull `shared_ptr<const BgaSequence>` alternatives in authored
+order. A `BgaSequence` is a vector of `BgaSequenceFrame` containing signed
+64-bit `TimeMillis`, `BmpId`, and `IsEnd`. Omitted frame IDs and the Java
+`Integer.MIN_VALUE` sentinel mean END. An unresolved image has
+`BmpId == BgaSequenceBlank` but `IsEnd == false`.
+
+Frame IDs resolve against authored `bga_header` IDs, just like direct BGA
+references. This deliberately differs from `BMSONDecoder.java`, which copies
+sequence frame IDs directly into runtime resource indexes while mapping
+ordinary references through the header table. Arbitrary header IDs therefore
+remain safe and consistent here. Undefined direct base/layer IDs produce no
+visual change. All images reachable from effective events, including alternate
+sequences, are retained in `ReferencedBmpTable`.
+
+Standard direct layers still populate `BgaLayer`; conditional and sequence
+layers do not. The last layer event at a pulse wins; `poor_events` override
+that pulse's event metadata and use `Miss` with interval 1. A direct image
+fallback becomes an image at 0 ms followed by END at 500 ms. Effective MISS
+events also populate the existing `BgaPoor.Frames` from only their first
+sequence, mapping END to `BgaSequenceBlank`. An empty first sequence or empty
+`id_set` produces a present `BgaPoor` with empty `Frames`, meaning a blank miss.
+
+This projection does not implement frame timing, interval, PLAY, or alternate
+sequence playback. The referenced beatoraja renderer uses only MISS events and
+the first sequence, distributing frame positions across its 500 ms miss window
+without reading authored frame timestamps or intervals. Timed metadata shares
+immutable storage across reused sequences; the legacy MISS projection still
+owns frame copies. Full parsing and Scan reject charts expanding beyond
+1,048,576 effective MISS frames (4 MiB of frame IDs), before allocating those
+copies. Resource traversal visits each shared sequence once.
 
 ### Audio slices
 
