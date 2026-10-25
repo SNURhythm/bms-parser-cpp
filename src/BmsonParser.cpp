@@ -455,7 +455,6 @@ std::unique_ptr<Chart> decode(const std::vector<unsigned char> &bytes,
     const int wav = nextWav++;
     if (materialize) {
       chart->WavSlices[wav] = {{source, start, duration, wav}};
-      chart->ReferencedWavTable[source] = chart->WavTable.at(source);
     }
     return wav;
   };
@@ -672,7 +671,8 @@ std::unique_ptr<Chart> decode(const std::vector<unsigned char> &bytes,
     }
   }
   // Keep only virtual sounds reachable from effective notes, including shared
-  // chord slices but excluding discarded release sounds.
+  // chord slices but excluding discarded release sounds. Collect source
+  // references only from surviving recipes, alongside effective hidden/mines.
   std::set<int> usedSounds;
   if (materialize) for (const auto &[key, note] : playable) {
     check();
@@ -686,7 +686,13 @@ std::unique_ptr<Chart> decode(const std::vector<unsigned char> &bytes,
   for (auto it = chart->WavSlices.begin(); it != chart->WavSlices.end();) {
     check();
     if (!usedSounds.count(it->first)) it = chart->WavSlices.erase(it);
-    else ++it;
+    else {
+      for (const auto &slice : it->second) {
+        check();
+        chart->ReferencedWavTable[slice.SourceWav] = chart->WavTable.at(slice.SourceWav);
+      }
+      ++it;
+    }
   }
   // Preserve authored units: the player chooses its default gain for 1.0.
   meta.TotalIsRelative = !legacy;

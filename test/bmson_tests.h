@@ -291,11 +291,67 @@ int runBmsonReleaseTests() {
     const auto &slices = chart->WavSlices.at(head->Tail->Wav);
     ASSERT_EQ(size_t(1), slices.size(), "release assignment never layers competing sounds");
     ASSERT_EQ(std::string(order < 2 ? "last.wav" : "first.wav"), chart->WavTable.at(slices.front().SourceWav), "pending versus existing-tail precedence");
+    ASSERT_EQ(size_t(2), chart->ReferencedWavTable.size(), "discarded release source is not loaded");
+    ASSERT_EQ(true, chart->ReferencedWavTable.count(slices.front().SourceWav) != 0, "winning release source is loaded");
     ASSERT_EQ(2, chart->Meta.TotalNotes, "release sounds add no CN judgements");
     const auto scan = parser.Scan(bytesFromString(input), cancelled);
     ASSERT_EQ(true, bool(scan), "release scan succeeds");
     ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta), "release full/scan parity");
   }
+  return 0;
+}
+
+int runBmsonReferencedSoundTests() {
+  const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":[
+    {"name":"hold.wav","notes":[{"x":1,"y":0,"l":480}]},
+    {"name":"layer.wav","notes":[{"x":1,"y":0,"l":480}]},
+    {"name":"ignored-head.wav","notes":[{"x":1,"y":0}]},
+    {"name":"orphan-release.wav","notes":[{"x":2,"y":480,"up":true}]},
+    {"name":"background.wav","notes":[{"x":1,"y":240}]},
+    {"name":"shared.wav","notes":[{"x":2,"y":0},{"x":2,"y":240,"c":true}]}],
+    "key_channels":[
+      {"name":"old-hidden.wav","notes":[{"x":3,"y":0}]},
+      {"name":"shared.wav","notes":[{"x":3,"y":0}]}],
+    "mine_channels":[
+      {"name":"blocked-mine.wav","notes":[{"x":1,"y":240}]},
+      {"name":"mine.wav","notes":[{"x":4,"y":240}]},
+      {"name":"ignored-mine.wav","notes":[{"x":4,"y":240}]}]})";
+  bms_parser::Parser parser;
+  std::atomic_bool cancelled{false};
+  bms_parser::Chart *raw = nullptr;
+  const auto bytes = bytesFromString(input);
+  parser.Parse(bytes, &raw, false, false, cancelled);
+  std::unique_ptr<bms_parser::Chart> chart(raw);
+  ASSERT_EQ(true, bool(chart), "effective sound references parsed");
+  const decltype(chart->ReferencedWavTable) expected = {
+      {1, "hold.wav"}, {2, "layer.wav"}, {5, "background.wav"},
+      {6, "shared.wav"}, {8, "shared.wav"}, {10, "mine.wav"}};
+  ASSERT_EQ(true, expected == chart->ReferencedWavTable, "only surviving recipes and effective auxiliary sources loaded");
+  std::map<long long, bms_parser::TimeLine *> timelines;
+  for (auto *measure : chart->Measures) for (auto *timeline : measure->TimeLines)
+    timelines[timeline->Timing] = timeline;
+  const auto *first = timelines.at(0);
+  const auto &layers = chart->WavSlices.at(first->Notes[0]->Wav);
+  ASSERT_EQ(size_t(2), layers.size(), "surviving composite keeps every layer");
+  ASSERT_EQ(1, layers[0].SourceWav, "composite keeps first source");
+  ASSERT_EQ(2, layers[1].SourceWav, "composite keeps second source");
+  const auto *second = timelines.at(500000);
+  ASSERT_EQ(size_t(1), second->BackgroundNotes.size(), "rejected interior note remains audible as BGM");
+  ASSERT_EQ(5, chart->WavSlices.at(second->BackgroundNotes.front()->Wav).front().SourceWav, "BGM recipe retains rejected note source");
+  ASSERT_EQ(8, first->InvisibleNotes[2]->Wav, "hidden note keeps direct source identity");
+  ASSERT_EQ(size_t(0), chart->WavSlices.count(first->InvisibleNotes[2]->Wav), "direct source is not a slice recipe");
+  const auto &slice = chart->WavSlices.at(second->Notes[1]->Wav).front();
+  ASSERT_EQ(6, slice.SourceWav, "same filename keeps independent sliced source identity");
+  ASSERT_EQ(500000LL, slice.StartMicros, "continuation retains its source offset");
+  ASSERT_EQ(10, second->LandmineNotes[3]->Wav, "first effective mine keeps direct source identity");
+  const auto scan = parser.Scan(bytes, cancelled);
+  ASSERT_EQ(true, bool(scan), "effective sound references scan succeeds");
+  ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta), "effective sound full/scan parity");
+  parser.Parse(bytes, &raw, false, true, cancelled);
+  std::unique_ptr<bms_parser::Chart> metadata(raw);
+  ASSERT_EQ(true, bool(metadata), "effective sound metadata parse succeeds");
+  ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(metadata->Meta), "effective sound full/metadata parity");
+  ASSERT_EQ(true, metadata->ReferencedWavTable.empty() && metadata->WavSlices.empty(), "metadata parse does not materialize audio");
   return 0;
 }
 
@@ -364,6 +420,7 @@ int runBmsonLayerIdentityTests() {
 int runBmsonTests() {
   if (const int result = runBmsonOverlapTests(); result != 0) return result;
   if (const int result = runBmsonReleaseTests(); result != 0) return result;
+  if (const int result = runBmsonReferencedSoundTests(); result != 0) return result;
   if (const int result = runBmsonRecoveryTests(); result != 0) return result;
   if (const int result = runBmsonLayerIdentityTests(); result != 0) return result;
   if (const int result = runBmsonBgaTests(); result != 0) return result;
