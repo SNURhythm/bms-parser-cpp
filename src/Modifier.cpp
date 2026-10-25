@@ -554,10 +554,10 @@ std::vector<int> ScratchLanesForPlayer(const ChartMeta &meta, int player) {
   if (!meta.IsDP || scratchLanes.size() <= 1) {
     return scratchLanes;
   }
-  if (player < 0 || player >= static_cast<int>(scratchLanes.size())) {
-    return {};
-  }
-  return {scratchLanes[static_cast<size_t>(player)]};
+  if (player < 0 || player >= 2) return {};
+  const auto perPlayer = scratchLanes.size() / 2;
+  return {scratchLanes.begin() + player * perPlayer,
+          scratchLanes.begin() + (player + 1) * perPlayer};
 }
 
 std::vector<int> MakeRandomLaneMap(const std::vector<int> &keys,
@@ -621,9 +621,9 @@ std::vector<int> BaseModifier::GetModifyLanes(const ChartMeta &meta,
   auto keyLanes = meta.GetKeyLaneIndices();
   std::vector<int> result;
   if (meta.IsDP) {
-    const int keysPerPlayer = meta.KeyMode / 2;
+    const int keysPerPlayer = meta.GetKeyLaneCount() / 2;
     const int player = Player < 0 ? 0 : Player;
-    if (player >= meta.GetScratchLaneCount()) {
+    if (player >= 2) {
       return {};
     }
     const int begin = keysPerPlayer * player;
@@ -633,10 +633,8 @@ std::vector<int> BaseModifier::GetModifyLanes(const ChartMeta &meta,
                     keyLanes.begin() + end);
     }
     if (includeScratch) {
-      auto scratchLanes = meta.GetScratchLaneIndices();
-      if (player < static_cast<int>(scratchLanes.size())) {
-        result.push_back(scratchLanes[static_cast<size_t>(player)]);
-      }
+      const auto scratchLanes = ScratchLanesForPlayer(meta, player);
+      result.insert(result.end(), scratchLanes.begin(), scratchLanes.end());
     }
     return result;
   }

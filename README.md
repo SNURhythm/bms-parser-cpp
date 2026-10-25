@@ -183,16 +183,28 @@ mapped explicitly. Legacy timing uses 240 pulses per quarter note; 1.0 uses
 `info.resolution` (default 240). Both use pulse-based note and stop positions.
 `ChartMeta::TotalIsRelative` is false for legacy absolute TOTAL, true for 1.0's
 percentage of the player's default gain. `Total` retains its authored units;
-zero relative TOTAL means no gain. Judge width uses the existing `DefExRank`
-percentage representation; `Values["bmson.judge_rank"]` preserves the authored
+zero relative TOTAL means no gain. Judge ranks 0–4 use the BMS rank table,
+matching jbms-parser compatibility behavior; negative values retain normal
+rank. Other judge widths use the existing `DefExRank` percentage representation; `Values["bmson.judge_rank"]` preserves the authored
 fractional percentage for clients with finer judgement precision.
 
-Supported layouts are `beat-5k`, `beat-7k`, `beat-10k`, `beat-14k`, and
-`popn-9k`, matching the existing chart lane model. Unsupported modes are rejected
-rather than remapped. Notes, paired long notes, timing, bar lines, metadata,
+Supported layouts cover every mode in jbms-parser's `Mode` enum:
+`beat-5k`, `beat-7k`, `beat-10k`, `beat-14k`, `popn-5k`, `popn-9k`,
+`keyboard-24k`, and `keyboard-24k-double`. Beat modes retain the sparse BMS
+lane namespace. Keyboard modes expose 26/52 consecutive lanes, with wheels at
+24/25 (and 50/51 for double play); their `KeyMode` values are 24/48.
+Pop'n 5-key shares `KeyMode == 9` with pop'n 9-key, like the reference mode ID,
+but `Values["bmson.mode_hint"]` selects five active lanes. Preserve that value
+when copying chart metadata. Unsupported mode hints are rejected rather than
+remapped. Notes, paired long notes, timing, bar lines, metadata,
 BGA/layer/poor events and referenced resources share the BMS chart model.
-The common `ln_type`, note `t`/`up`, and `scroll_events` extensions are read.
-Other extensions are ignored. An empty `lines` array hides bars; omitted/null
+The common `ln_type`, note `t`/`up`, `scroll_events`, `key_channels` and
+`mine_channels` extensions are read. Hidden keys and mines reference whole
+source audio; their WAV IDs remain in `WavTable` rather than `WavSlices`.
+Mines retain authored damage and are suppressed on playable notes or within
+long notes. Nonpositive modern resolution falls back to 240.
+BGA sequences and conditional event layers are not implemented. Other unknown
+extensions are ignored. An empty `lines` array hides bars; omitted/null
 lines generate 4/4 bars. Implicit generation is bounded to one million bars.
 
 ### Audio slices
