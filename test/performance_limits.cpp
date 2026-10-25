@@ -102,7 +102,52 @@ int testWorkspaceReuse() {
   return 0;
 }
 
+int testBmsonLayers() {
+  for (bool scanOnly : {false, true}) {
+    std::size_t smallerPeak = 0;
+    for (int channels : {256, 512}) {
+      std::string text = R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":[)";
+      for (int i = 0; i < channels; ++i) {
+        if (i) text += ',';
+        text += R"({"name":"a.wav","notes":[{"x":1,"y":0}]})";
+      }
+      text += "]}";
+      const std::vector<unsigned char> bytes(text.begin(), text.end());
+      std::atomic_bool cancelled{false};
+      peakBytes = liveBytes;
+      measuring = true;
+      bool valid = false;
+      {
+        bms_parser::Parser parser;
+        if (scanOnly) {
+          const auto scan = parser.Scan(bytes, cancelled);
+          valid = scan && scan->Meta.TotalNotes == 1 && scan->Meta.PlayLength == 0;
+        } else {
+          bms_parser::Chart *raw = nullptr;
+          parser.Parse(bytes, &raw, false, false, cancelled);
+          const std::unique_ptr<bms_parser::Chart> chart(raw);
+          valid = chart && chart->Meta.TotalNotes == 1 && chart->Meta.PlayLength == 0 &&
+              chart->WavSlices.size() == 1 && chart->WavSlices.begin()->second.size() == size_t(channels);
+        }
+      }
+      measuring = false;
+      std::cout << "Bmson " << (scanOnly ? "Scan" : "Full") << ": channels=" << channels
+                << " input_bytes=" << bytes.size() << " peak_live_bytes=" << peakBytes << '\n';
+      // Small generated inputs expose quadratic retained layer prefixes. Leave
+      // room for standard-library node sizes while requiring linear growth.
+      if (!valid || liveBytes != 0 || peakBytes > bytes.size() * 96 ||
+          (smallerPeak && peakBytes > smallerPeak * 5 / 2 + 65536)) {
+        std::cerr << "Layered bmson must retain linear heap and one scoring note\n";
+        return 1;
+      }
+      smallerPeak = peakBytes;
+    }
+  }
+  return 0;
+}
+
 int main() {
+  if (testBmsonLayers() != 0) return 1;
   if (testWorkspaceReuse() != 0) return 1;
   std::string text = "#TITLE scan memory budget\n#BPM 150\n#WAV01 note.wav\n";
   for (int measure = 0; measure < 256; ++measure) {

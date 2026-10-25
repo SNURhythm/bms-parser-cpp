@@ -229,7 +229,143 @@ int runBmsonBgaTests() {
 }
 
 // Both schemas must reach the same playable timeline through the public API.
+int runBmsonOverlapTests() {
+  const std::string tap = R"({"name":"tap.wav","notes":[{"x":1,"y":240}]})";
+  const std::string hold = R"({"name":"hold.wav","notes":[{"x":1,"y":0,"l":480,"t":2}]})";
+  for (bool holdFirst : {false, true}) {
+    const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":[)" +
+        (holdFirst ? hold + "," + tap : tap + "," + hold) + "]}";
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "overlapping channels parsed");
+    ASSERT_EQ(holdFirst ? 2 : 1, chart->Meta.TotalNotes, "channel precedence preserves tap or CN count");
+    ASSERT_EQ(holdFirst ? 2 : 0, chart->Meta.TotalLongNotes, "only admitted CN endpoints count");
+    ASSERT_EQ(holdFirst ? 1000000LL : 500000LL, chart->Meta.PlayLength, "rejected hold tail does not extend play length");
+    int heads = 0, bgm = 0;
+    for (auto *measure : chart->Measures) for (auto *timeline : measure->TimeLines) {
+      if (auto *note = timeline->Notes[0]) {
+        if (note->IsLongNote() && static_cast<bms_parser::LongNote *>(note)->IsTail()) continue;
+        ++heads;
+        ASSERT_EQ(holdFirst, note->IsLongNote(), "earlier channel wins overlap");
+        ASSERT_EQ(std::string(holdFirst ? "hold.wav" : "tap.wav"),
+            chart->WavTable.at(chart->WavSlices.at(note->Wav).front().SourceWav), "winner sound retained");
+      }
+      for (auto *note : timeline->BackgroundNotes) {
+        ++bgm;
+        ASSERT_EQ(holdFirst ? 500000LL : 0LL, timeline->Timing, "rejected note sounds at authored head");
+        ASSERT_EQ(std::string(holdFirst ? "tap.wav" : "hold.wav"),
+            chart->WavTable.at(chart->WavSlices.at(note->Wav).front().SourceWav), "loser moves to BGM");
+      }
+    }
+    ASSERT_EQ(1, heads, "one playable head survives overlap");
+    ASSERT_EQ(1, bgm, "one rejected head remains audible");
+    const auto scan = parser.Scan(bytesFromString(input), cancelled);
+    ASSERT_EQ(true, bool(scan), "overlap scan succeeds");
+    ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta), "overlap full/scan parity");
+  }
+  return 0;
+}
+
+int runBmsonReleaseTests() {
+  const std::string hold = R"({"name":"hold.wav","notes":[{"x":1,"y":0,"l":480,"t":2}]})";
+  const std::string first = R"({"name":"first.wav","notes":[{"x":1,"y":480,"up":true}]})";
+  const std::string last = R"({"name":"last.wav","notes":[{"x":1,"y":480,"up":true}]})";
+  // Java overwrites an existing tail. Before a head, its HashMap chooses one
+  // pending release; use first-authored deterministically instead of layering.
+  for (int order : {0, 1, 2, 3}) {
+    const std::string channels = order == 0 ? hold + "," + first + "," + last :
+        order == 1 ? first + "," + hold + "," + last :
+        order == 2 ? first + "," + last + "," + hold : first + "," + hold;
+    const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":[)" + channels + "]}";
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "release channel orders parsed");
+    auto *head = dynamic_cast<bms_parser::LongNote *>(chart->Measures.front()->TimeLines.front()->Notes[0]);
+    ASSERT_EQ(true, head && head->Tail, "release has an admitted hold");
+    const auto &slices = chart->WavSlices.at(head->Tail->Wav);
+    ASSERT_EQ(size_t(1), slices.size(), "release assignment never layers competing sounds");
+    ASSERT_EQ(std::string(order < 2 ? "last.wav" : "first.wav"), chart->WavTable.at(slices.front().SourceWav), "pending versus existing-tail precedence");
+    ASSERT_EQ(2, chart->Meta.TotalNotes, "release sounds add no CN judgements");
+    const auto scan = parser.Scan(bytesFromString(input), cancelled);
+    ASSERT_EQ(true, bool(scan), "release scan succeeds");
+    ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta), "release full/scan parity");
+  }
+  return 0;
+}
+
+int runBmsonRecoveryTests() {
+  // Each case independently catches whole-chart rejection of recoverable Java
+  // fields. Keep explicit modern zero TOTAL and normal timing semantics intact.
+  for (const auto &fields : {
+      std::make_pair(std::string(), std::string(R"("bpm_events":[{"y":240,"bpm":0},{"y":480,"bpm":-120}],)")),
+      std::make_pair(std::string(), std::string(R"("stop_events":[{"y":240,"duration":-240}],)")),
+      std::make_pair(std::string(R"(,"ln_type":-1)"), std::string()),
+      std::make_pair(std::string(R"(,"ln_type":2)"), std::string())}) {
+    const bool charge = fields.first == R"(,"ln_type":2)";
+    const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120,"total":0)" + fields.first + "}," + fields.second +
+        R"("sound_channels":[{"name":"hold.wav","notes":[{"x":1,"y":0,"l":480,"t":)" + std::string(charge ? "-1" : "0") + "}]}]}";
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "invalid timing/LN values recover");
+    ASSERT_EQ(charge ? 2 : 0, chart->Meta.LnMode, "invalid global LN type defaults");
+    ASSERT_EQ(charge ? 2 : 1, chart->Meta.TotalNotes, "invalid note type inherits global LN type");
+    ASSERT_EQ(1000000LL, chart->Meta.PlayLength, "skipped events do not alter timing");
+    ASSERT_EQ(120.0, chart->Meta.MinBpm, "skipped BPM does not alter extrema");
+    ASSERT_EQ(0.0, chart->Meta.Total, "modern zero TOTAL stays authored");
+    ASSERT_EQ(true, chart->Meta.TotalIsRelative, "modern TOTAL stays relative");
+    const auto scan = parser.Scan(bytesFromString(input), cancelled);
+    ASSERT_EQ(true, bool(scan), "recovered scan succeeds");
+    ASSERT_EQ(false, scan->HasBpmStop, "negative stop has no effective stop");
+    ASSERT_EQ(parser_test::metadataSnapshot(chart->Meta), parser_test::metadataSnapshot(scan->Meta), "recovery full/scan parity");
+  }
+  for (const std::string event : {
+      R"("bpm_events":[{"y":-1,"bpm":0}])", R"("stop_events":[{"y":0.5,"duration":-1}])",
+      R"("bpm_events":[{"y":4294967296,"bpm":-1}])", R"("stop_events":[{"y":"bad","duration":-1}])"}) {
+    const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120},)" + event + "}";
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    ASSERT_EQ(false, bool(parser.Scan(bytesFromString(input), cancelled)), "skipped event still validates pulse");
+  }
+  return 0;
+}
+
+int runBmsonLayerIdentityTests() {
+  const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":[
+    {"name":"chord.wav","notes":[{"x":1,"y":0},{"x":2,"y":0}]},
+    {"name":"layer.wav","notes":[{"x":1,"y":0},{"x":1,"y":0},{"x":3,"y":0}]},
+    {"name":"third.wav","notes":[{"x":1,"y":0}]}]})";
+  bms_parser::Parser parser;
+  std::atomic_bool cancelled{false};
+  bms_parser::Chart *raw = nullptr;
+  parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+  std::unique_ptr<bms_parser::Chart> chart(raw);
+  ASSERT_EQ(true, bool(chart), "layered chord parsed");
+  const auto *timeline = chart->Measures.front()->TimeLines.front();
+  const auto &layers = chart->WavSlices.at(timeline->Notes[0]->Wav);
+  const auto &chord = chart->WavSlices.at(timeline->Notes[1]->Wav);
+  const auto &other = chart->WavSlices.at(timeline->Notes[2]->Wav);
+  ASSERT_EQ(size_t(3), layers.size(), "same-pulse duplicate slice is not doubled");
+  ASSERT_EQ(size_t(1), chord.size(), "layer accumulation does not mutate another chord key");
+  ASSERT_EQ(size_t(1), other.size(), "second shared slice also remains isolated");
+  ASSERT_EQ(chord.front().SliceId, layers[0].SliceId, "first shared slice keeps monophonic identity");
+  ASSERT_EQ(other.front().SliceId, layers[1].SliceId, "second shared slice keeps monophonic identity");
+  return 0;
+}
+
 int runBmsonTests() {
+  if (const int result = runBmsonOverlapTests(); result != 0) return result;
+  if (const int result = runBmsonReleaseTests(); result != 0) return result;
+  if (const int result = runBmsonRecoveryTests(); result != 0) return result;
+  if (const int result = runBmsonLayerIdentityTests(); result != 0) return result;
   if (const int result = runBmsonBgaTests(); result != 0) return result;
   // Mode.java and BMSONDecoder.keyassign: beat-5/10 retain the sparse
   // eight-channel namespace; keyboard wheels occupy two lanes per player.
