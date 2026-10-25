@@ -168,3 +168,53 @@ for validation results and the scope of existing C++ extensions.
 ## Others
 
 Check [bms-parser-py](https://github.com/SNURhythm/bms-parser-py) for Python implementation
+
+## bmson
+
+`Parser::Parse` and `Parser::Scan` accept bmson 1.0 (`version: "1.0.0"`)
+and legacy 0.21/0.2.1 (no version, `"0.21"`, or `"0.2.1"`). Files ending in
+`.bmson` are recognized case-insensitively; byte input is also recognized by
+its JSON object, optionally preceded by a UTF-8 BOM. Invalid JSON, unsupported
+versions/layouts, invalid timing, and cancellation produce no chart/result.
+
+Legacy fields (`initBPM`, `judgeRank`, `bpmNotes`, `stopNotes`, `soundChannel`,
+`bgaHeader`, `bgaNotes`, `layerNotes`, `poorNotes`, and uppercase `ID`) are
+mapped explicitly. Legacy timing uses 240 pulses per quarter note; 1.0 uses
+`info.resolution` (default 240). Both use pulse-based note and stop positions.
+`ChartMeta::TotalIsRelative` is false for legacy absolute TOTAL, true for 1.0's
+percentage of the player's default gain. `Total` retains its authored units;
+zero relative TOTAL means no gain. Judge width uses the existing `DefExRank`
+percentage representation; `Values["bmson.judge_rank"]` preserves the authored
+fractional percentage for clients with finer judgement precision.
+
+Supported layouts are `beat-5k`, `beat-7k`, `beat-10k`, `beat-14k`, and
+`popn-9k`, matching the existing chart lane model. Unsupported modes are rejected
+rather than remapped. Notes, paired long notes, timing, bar lines, metadata,
+BGA/layer/poor events and referenced resources share the BMS chart model.
+The common `ln_type`, note `t`/`up`, and `scroll_events` extensions are read.
+Other extensions are ignored. An empty `lines` array hides bars; omitted/null
+lines generate 4/4 bars. Implicit generation is bounded to one million bars.
+
+### Audio slices
+
+A bmson note's `Wav` is a synthetic ID in `Chart::WavSlices`, whose value is a
+vector of `WavSlice { SourceWav, StartMicros, DurationMicros, SliceId }`. `SourceWav`
+indexes `WavTable`/`ReferencedWavTable`, containing actual audio file names.
+Slices start at the given offset in the decoded source; duration `-1` means
+through EOF. Other durations exclude the end. Mix all slices for a synthetic
+ID together when that note is triggered. This preserves layered keysounds
+without adding extra judgements or requiring the parser to decode audio.
+`SliceId` identifies one channel/pulse slice. Share one monophonic voice for
+that identity even across layered notes or chord keys; distinct identities may
+overlap, including identical ranges from later restarts. Duplicate BGM assignments
+of a playable slice are discarded. Resource paths normalize backslashes to
+slashes and reject absolute paths, parent traversal and embedded NULs.
+
+Continuation offsets use elapsed chart time, including BPM changes and stops.
+Notes at one pulse in a channel share a slice. A restart resets the offset and
+lets the previous sound finish; a continuation cuts the previous slice at its
+onset. Scan/meta-only calls retain metadata but no playable graph or slice table.
+Hashes always identify the original input bytes, not normalized JSON.
+
+The JSON reader is picojson v1.3.0 (BSD-2-Clause), vendored under
+`src/third_party/picojson.h` with its namespace renamed for amalgamation safety.

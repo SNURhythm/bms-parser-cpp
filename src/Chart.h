@@ -50,6 +50,7 @@ public:
   JudgeRankType RankType = JudgeRankType::BmsRank;
   double Total = 100;
   bool HasTotal = false;
+  bool TotalIsRelative = false; // bmson 1.0: percentage of the player default.
   int VolWav = 0;
   // Java BMSModel custom %/@ values: case-sensitive keys, untrimmed values.
   std::unordered_map<std::string, std::string> Values;
@@ -161,6 +162,15 @@ public:
   }
 };
 
+// A synthetic WAV can mix several slices. SourceWav indexes WavTable;
+// DurationMicros == -1 means the remaining source, otherwise an exclusive end.
+struct WavSlice {
+  int SourceWav = 0;
+  long long StartMicros = 0;
+  long long DurationMicros = -1;
+  int SliceId = -1; // One channel/pulse slice; chord assignments share a voice.
+};
+
 class Chart {
 public:
   Chart();
@@ -174,6 +184,7 @@ public:
   // Own LN partners displaced from timeline slots by later source rows.
   std::vector<std::unique_ptr<Note>> DetachedNotes;
   std::unordered_map<int, std::string> WavTable;
+  std::unordered_map<int, std::vector<WavSlice>> WavSlices;
   std::unordered_map<int, std::string> ReferencedWavTable;
   std::unordered_map<int, std::string> BmpTable;
   std::unordered_map<int, std::string> ReferencedBmpTable;

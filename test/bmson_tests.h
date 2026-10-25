@@ -1,0 +1,118 @@
+// Both schemas must reach the same playable timeline through the public API.
+int runBmsonTests() {
+  const std::string modern = R"({"version":"1.0.0","info":{"title":"bmson test","artist":"artist","init_bpm":120,"resolution":480},"bpm_events":[{"y":480,"bpm":60}],"stop_events":[{"y":480,"duration":240},{"y":480,"duration":240}],"sound_channels":[{"name":"stem.wav","notes":[{"x":1,"y":0,"l":0,"c":false},{"x":2,"y":480,"l":480,"c":true},{"x":8,"y":960,"l":0,"c":true}]}]})";
+  const std::string legacy = R"({"info":{"title":"bmson test","artist":"artist","initBPM":120},"bpmNotes":[{"y":240,"v":60}],"stopNotes":[{"y":240,"v":120},{"y":240,"v":120}],"soundChannel":[{"name":"stem.wav","notes":[{"x":1,"y":0,"l":0,"c":false},{"x":2,"y":240,"l":240,"c":true},{"x":8,"y":480,"l":0,"c":true}]}]})";
+  for (const auto &source : {modern, legacy}) {
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    bms_parser::Chart *raw = nullptr;
+    const std::vector<unsigned char> bytes(source.begin(), source.end());
+    parser.Parse(bytes, &raw, false, false, cancelled, "song.BMSON");
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "bmson parsed");
+    ASSERT_EQ(std::string("bmson test"), chart->Meta.Title, "bmson title");
+    ASSERT_EQ(7, chart->Meta.KeyMode, "bmson beat-7k");
+    ASSERT_EQ(3, chart->Meta.TotalNotes, "bmson note count");
+    ASSERT_EQ(100.0, chart->Meta.Total, "bmson authored TOTAL retained");
+    ASSERT_EQ(source == modern, chart->Meta.TotalIsRelative, "version-specific TOTAL semantics");
+    ASSERT_EQ(2500000LL, chart->Meta.PlayLength, "bmson BPM and accumulated stops");
+    std::vector<bms_parser::Note *> heads;
+    for (auto *measure : chart->Measures) for (auto *timeline : measure->TimeLines)
+      for (auto *note : timeline->Notes) if (note &&
+          (!note->IsLongNote() || !static_cast<bms_parser::LongNote *>(note)->IsTail())) heads.push_back(note);
+    ASSERT_EQ(size_t(3), heads.size(), "bmson playable heads");
+    const auto &first = chart->WavSlices.at(heads[0]->Wav).front();
+    const auto &second = chart->WavSlices.at(heads[1]->Wav).front();
+    const auto &third = chart->WavSlices.at(heads[2]->Wav).front();
+    ASSERT_EQ(0LL, first.StartMicros, "slice restart");
+    ASSERT_EQ(500000LL, first.DurationMicros, "slice first duration");
+    ASSERT_EQ(500000LL, second.StartMicros, "slice continuation start");
+    ASSERT_EQ(2000000LL, second.DurationMicros, "slice includes stops");
+    ASSERT_EQ(2500000LL, third.StartMicros, "slice final offset");
+    ASSERT_EQ(-1LL, third.DurationMicros, "slice final tail");
+    auto *ln = dynamic_cast<bms_parser::LongNote *>(heads[1]);
+    ASSERT_EQ(true, ln && ln->Tail && ln->Tail->Head == ln, "bmson LN pairing");
+    auto scan = parser.Scan(bytes, cancelled, "song.bmson");
+    ASSERT_EQ(true, bool(scan), "bmson scan");
+    ASSERT_EQ(chart->Meta.SHA256, scan->Meta.SHA256, "bmson raw source hash");
+    ASSERT_EQ(chart->Meta.TotalNotes, scan->Meta.TotalNotes, "bmson scan notes");
+    ASSERT_EQ(chart->Meta.PlayLength, scan->Meta.PlayLength, "bmson scan timing");
+    ASSERT_EQ(true, scan->HasBpmStop, "bmson scan stop flag");
+  }
+  {
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    const std::vector<std::string> bad = {
+      R"({"version":null,"info":{"init_bpm":120}})",
+      R"({"version":"2.0.0","info":{"init_bpm":120}})",
+      R"({"version":"1.0.0","info":{"init_bpm":0}})",
+      R"({"version":"1.0.0","info":{"init_bpm":120,"mode_hint":"unknown"}})",
+      R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":[{"notes":[{"y":-1}]}]})",
+      R"({"version":"1.0.0","info":{"init_bpm":120},"sound_channels":false})",
+      R"({"version":"1.0.0","info":{"init_bpm":120}} garbage)"
+    };
+    for (const auto &input : bad) {
+      bms_parser::Chart *raw = nullptr;
+      parser.Parse(bytesFromString(input), &raw, false, false, cancelled, "invalid.bmson");
+      std::unique_ptr<bms_parser::Chart> chart(raw);
+      ASSERT_EQ(false, bool(chart), "invalid bmson rejected");
+    }
+    cancelled = true;
+    ASSERT_EQ(false, bool(parser.Scan(bytesFromString(modern), cancelled)), "bmson cancellation");
+  }
+  {
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    const std::string layered = R"({"version":"1.0.0","info":{"init_bpm":120},"lines":[],"sound_channels":[{"name":"a.wav","notes":[{"x":1,"y":0},{"x":2,"y":240,"c":true},{"x":3,"y":240,"c":true},{"x":4,"y":480}]},{"name":"b.wav","notes":[{"x":1,"y":0}]}],"bga":{"bga_header":[{"id":42,"name":"image.png"}],"bga_events":[{"y":240,"id":42}],"layer_events":[{"y":0,"id":42}],"poor_events":[{"y":0,"id":42}]}})";
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(layered), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "bmson content sniffing");
+    ASSERT_EQ(4, chart->Meta.TotalNotes, "layered notes count once");
+    auto *first = chart->Measures.front()->TimeLines.front();
+    ASSERT_EQ(size_t(2), chart->WavSlices.at(first->Notes[0]->Wav).size(), "both layers retained");
+    ASSERT_EQ(false, first->IsFirstInMeasure, "empty lines suppress bars");
+    ASSERT_EQ(42, first->BgaLayer, "modern BGA layer");
+    ASSERT_EQ(42, first->BgaPoor->Frames.front(), "modern BGA poor");
+    auto *chord = chart->Measures.front()->TimeLines[1];
+    ASSERT_EQ(chord->Notes[1]->Wav, chord->Notes[2]->Wav, "same-pulse slices reused");
+    ASSERT_EQ(-1LL, chart->WavSlices.at(chord->Notes[1]->Wav).front().DurationMicros, "restart does not truncate previous sound");
+    bms_parser::Chart moved(std::move(*chart));
+    ASSERT_EQ(false, moved.WavSlices.empty(), "move preserves slices");
+  }
+  {
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    const std::string input = R"({"version":"0.2.1","info":{"title":"legacy","initBPM":120,"resolution":1,"total":300},"soundChannel":[{"name":"a.wav","notes":[{"x":8,"y":240}]}],"bga":{"bgaHeader":[{"ID":7,"name":"a.png"}],"bgaNotes":[{"y":240,"ID":7}],"layerNotes":[],"poorNotes":[]}})";
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(input), &raw, true, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "explicit legacy version");
+    ASSERT_EQ(2500000LL, chart->Meta.PlayLength, "legacy fixed resolution and ready measure");
+    ASSERT_EQ(300.0, chart->Meta.Total, "legacy absolute TOTAL");
+    ASSERT_EQ(size_t(1), chart->ReferencedBmpTable.size(), "legacy uppercase BGA ID");
+    ASSERT_EQ(bms_parser::Parser::MetronomeWav, chart->Measures.front()->TimeLines.front()->BackgroundNotes.front()->Wav, "ready click");
+  }
+  {
+    bms_parser::Parser parser;
+    std::atomic_bool cancelled{false};
+    const std::string input = R"({"version":"1.0.0","info":{"init_bpm":120,"banner_image":"art\\banner.png"},"sound_channels":[{"name":"audio\\sound.wav","notes":[{"x":1,"y":0},{"x":2,"y":0},{"x":0,"y":0},{"x":1,"y":240}]}],"bga":{"bga_header":[{"id":1,"name":"art\\bga.png"}]}})";
+    bms_parser::Chart *raw = nullptr;
+    parser.Parse(bytesFromString(input), &raw, false, false, cancelled);
+    std::unique_ptr<bms_parser::Chart> chart(raw);
+    ASSERT_EQ(true, bool(chart), "resource paths parse");
+    ASSERT_EQ(std::string("audio/sound.wav"), chart->WavTable.at(1), "sound separator normalized");
+    ASSERT_EQ(std::string("art/bga.png"), chart->BmpTable.at(1), "BGA separator normalized");
+    ASSERT_EQ(std::filesystem::path("art/banner.png"), chart->Meta.Banner, "artwork separator normalized");
+    auto *first = chart->Measures.front()->TimeLines.front();
+    auto *second = chart->Measures.front()->TimeLines[1];
+    ASSERT_EQ(size_t(0), first->BackgroundNotes.size(), "playable slice discards duplicate BGM");
+    ASSERT_EQ(first->Notes[0]->Wav, first->Notes[1]->Wav, "chord shares slice identity");
+    ASSERT_EQ(false, first->Notes[0]->Wav == second->Notes[0]->Wav, "distinct restarts remain polyphonic");
+    for (const std::string path : {"../bad.wav", "/bad.wav", "C:/bad.wav"}) {
+      const std::string invalid = "{\"version\":\"1.0.0\",\"info\":{\"init_bpm\":120},\"sound_channels\":[{\"name\":\"" + path + "\"}]}";
+      ASSERT_EQ(false, bool(parser.Scan(bytesFromString(invalid), cancelled)), "unsafe resource rejected");
+    }
+  }
+  return 0;
+}

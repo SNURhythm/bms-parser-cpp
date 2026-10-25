@@ -35,6 +35,7 @@ void Chart::Swap(Chart &other) noexcept {
   Measures.swap(other.Measures);
   DetachedNotes.swap(other.DetachedNotes);
   WavTable.swap(other.WavTable);
+  WavSlices.swap(other.WavSlices);
   ReferencedWavTable.swap(other.ReferencedWavTable);
   BmpTable.swap(other.BmpTable);
   ReferencedBmpTable.swap(other.ReferencedBmpTable);

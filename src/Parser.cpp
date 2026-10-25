@@ -15,6 +15,7 @@
  */
 
 #include "Parser.h"
+#include "BmsonParser.h"
 #include "JavaCharset.h"
 #include "EucKrConverter.h"
 #include "LandmineNote.h"
@@ -1067,6 +1068,10 @@ void Parser::Parse(const std::vector<unsigned char> &bytes, Chart **chart,
                    bool addReadyMeasure, bool metaOnly,
                    std::atomic_bool &bCancelled,
                    const std::filesystem::path &sourcePath) {
+  if (bmson::IsSource(bytes, sourcePath)) {
+    *chart = bmson::Parse(bytes, addReadyMeasure, metaOnly, bCancelled).release();
+    return;
+  }
   ParseInternal(bytes, chart, addReadyMeasure, metaOnly, bCancelled, nullptr,
                 isPmsSource(sourcePath));
 }
@@ -1091,6 +1096,12 @@ Parser::ScanInternal(const std::vector<unsigned char> &bytes,
                      ScanWorkspace *workspace, ScanTimings *timings) {
   if (bCancelled) return std::nullopt;
   ChartScanResult result;
+  if (bmson::IsSource(bytes, sourcePath)) {
+    auto chart = bmson::Parse(bytes, false, false, bCancelled, &result);
+    if (!chart || bCancelled) return std::nullopt;
+    result.Meta = std::move(chart->Meta);
+    return result;
+  }
   Chart *raw = nullptr;
   try {
     ParseInternal(bytes, &raw, false, false, bCancelled, &result,

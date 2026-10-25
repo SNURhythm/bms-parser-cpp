@@ -84,7 +84,7 @@ public:
   ~Parser();
   void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled);
-  // A source name selects channel mapping only (.pms, case insensitive).
+  // A source name selects format/channel mapping (.bmson/.pms, case insensitive).
   // It is not read from disk and does not assign BmsPath or Folder.
   void Parse(const std::vector<unsigned char> &bytes, Chart **chart,
              bool addReadyMeasure, bool metaOnly, std::atomic_bool &bCancelled,
